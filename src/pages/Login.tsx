@@ -26,25 +26,20 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Redirecionar se já estiver autenticado (com timeout para evitar travamento)
+  // Redirecionar se já estiver autenticado (evitar durante login ativo)
   useEffect(() => {
-    // Timeout: se loading demorar mais de 3 segundos, permite login normalmente
-    const timeoutId = setTimeout(() => {
-      // Se ainda estiver carregando após 3 segundos, permite login
-      // Isso evita que a página fique travada
-    }, 3000)
+    // Não redirecionar se estiver no meio de um login
+    if (loading) return
 
     if (!authLoading && authUser) {
-      clearTimeout(timeoutId)
+      console.log('🔄 Usuário já autenticado, redirecionando...')
       if (authUser.profile?.role === 'geral') {
         navigate('/dashboard-gerente', { replace: true })
       } else {
         navigate('/dashboard-chefe', { replace: true })
       }
     }
-
-    return () => clearTimeout(timeoutId)
-  }, [authUser, authLoading, navigate])
+  }, [authUser, authLoading, navigate, loading])
 
   const {
     register,
@@ -54,7 +49,11 @@ export function Login() {
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: LoginFormData, e?: React.BaseSyntheticEvent) => {
+    // Prevenir comportamento padrão do formulário
+    e?.preventDefault()
+    e?.stopPropagation()
+    
     setError(null)
     setLoading(true)
 
@@ -193,7 +192,13 @@ export function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleSubmit(onSubmit)(e)
+              }} 
+              className="space-y-5"
+            >
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 font-medium">
                   Email

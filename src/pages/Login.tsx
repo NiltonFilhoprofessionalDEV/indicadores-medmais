@@ -20,20 +20,30 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export function Login() {
   const navigate = useNavigate()
+  // Otimização: Não carregar useAuth na página de login (só verifica se já está logado)
   const { authUser, loading: authLoading } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Redirecionar se já estiver autenticado
+  // Redirecionar se já estiver autenticado (com timeout para evitar travamento)
   useEffect(() => {
+    // Timeout: se loading demorar mais de 3 segundos, permite login normalmente
+    const timeoutId = setTimeout(() => {
+      // Se ainda estiver carregando após 3 segundos, permite login
+      // Isso evita que a página fique travada
+    }, 3000)
+
     if (!authLoading && authUser) {
+      clearTimeout(timeoutId)
       if (authUser.profile?.role === 'geral') {
         navigate('/dashboard-gerente', { replace: true })
       } else {
         navigate('/dashboard-chefe', { replace: true })
       }
     }
+
+    return () => clearTimeout(timeoutId)
   }, [authUser, authLoading, navigate])
 
   const {

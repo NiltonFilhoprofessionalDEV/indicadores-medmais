@@ -15,6 +15,11 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // Otimização: Se não houver URL/Key configurados, não tenta autenticar
+  const hasConfig = typeof window !== 'undefined' && 
+    import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+
   useEffect(() => {
     let mounted = true
     let subscription: { unsubscribe: () => void } | null = null
@@ -22,17 +27,37 @@ export function useAuth() {
 
     async function initializeAuth() {
       try {
-        // Timeout de segurança para evitar loading infinito
+        // Timeout de segurança para evitar loading infinito (reduzido para 5 segundos)
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.warn('Timeout ao inicializar autenticação')
             setLoading(false)
             setIsInitialized(true)
           }
-        }, 10000) // 10 segundos
+        }, 5000) // 5 segundos (reduzido de 10)
 
-        // Verificar sessão inicial
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // Verificar sessão inicial com timeout mais curto
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        )
+        
+        let sessionResult
+        try {
+          sessionResult = await Promise.race([sessionPromise, timeoutPromise]) as any
+        } catch (error: any) {
+          if (error.message === 'Timeout') {
+            console.warn('Timeout ao buscar sessão, continuando sem autenticação')
+            if (mounted) {
+              setLoading(false)
+              setIsInitialized(true)
+            }
+            return
+          }
+          throw error
+        }
+        
+        const { data: { session }, error: sessionError } = sessionResult
         
         if (timeoutId) {
           clearTimeout(timeoutId)
@@ -85,7 +110,13 @@ export function useAuth() {
 
     // Só inicializa uma vez
     if (!isInitialized) {
-      initializeAuth()
+      // Se não houver configuração, não tenta inicializar
+      if (!hasConfig) {
+        setLoading(false)
+        setIsInitialized(true)
+      } else {
+        initializeAuth()
+      }
     }
 
     return () => {
@@ -98,18 +129,41 @@ export function useAuth() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Executa apenas uma vez na montagem
+  }, [hasConfig]) // Adiciona hasConfig como dependência
 
   async function loadProfile(userId: string) {
     try {
       setLoading(true)
       
-      // Buscar perfil (timeout será tratado pelo cliente Supabase configurado)
-      const { data: profile, error } = await supabase
+      // Buscar perfil com timeout explícito
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      )
+      
+      let profileResult
+      try {
+        profileResult = await Promise.race([profilePromise, timeoutPromise]) as any
+      } catch (error: any) {
+        if (error.message === 'Timeout') {
+          console.warn('Timeout ao buscar perfil, continuando sem perfil')
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            setAuthUser({ user, profile: null })
+            setLoading(false)
+            setIsInitialized(true)
+            return
+          }
+        }
+        throw error
+      }
+      
+      const { data: profile, error } = profileResult
 
       if (error) {
         console.error('Erro ao buscar perfil:', error)

@@ -51,73 +51,73 @@ export function DashboardGerente() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle>Gestão de Usuários</CardTitle>
               <CardDescription>
                 Cadastre e gerencie usuários do sistema
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
+            <CardContent className="flex flex-col flex-1">
+              <p className="text-gray-600 mb-4 flex-1">
                 Acesse a tela de gestão de usuários para cadastrar novos Chefes de Equipe
                 e vinculá-los às suas respectivas Bases e Equipes.
               </p>
-              <Button onClick={() => navigate('/gestao-usuarios')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+              <Button onClick={() => navigate('/gestao-usuarios')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto">
                 Acessar Gestão de Usuários
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle>Gestão de Efetivo</CardTitle>
               <CardDescription>
                 Cadastre e gerencie colaboradores das bases
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
+            <CardContent className="flex flex-col flex-1">
+              <p className="text-gray-600 mb-4 flex-1">
                 Gerencie o efetivo (bombeiros/colaboradores) de cada base. Cadastre individualmente
                 ou em lote através de uma lista de nomes.
               </p>
-              <Button onClick={() => navigate('/colaboradores')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+              <Button onClick={() => navigate('/colaboradores')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto">
                 Acessar Gestão de Efetivo
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle>Dashboard Analytics</CardTitle>
               <CardDescription>
                 Análise de indicadores operacionais
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
+            <CardContent className="flex flex-col flex-1">
+              <p className="text-gray-600 mb-4 flex-1">
                 Visualize gráficos e análises detalhadas dos indicadores operacionais
                 com filtros por Base, Equipe e Período.
               </p>
-              <Button onClick={() => navigate('/dashboard-analytics')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+              <Button onClick={() => navigate('/dashboard-analytics')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto">
                 Acessar Dashboard Analytics
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle>Monitoramento de Aderência</CardTitle>
               <CardDescription>
                 Auditoria de engajamento das bases
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
+            <CardContent className="flex flex-col flex-1">
+              <p className="text-gray-600 mb-4 flex-1">
                 Identifique quais bases estão cumprindo a rotina de lançamentos através
                 do mapa de calor e radar de atraso.
               </p>
-              <Button onClick={() => navigate('/aderencia')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+              <Button onClick={() => navigate('/aderencia')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto">
                 Acessar Aderência
               </Button>
             </CardContent>

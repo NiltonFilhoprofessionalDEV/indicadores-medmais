@@ -1,85 +1,111 @@
-# Troubleshooting - Problemas de Login na Vercel
+# 🔍 Troubleshooting - Problema de Login
 
-## Problemas Comuns e Soluções
+## Possíveis Causas
 
-### 1. Variáveis de Ambiente Não Configuradas
+### 1. Variáveis de Ambiente Não Configuradas na Vercel
 
-**Sintoma:** Erro ao fazer login, mensagem genérica de erro.
+**Sintoma:** Página fica carregando ou mostra erro "Variáveis de ambiente não configuradas"
 
 **Solução:**
-1. Acesse: https://vercel.com/niltonsouzas-projects/indicadores-medmais/settings/environment-variables
-2. Verifique se as seguintes variáveis estão configuradas para **Production**:
-   - `VITE_SUPABASE_URL` = sua URL completa do Supabase (ex: https://xxxxx.supabase.co)
-   - `VITE_SUPABASE_ANON_KEY` = sua chave anônima do Supabase
+1. Acesse: https://vercel.com/dashboard
+2. Selecione seu projeto
+3. Vá em **Settings** → **Environment Variables**
+4. Verifique se existem:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+5. Se não existirem, adicione-as
+6. Faça um novo deploy
 
-3. **IMPORTANTE:** Após adicionar/alterar variáveis, faça um novo deploy:
-   ```bash
-   vercel --prod
-   ```
+### 2. Timeout na Conexão com Supabase
 
-### 2. Verificar se as Variáveis Estão Sendo Carregadas
+**Sintoma:** Página fica carregando por muito tempo
 
-Abra o console do navegador (F12) na aplicação em produção e verifique:
-- Se aparecer mensagens de erro sobre variáveis não configuradas
-- Se a URL do Supabase está correta
+**Solução:**
+- As otimizações já implementadas reduziram o timeout para 3-5 segundos
+- Se ainda demorar, pode ser problema de rede ou Supabase lento
+- Verifique o console do navegador (F12) para ver erros específicos
 
-### 3. Verificar Configuração do Supabase
+### 3. Erro de CORS ou Content Security Policy
 
-1. **URL do Supabase:**
-   - Deve começar com `https://`
-   - Formato: `https://xxxxx.supabase.co`
-   - Não deve ter barra no final
+**Sintoma:** Erro no console sobre CORS ou CSP
 
-2. **Chave Anônima (anon key):**
-   - Deve ser a chave `anon` ou `public`, não a `service_role`
-   - Pode ser encontrada em: Supabase Dashboard > Settings > API
+**Solução:**
+- Verifique se a URL do Supabase está correta na Vercel
+- Verifique se não há bloqueios de firewall
 
-### 4. Verificar CORS no Supabase
+### 4. Problema com Lazy Loading
 
-1. Acesse o Supabase Dashboard
-2. Vá em Settings > API
-3. Verifique se a URL da Vercel está na lista de URLs permitidas
-4. Adicione: `https://indicadores-medmais-*.vercel.app` ou a URL específica
+**Sintoma:** Erro ao tentar navegar após login
 
-### 5. Verificar se o Usuário Existe
+**Solução:**
+- Limpe o cache do navegador (Ctrl+Shift+R)
+- Verifique o console para erros específicos
 
-1. Acesse o Supabase Dashboard
-2. Vá em Authentication > Users
-3. Verifique se o usuário existe e está ativo
-4. Se necessário, crie um novo usuário ou redefina a senha
+## 🔧 Como Diagnosticar
 
-### 6. Verificar Logs da Vercel
+### Passo 1: Abrir Console do Navegador
 
-1. Acesse: https://vercel.com/niltonsouzas-projects/indicadores-medmais
-2. Vá em "Deployments"
-3. Clique no último deploy
-4. Veja os logs para identificar erros
+1. Abra o sistema na Vercel
+2. Pressione **F12** (ou Ctrl+Shift+I)
+3. Vá na aba **Console**
+4. Tente fazer login
+5. Anote qualquer erro que aparecer
 
-### 7. Testar Localmente
+### Passo 2: Verificar Network
 
-Para verificar se o problema é específico da Vercel:
+1. Na aba **Network** do DevTools
+2. Tente fazer login
+3. Procure por requisições para `supabase.co`
+4. Veja se há erros (status 4xx ou 5xx)
 
-```bash
-# Configure as variáveis localmente
-# Crie um arquivo .env.local com:
-VITE_SUPABASE_URL=sua_url
-VITE_SUPABASE_ANON_KEY=sua_chave
+### Passo 3: Verificar Variáveis de Ambiente
 
-# Execute localmente
-npm run dev
+No console do navegador, execute:
+
+```javascript
+console.log('URL:', import.meta.env.VITE_SUPABASE_URL)
+console.log('Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Configurada' : 'Não configurada')
 ```
 
-Se funcionar localmente mas não na Vercel, o problema é nas variáveis de ambiente da Vercel.
+Se aparecer `undefined`, as variáveis não estão configuradas na Vercel.
 
-## Comandos Úteis
+## 🚨 Erros Comuns e Soluções
 
-```bash
-# Ver variáveis de ambiente configuradas na Vercel
-vercel env ls
+### Erro: "Invalid login credentials"
+- **Causa:** Email ou senha incorretos
+- **Solução:** Verifique suas credenciais
 
-# Adicionar variável de ambiente
-vercel env add VITE_SUPABASE_URL production
+### Erro: "Email not confirmed"
+- **Causa:** Email não foi confirmado no Supabase
+- **Solução:** Verifique sua caixa de entrada ou confirme manualmente no Supabase Dashboard
 
-# Fazer novo deploy após alterar variáveis
-vercel --prod
-```
+### Erro: "Network error" ou "Failed to fetch"
+- **Causa:** Problema de conexão ou Supabase offline
+- **Solução:** Verifique sua internet e o status do Supabase
+
+### Erro: "Timeout"
+- **Causa:** Supabase demorando muito para responder
+- **Solução:** As otimizações já reduziram o timeout. Se persistir, pode ser problema do Supabase.
+
+## 📋 Checklist de Verificação
+
+- [ ] Variáveis de ambiente configuradas na Vercel
+- [ ] Deploy feito após configurar variáveis
+- [ ] Console do navegador sem erros críticos
+- [ ] Internet funcionando
+- [ ] Supabase Dashboard acessível
+- [ ] Credenciais de login corretas
+
+## 🆘 Se Nada Funcionar
+
+1. **Tire um print** do erro no console
+2. **Anote** a mensagem de erro exata
+3. **Verifique** se as variáveis de ambiente estão corretas na Vercel
+4. **Me envie** essas informações para eu ajudar melhor
+
+## 💡 Dica Rápida
+
+Se o problema for apenas lentidão:
+- As otimizações já implementadas devem melhorar
+- Após o deploy, limpe o cache (Ctrl+Shift+R)
+- Teste em modo anônimo para garantir que não é cache

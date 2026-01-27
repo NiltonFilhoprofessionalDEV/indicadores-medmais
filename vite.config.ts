@@ -23,5 +23,19 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separar vendor chunks para melhor cache
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'query-vendor': ['@tanstack/react-query'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'chart-vendor': ['recharts'],
+          'ui-vendor': ['lucide-react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Aumentar limite para evitar warnings desnecessários
   },
 })

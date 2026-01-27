@@ -63,10 +63,17 @@ export function Login() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 
+      console.log('🔍 Debug Login:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey,
+        urlPrefix: supabaseUrl?.substring(0, 20) + '...',
+      })
+
       if (!supabaseUrl || !supabaseKey) {
-        setError('Erro de configuração: Variáveis de ambiente do Supabase não configuradas. Verifique as configurações na Vercel.')
+        const errorMsg = 'Erro de configuração: Variáveis de ambiente do Supabase não configuradas. Verifique as configurações na Vercel.'
+        setError(errorMsg)
         setLoading(false)
-        console.error('Variáveis de ambiente não configuradas:', {
+        console.error('❌ Variáveis de ambiente não configuradas:', {
           hasUrl: !!supabaseUrl,
           hasKey: !!supabaseKey,
         })
@@ -74,11 +81,15 @@ export function Login() {
       }
 
       if (!supabaseUrl.startsWith('http')) {
-        setError('Erro de configuração: URL do Supabase inválida. Deve começar com http:// ou https://')
+        const errorMsg = 'Erro de configuração: URL do Supabase inválida. Deve começar com http:// ou https://'
+        setError(errorMsg)
         setLoading(false)
+        console.error('❌ URL inválida:', supabaseUrl)
         return
       }
 
+      console.log('✅ Tentando fazer login para:', data.email)
+      
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -88,6 +99,12 @@ export function Login() {
         // Mensagens de erro mais amigáveis
         let errorMessage = authError.message
         
+        console.error('❌ Erro de autenticação:', {
+          message: authError.message,
+          status: authError.status,
+          name: authError.name,
+        })
+        
         if (authError.message.includes('Invalid login credentials')) {
           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.'
         } else if (authError.message.includes('Email not confirmed')) {
@@ -96,15 +113,18 @@ export function Login() {
           errorMessage = 'Erro de conexão. Verifique sua internet e as configurações do Supabase.'
         } else if (authError.message.includes('timeout') || authError.message.includes('aborted')) {
           errorMessage = 'Tempo de conexão esgotado. Verifique as configurações do Supabase na Vercel.'
+        } else if (authError.message.includes('Failed to fetch')) {
+          errorMessage = 'Erro de conexão com o Supabase. Verifique se o Supabase está online e as variáveis de ambiente estão corretas.'
         }
         
         setError(errorMessage)
-        console.error('Erro de autenticação:', authError)
         setLoading(false)
         return
       }
 
       if (authData.user) {
+        console.log('✅ Login bem-sucedido! Usuário:', authData.user.id)
+        
         // Verificar o perfil do usuário para redirecionar corretamente
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -113,20 +133,29 @@ export function Login() {
           .single()
 
         if (profileError) {
-          console.error('Erro ao buscar perfil:', profileError)
+          console.warn('⚠️ Erro ao buscar perfil:', profileError)
           // Continua mesmo sem perfil, redireciona para dashboard-chefe como padrão
+        } else {
+          console.log('✅ Perfil encontrado:', profile)
         }
 
-        if (profile && typeof profile === 'object' && 'role' in profile && (profile as { role: string }).role === 'geral') {
-          navigate('/dashboard-gerente')
+        const role = profile && typeof profile === 'object' && 'role' in profile ? (profile as { role: string }).role : null
+        
+        if (role === 'geral') {
+          console.log('🔄 Redirecionando para Dashboard Gerente')
+          navigate('/dashboard-gerente', { replace: true })
         } else {
-          navigate('/dashboard-chefe')
+          console.log('🔄 Redirecionando para Dashboard Chefe')
+          navigate('/dashboard-chefe', { replace: true })
         }
+      } else {
+        console.error('❌ Login retornou sem usuário')
+        setError('Erro: Login realizado mas usuário não encontrado.')
+        setLoading(false)
       }
-    } catch (err) {
-      console.error('Erro inesperado no login:', err)
-      setError('Erro inesperado ao fazer login. Verifique o console para mais detalhes.')
-    } finally {
+    } catch (err: any) {
+      console.error('❌ Erro inesperado no login:', err)
+      setError(err?.message || 'Erro inesperado ao fazer login. Verifique o console para mais detalhes.')
       setLoading(false)
     }
   }

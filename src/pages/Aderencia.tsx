@@ -253,6 +253,9 @@ export function Aderencia() {
       // Limpar cache do React Query
       queryClient.clear()
       
+      // Limpar localStorage do Supabase antes do signOut
+      localStorage.removeItem('supabase.auth.token')
+      
       // Fazer logout no Supabase
       const { error } = await supabase.auth.signOut()
       
@@ -262,15 +265,25 @@ export function Aderencia() {
         console.log('✅ Logout realizado com sucesso')
       }
       
-      // Aguardar um momento para o contexto ser atualizado
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Limpar qualquer estado restante no localStorage
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
       
-      // Navegar para login
-      navigate('/login', { replace: true })
+      // Aguardar um momento para o contexto ser atualizado
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Forçar reload completo da página para garantir limpeza total
+      window.location.href = '/login'
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
-      // Mesmo com erro, navegar para login
-      navigate('/login', { replace: true })
+      // Mesmo com erro, forçar navegação para login
+      window.location.href = '/login'
     }
   }
 

@@ -135,8 +135,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (event === 'SIGNED_OUT') {
             console.log('🔄 Evento SIGNED_OUT detectado, limpando estado')
+            // Limpar estado imediatamente
             setAuthUser(null)
             setLoading(false)
+            
+            // Limpar localStorage do Supabase
+            try {
+              localStorage.removeItem('supabase.auth.token')
+              // Limpar todas as chaves relacionadas ao Supabase
+              const keysToRemove: string[] = []
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
+                  keysToRemove.push(key)
+                }
+              }
+              keysToRemove.forEach(key => localStorage.removeItem(key))
+            } catch (e) {
+              console.warn('Erro ao limpar localStorage:', e)
+            }
+            
             return
           }
           

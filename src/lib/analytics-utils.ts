@@ -1056,3 +1056,273 @@ export function processControleTrocas(lancamentos: Lancamento[]) {
     listaCompleta: trocas,
   }
 }
+
+// ============================================
+// VISÃO GERAL EXECUTIVA (C-LEVEL)
+// ============================================
+
+/**
+ * Gera resumo executivo agregando dados de todos os indicadores
+ */
+export function generateExecutiveSummary(
+  lancamentos: Lancamento[], 
+  bases: Array<{ id: string; nome: string }>,
+  indicadoresConfig: Array<{ id: string; schema_type: string }>
+) {
+  // Separar lançamentos por tipo de indicador
+  const ocorrenciasAero = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'ocorrencia_aeronautica'
+  })
+  const ocorrenciasNaoAero = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'ocorrencia_nao_aeronautica'
+  })
+  const tempoResposta = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'tempo_resposta'
+  })
+  const treinamento = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'horas_treinamento'
+  })
+  const estoque = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'estoque'
+  })
+  const inspecaoViaturas = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'inspecao_viaturas'
+  })
+  const taf = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    return indicador?.schema_type === 'taf'
+  })
+
+  // 1. Volume Operacional (Ocorrências Aero + Não Aero)
+  const totalOcorrencias = ocorrenciasAero.length + ocorrenciasNaoAero.length
+
+  // Calcular período anterior para comparação (30 dias antes)
+  const dataFim = lancamentos.length > 0 ? lancamentos[0].data_referencia : ''
+  const dataInicioAnterior = dataFim ? format(new Date(parse(dataFim, 'yyyy-MM-dd', new Date()).getTime() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd') : ''
+  const ocorrenciasPeriodoAnterior = lancamentos.filter((l) => {
+    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+    const isOcorrencia = indicador?.schema_type === 'ocorrencia_aeronautica' || indicador?.schema_type === 'ocorrencia_nao_aeronautica'
+    return isOcorrencia && l.data_referencia < dataFim && l.data_referencia >= dataInicioAnterior
+  }).length
+  const crescimentoVolume = ocorrenciasPeriodoAnterior > 0 
+    ? ((totalOcorrencias - ocorrenciasPeriodoAnterior) / ocorrenciasPeriodoAnterior) * 100 
+    : 0
+
+  // 2. Agilidade (Tempo Médio de Resposta)
+  const temposResposta: number[] = []
+  tempoResposta.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { afericoes?: Array<Record<string, unknown>> }
+    if (conteudo.afericoes && Array.isArray(conteudo.afericoes)) {
+      conteudo.afericoes.forEach((afericao) => {
+        const tempo = (afericao.tempo as string) || ''
+        if (tempo) {
+          temposResposta.push(parseTimeMMSS(tempo))
+        }
+      })
+    }
+  })
+  const tempoMedioResposta = temposResposta.length > 0 
+    ? temposResposta.reduce((a, b) => a + b, 0) / temposResposta.length 
+    : 0
+  const tempoMedioMinutos = tempoMedioResposta / 60
+  const corAgilidade = tempoMedioMinutos < 3 ? 'green' : 'yellow'
+
+  // 3. Força de Trabalho (Total Horas de Treinamento)
+  let totalHorasTreinamento = 0
+  treinamento.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { participantes?: Array<Record<string, unknown>> }
+    if (conteudo.participantes && Array.isArray(conteudo.participantes)) {
+      conteudo.participantes.forEach((participante) => {
+        const horas = (participante.horas as string) || ''
+        if (horas) {
+          totalHorasTreinamento += timeToMinutes(horas)
+        }
+      })
+    }
+  })
+
+  // 4. Alertas Críticos (Bases com estoque crítico OU viatura não conforme)
+  const basesComAlerta = new Set<string>()
+  
+  // Verificar estoque crítico
+  estoque.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as {
+      po_quimico_atual?: number
+      po_quimico_exigido?: number
+      lge_atual?: number
+      lge_exigido?: number
+      nitrogenio_atual?: number
+      nitrogenio_exigido?: number
+    }
+    if (
+      (conteudo.po_quimico_atual !== undefined && conteudo.po_quimico_exigido !== undefined && conteudo.po_quimico_atual < conteudo.po_quimico_exigido) ||
+      (conteudo.lge_atual !== undefined && conteudo.lge_exigido !== undefined && conteudo.lge_atual < conteudo.lge_exigido) ||
+      (conteudo.nitrogenio_atual !== undefined && conteudo.nitrogenio_exigido !== undefined && conteudo.nitrogenio_atual < conteudo.nitrogenio_exigido)
+    ) {
+      basesComAlerta.add(lancamento.base_id)
+    }
+  })
+
+  // Verificar viaturas não conformes
+  inspecaoViaturas.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { viaturas?: Array<Record<string, unknown>> }
+    if (conteudo.viaturas && Array.isArray(conteudo.viaturas)) {
+      const temNaoConforme = conteudo.viaturas.some((v) => {
+        const qtdNaoConforme = Number(v.qtd_nao_conforme) || 0
+        return qtdNaoConforme > 0
+      })
+      if (temNaoConforme) {
+        basesComAlerta.add(lancamento.base_id)
+      }
+    }
+  })
+
+  const totalAlertas = basesComAlerta.size
+
+  // 5. Gráfico Composed (Volume de Ocorrências vs Tempo Médio de Resposta por Mês)
+  const monthlyData = new Map<string, { ocorrencias: number; tempoResposta: number; count: number }>()
+  
+  // Agregar ocorrências por mês
+  ocorrenciasAero.concat(ocorrenciasNaoAero).forEach((l) => {
+    const month = format(parse(l.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+    const current = monthlyData.get(month) || { ocorrencias: 0, tempoResposta: 0, count: 0 }
+    monthlyData.set(month, { ...current, ocorrencias: current.ocorrencias + 1 })
+  })
+
+  // Agregar tempos de resposta por mês
+  tempoResposta.forEach((lancamento) => {
+    const month = format(parse(lancamento.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+    const conteudo = lancamento.conteudo as { afericoes?: Array<Record<string, unknown>> }
+    if (conteudo.afericoes && Array.isArray(conteudo.afericoes)) {
+      conteudo.afericoes.forEach((afericao) => {
+        const tempo = (afericao.tempo as string) || ''
+        if (tempo) {
+          const current = monthlyData.get(month) || { ocorrencias: 0, tempoResposta: 0, count: 0 }
+          const tempoSegundos = parseTimeMMSS(tempo)
+          monthlyData.set(month, {
+            ...current,
+            tempoResposta: current.tempoResposta + tempoSegundos,
+            count: current.count + 1,
+          })
+        }
+      })
+    }
+  })
+
+  const graficoComposed = Array.from(monthlyData.entries())
+    .map(([mes, data]) => {
+      try {
+        return {
+          mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          ocorrencias: data.ocorrencias,
+          tempoMedio: data.count > 0 ? secondsToMMSS(data.tempoResposta / data.count) : '00:00',
+          tempoMedioSegundos: data.count > 0 ? data.tempoResposta / data.count : 0,
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; ocorrencias: number; tempoMedio: string; tempoMedioSegundos: number } => item !== null)
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+
+  // 6. Ranking de Bases (Top 5 com mais ocorrências)
+  const ocorrenciasPorBase = new Map<string, number>()
+  ocorrenciasAero.concat(ocorrenciasNaoAero).forEach((l) => {
+    const baseNome = bases.find((b) => b.id === l.base_id)?.nome || l.base_id
+    ocorrenciasPorBase.set(baseNome, (ocorrenciasPorBase.get(baseNome) || 0) + 1)
+  })
+  const rankingBases = Array.from(ocorrenciasPorBase.entries())
+    .map(([base, qtd]) => ({ base, qtd }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .slice(0, 5)
+
+  // 7. Pontos de Atenção (Alertas automáticos)
+  const pontosAtencao: Array<{ tipo: string; mensagem: string; base: string }> = []
+
+  // TAF: Reprovados por base
+  const reprovadosPorBase = new Map<string, number>()
+  taf.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { avaliados?: Array<Record<string, unknown>> }
+    if (conteudo.avaliados && Array.isArray(conteudo.avaliados)) {
+      const reprovados = conteudo.avaliados.filter((a) => (a.status as string) === 'Reprovado').length
+      if (reprovados > 0) {
+        const baseNome = bases.find((b) => b.id === lancamento.base_id)?.nome || lancamento.base_id
+        reprovadosPorBase.set(baseNome, (reprovadosPorBase.get(baseNome) || 0) + reprovados)
+      }
+    }
+  })
+  reprovadosPorBase.forEach((qtd, base) => {
+    pontosAtencao.push({ tipo: 'taf', mensagem: `${qtd} Reprovado${qtd > 1 ? 's' : ''} no TAF`, base })
+  })
+
+  // Estoque: Itens críticos por base
+  estoque.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as {
+      po_quimico_atual?: number
+      po_quimico_exigido?: number
+      lge_atual?: number
+      lge_exigido?: number
+      nitrogenio_atual?: number
+      nitrogenio_exigido?: number
+    }
+    const baseNome = bases.find((b) => b.id === lancamento.base_id)?.nome || lancamento.base_id
+    
+    if (conteudo.po_quimico_atual !== undefined && conteudo.po_quimico_exigido !== undefined && conteudo.po_quimico_atual < conteudo.po_quimico_exigido) {
+      pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de Pó Químico Crítico', base: baseNome })
+    }
+    if (conteudo.lge_atual !== undefined && conteudo.lge_exigido !== undefined && conteudo.lge_atual < conteudo.lge_exigido) {
+      pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de LGE Crítico', base: baseNome })
+    }
+    if (conteudo.nitrogenio_atual !== undefined && conteudo.nitrogenio_exigido !== undefined && conteudo.nitrogenio_atual < conteudo.nitrogenio_exigido) {
+      pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de Nitrogênio Crítico', base: baseNome })
+    }
+  })
+
+  // Viaturas: Não conformes por base
+  inspecaoViaturas.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { viaturas?: Array<Record<string, unknown>> }
+    if (conteudo.viaturas && Array.isArray(conteudo.viaturas)) {
+      conteudo.viaturas.forEach((viatura) => {
+        const qtdNaoConforme = Number(viatura.qtd_nao_conforme) || 0
+        if (qtdNaoConforme > 0) {
+          const baseNome = bases.find((b) => b.id === lancamento.base_id)?.nome || lancamento.base_id
+          const modelo = (viatura.modelo as string) || 'Desconhecido'
+          pontosAtencao.push({ tipo: 'viatura', mensagem: `Viatura ${modelo} Não Conforme`, base: baseNome })
+        }
+      })
+    }
+  })
+
+  return {
+    kpis: {
+      volumeOperacional: {
+        valor: totalOcorrencias,
+        crescimento: crescimentoVolume,
+        periodoAnterior: ocorrenciasPeriodoAnterior,
+      },
+      agilidade: {
+        tempoMedio: secondsToMMSS(tempoMedioResposta),
+        tempoMedioMinutos: tempoMedioMinutos,
+        cor: corAgilidade,
+      },
+      forcaTrabalho: {
+        totalHoras: minutesToTime(totalHorasTreinamento),
+        totalMinutos: totalHorasTreinamento,
+      },
+      alertasCriticos: {
+        total: totalAlertas,
+        basesComAlerta: Array.from(basesComAlerta),
+      },
+    },
+    graficoComposed,
+    rankingBases,
+    pontosAtencao: pontosAtencao.slice(0, 10), // Limitar a 10 alertas
+  }
+}
+

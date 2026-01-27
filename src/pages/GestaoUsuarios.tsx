@@ -754,19 +754,29 @@ export function GestaoUsuarios() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Gestão de Usuários</h1>
-              <p className="text-sm text-gray-600">Cadastre e gerencie usuários do sistema</p>
+    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b">
+        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+          <div className="flex justify-between items-center min-h-[80px]">
+            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+              <img 
+                src="/logo-medmais.png" 
+                alt="MedMais Logo" 
+                className="h-10 w-auto brightness-0 invert"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-white">Gestão de Usuários</h1>
+                <p className="text-sm text-white/90">Cadastre e gerencie usuários do sistema</p>
+              </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleNewUserClick}>
+              <Button onClick={handleNewUserClick} className="bg-white text-[#fc4d00] hover:bg-white/90 transition-all duration-200">
                 Adicionar Novo Usuário
               </Button>
-              <Button onClick={() => navigate('/dashboard-gerente')} variant="outline">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
                 Voltar
               </Button>
             </div>
@@ -1047,7 +1057,7 @@ export function GestaoUsuarios() {
                     <Button
                       type="submit"
                       disabled={isEditMode ? updateUserMutation.isPending : createUserMutation.isPending}
-                      className="flex-1"
+                      className="flex-1 bg-[#fc4d00] hover:bg-[#e04400] text-white"
                     >
                       {isEditMode 
                         ? (updateUserMutation.isPending ? 'Salvando...' : 'Salvar Alterações')

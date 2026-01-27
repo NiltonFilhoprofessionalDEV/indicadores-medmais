@@ -5,6 +5,7 @@ import { DashboardGerente } from './pages/DashboardGerente'
 import { DashboardAnalytics } from './pages/DashboardAnalytics'
 import { GestaoUsuarios } from './pages/GestaoUsuarios'
 import { Colaboradores } from './pages/admin/Colaboradores'
+import { Aderencia } from './pages/Aderencia'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 function App() {
@@ -31,7 +32,7 @@ function App() {
         <Route
           path="/dashboard-analytics"
           element={
-            <ProtectedRoute allowedRoles={['geral']}>
+            <ProtectedRoute allowedRoles={['geral', 'chefe']}>
               <DashboardAnalytics />
             </ProtectedRoute>
           }
@@ -49,6 +50,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['geral']}>
               <Colaboradores />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/aderencia"
+          element={
+            <ProtectedRoute allowedRoles={['geral']}>
+              <Aderencia />
             </ProtectedRoute>
           }
         />

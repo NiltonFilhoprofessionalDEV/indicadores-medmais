@@ -170,21 +170,31 @@ export function Colaboradores() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Gestão de Efetivo (Colaboradores)</h1>
-              <p className="text-sm text-gray-600">
-                {authUser?.profile?.nome} - {authUser?.profile?.role}
-              </p>
+    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b">
+        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+          <div className="flex justify-between items-center min-h-[80px]">
+            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+              <img 
+                src="/logo-medmais.png" 
+                alt="MedMais Logo" 
+                className="h-10 w-auto brightness-0 invert"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-white">Gestão de Efetivo (Colaboradores)</h1>
+                <p className="text-sm text-white/90">
+                  {authUser?.profile?.nome} - {authUser?.profile?.role}
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => navigate('/dashboard-gerente')} variant="outline">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
                 Voltar ao Dashboard
               </Button>
-              <Button onClick={handleLogout} variant="outline">
+              <Button onClick={handleLogout} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
                 Sair
               </Button>
             </div>
@@ -222,7 +232,9 @@ export function Colaboradores() {
             {/* Botão Novo Colaborador */}
             {selectedBaseId && (
               <div className="flex justify-end">
-                <Button onClick={handleNovoColaborador}>Novo Colaborador</Button>
+                <Button onClick={handleNovoColaborador} className="bg-[#fc4d00] hover:bg-[#e04400] text-white">
+                  Novo Colaborador
+                </Button>
               </div>
             )}
 
@@ -378,6 +390,7 @@ export function Colaboradores() {
                       <Button
                         onClick={handleSalvarIndividual}
                         disabled={createColaborador.isPending || updateColaborador.isPending}
+                        className="bg-[#fc4d00] hover:bg-[#e04400] text-white"
                       >
                         {createColaborador.isPending || updateColaborador.isPending
                           ? 'Salvando...'
@@ -420,6 +433,7 @@ export function Colaboradores() {
                       <Button
                         onClick={handleSalvarBatch}
                         disabled={createColaboradoresBatch.isPending}
+                        className="bg-[#fc4d00] hover:bg-[#e04400] text-white"
                       >
                         {createColaboradoresBatch.isPending
                           ? 'Salvando...'

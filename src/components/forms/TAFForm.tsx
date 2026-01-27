@@ -273,7 +273,7 @@ export function TAFForm({
           </div>
 
           {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
               {isLoading ? 'Salvando...' : 'Salvar TAF'}
             </Button>
           )}

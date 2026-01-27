@@ -163,24 +163,39 @@ export function DashboardChefe() {
     : null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Dashboard - Chefe de Equipe</h1>
-              <p className="text-sm text-gray-600">
-                {authUser?.profile?.nome} - {authUser?.profile?.role}
-              </p>
-              {baseId && equipeId && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Base: {getBaseName(baseId)} | Equipe: {getEquipeName(equipeId)}
+    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b">
+        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+          <div className="flex justify-between items-center min-h-[80px]">
+            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+              <img 
+                src="/logo-medmais.png" 
+                alt="MedMais Logo" 
+                className="h-10 w-auto brightness-0 invert"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-white">Dashboard - Chefe de Equipe</h1>
+                <p className="text-sm text-white/90">
+                  {authUser?.profile?.nome} - {authUser?.profile?.role}
                 </p>
-              )}
+                {baseId && equipeId && (
+                  <p className="text-xs text-white/80 mt-1">
+                    Base: {getBaseName(baseId)} | Equipe: {getEquipeName(equipeId)}
+                  </p>
+                )}
+              </div>
             </div>
-            <Button onClick={handleLogout} variant="outline">
-              Sair
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate('/dashboard-analytics')} variant="outline" className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+                Painel de Indicadores
+              </Button>
+              <Button onClick={handleLogout} variant="outline" className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -201,7 +216,7 @@ export function DashboardChefe() {
                   key={indicador.id}
                   onClick={() => handleNovoLancamento(indicador)}
                   variant="outline"
-                  className="h-auto py-4 flex flex-col items-start"
+                  className="h-auto py-4 flex flex-col items-start hover:bg-[#fc4d00] hover:text-white hover:border-[#fc4d00] transition-colors"
                 >
                   <span className="font-semibold">{indicador.nome}</span>
                 </Button>

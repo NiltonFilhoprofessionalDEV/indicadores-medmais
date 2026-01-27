@@ -212,6 +212,12 @@ Autenticação via Supabase Auth.
 
 Tela 2: Painel do Chefe (Dashboard & Histórico)
 
+Navegação:
+- Header com botão "Painel de Indicadores" que navega para `/dashboard-analytics`.
+- Permissão: Visível para role === 'chefe' e role === 'geral'.
+- Experiência: O Chefe pode alternar facilmente entre "Lançamentos" (Operacional) e "Indicadores" (Analítico).
+- No Analytics, quando o usuário for Chefe, aparece botão "Voltar ao Dashboard" no header para retornar ao painel operacional.
+
 Histórico: Painel de Controle de Lançamentos Profissional
 
 Estrutura:
@@ -254,6 +260,69 @@ Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo rea
 Tela 3: Dashboard Gerencial
 Filtros Globais: Base, Equipe, Período.
 Botão "Gestão de Usuários" (Admin).
+
+Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
+
+Tela 5: Monitoramento de Aderência (Compliance) - Apenas Gerente Geral
+**Objetivo:** Identificar quais bases estão cumprindo a rotina de lançamentos e auditar o engajamento das bases no uso do sistema.
+
+**Estrutura da Tela:**
+
+1. **Filtros:**
+   - Mês/Ano de Referência: Input tipo `month` para selecionar o período a ser analisado (padrão: mês atual).
+
+2. **Widget: Usuários Inativos:**
+   - Card destacado em laranja no topo da tela.
+   - Título: "Usuários Cadastrados sem Acesso há > 30 dias".
+   - Descrição: Contador de usuários sem lançamentos nos últimos 30 dias.
+   - Lista: Exibe os nomes dos usuários inativos (Chefes de Equipe sem atividade recente).
+   - Aparece apenas quando há usuários inativos.
+
+3. **Tabela de Aderência:**
+   - **Coluna 1:** Nome da Base (34 bases aeroportuárias, excluindo ADMINISTRATIVO).
+   - **Coluna 2 - Rotina Diária (Grupo A):**
+     - Ícones de status para "Atividades Acessórias" e "Horas de Treinamento Mensal".
+     - ✅ (Verde): Hoje OK - lançamento hoje.
+     - ⚠️ (Amarelo): Ontem Pendente - último lançamento ontem.
+     - ❌ (Vermelho): Sem lançamentos há 2+ dias.
+   - **Coluna 3 - Pendências Mensais (Grupo C):**
+     - Contador: "X de 9 entregues".
+     - ✅ (Verde): Compliance - 9 de 9 entregues.
+     - 🟡 (Amarelo): Pendente - mês aberto, faltam indicadores.
+     - 🔴 (Vermelho): Não Conforme - mês fechado sem completar.
+     - Tooltip: Ao passar o mouse no ícone de informação, mostra quais indicadores estão faltando.
+   - **Coluna 4 - Última Ocorrência (Grupo B):**
+     - Mostra data do último registro no formato "Último: DD/MM/YYYY".
+     - Cor neutra/cinza (sem alerta de atraso).
+
+4. **Legenda:**
+   - Card explicativo abaixo da tabela descrevendo o significado de cada símbolo e cor para os três grupos.
+
+**Regras de Compliance (src/lib/compliance-rules.ts):**
+
+**GRUPO A: Obrigação Diária (Rotina de Plantão)**
+- Indicadores: 'Atividades Acessórias', 'Horas de Treinamento Mensal'.
+- Regra de Monitoramento: Verifica se existe lançamento na Data Atual.
+- Visual na Tabela: Ícone de status do dia (✅ Hoje OK | ⚠️ Ontem Pendente | ❌ Sem lançamentos há 2+ dias).
+- Alerta: Destacar Bases/Equipes que estão há mais de 24h sem lançar esses itens.
+
+**GRUPO B: Eventuais (Sem Alerta de Atraso)**
+- Indicadores: 'Ocorrência Aeronáutica', 'Ocorrência Não Aeronáutica', 'Teste de Aptidão Física (TAF)'.
+- Regra: Não existe "atraso", apenas mostra última data.
+- Visual na Tabela: "Último: DD/MM/YYYY" (Cor neutra/cinza).
+
+**GRUPO C: Obrigação Mensal (Meta do Mês)**
+- Indicadores: 'Prova Teórica', 'Inspeção de Viaturas', 'Tempo de TP/EPR', 'Tempo Resposta', 'Controle de Estoque', 'Controle de Trocas', 'Verificação de TP', 'Higienização de TP', 'Controle de EPI' (total: 9 indicadores).
+- Regra de Monitoramento: Verifica se existe pelo menos 1 lançamento dentro do Mês Atual.
+- Visual na Tabela:
+  - ✅ (Verde): Se tem lançamento no mês (9 de 9 entregues).
+  - 🟡 (Amarelo/Pendente): Se não tem e o mês está aberto (faltam indicadores).
+  - 🔴 (Vermelho/Não Conforme): Se virou o mês e não teve (mês fechado sem completar).
+
+**Acesso:**
+- Rota: `/aderencia`
+- Permissão: Apenas `role === 'geral'` (Gerente Geral).
+- Navegação: Card no Dashboard Administrador com botão "Acessar Aderência".
 
 Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
 Objetivo: Cadastrar e gerenciar os Chefes de Equipe e vincular corretamente à Base/Equipe.
@@ -330,6 +399,13 @@ Integração:
 
 **Conceito:** Dashboard com navegação lateral (Sidebar) para análise granular e individual dos indicadores críticos. Transforma dados técnicos em tomadas de decisão para a Diretoria.
 
+**Acesso:**
+- **Permissões:** Acessível para role === 'geral' (Gerente Geral) e role === 'chefe' (Chefe de Equipe).
+- **Navegação:** 
+  - No Dashboard do Chefe: Botão "Painel de Indicadores" no header que navega para `/dashboard-analytics`.
+  - No Analytics: Quando o usuário for Chefe, aparece botão "Voltar ao Dashboard" no header para retornar ao painel operacional.
+- **Rota:** `/dashboard-analytics` protegida por `ProtectedRoute` com `allowedRoles={['geral', 'chefe']}`.
+
 **Arquitetura de Layout:**
 - **Sidebar (Esquerda):** Menu de navegação lateral com categorias organizadas:
   - "Visão Geral" (Resumo de tudo)
@@ -343,8 +419,9 @@ Integração:
 **Filtros Dinâmicos (AnalyticsFilterBar):**
 - **Filtros Globais (Sempre presentes):**
   1. **Base:** Select com opção "Todas as bases" + lista de bases
-  2. **Data Início:** Input tipo date
-  3. **Data Fim:** Input tipo date
+  2. **Equipe:** Select com opção "Todas as equipes" + lista de equipes
+  3. **Data Início:** Input tipo date
+  4. **Data Fim:** Input tipo date
 - **Filtros Condicionais:**
   - **Filtro por Colaborador:** Aparece quando a visão é TAF, Prova Teórica, Treinamento ou TP/EPR
     - Select com lista de colaboradores ativos da base selecionada
@@ -356,6 +433,93 @@ Integração:
 - Funções utilitárias em `src/lib/analytics-utils.ts` para "achatar" (flatten) dados JSONB antes de gerar gráficos
 - Função `filterByColaborador()` para filtrar lançamentos por nome dentro de arrays JSONB (avaliados, participantes, afericoes, colaboradores)
 - Todas as funções de processamento suportam filtragem por colaborador quando aplicável
+- Função `generateExecutiveSummary()` para agregar dados de todos os indicadores para a Visão Geral executiva
+
+### VISÃO GERAL (Cockpit Executivo - C-Level)
+
+**Conceito:** Painel executivo de alto nível que agrega dados de todos os 14 indicadores para fornecer um panorama de saúde operacional da empresa. Funciona como um "cockpit" para tomada de decisão estratégica.
+
+**Estrutura da Tela:**
+
+#### 1. KPIs de Impacto (Scorecards com Tendência)
+Quatro cards no topo usando Card do shadcn/ui:
+
+1. **Volume Operacional:**
+   - Valor: Soma total de ocorrências (Aero + Não Aero) no período filtrado
+   - Tendência: Comparação com período anterior (30 dias antes) mostrando % de crescimento
+   - Indicador visual: Ícone de TrendingUp (verde) ou TrendingDown (vermelho) conforme crescimento positivo ou negativo
+   - Formato: "X ocorrências" + "% de crescimento vs período anterior"
+
+2. **Agilidade (Tempo Resposta):**
+   - Valor: Média global dos tempos de resposta convertida para formato mm:ss
+   - Cor condicional:
+     - Verde: Se tempo médio < 3 minutos
+     - Amarelo: Se tempo médio ≥ 3 minutos
+   - Badge: "Meta atingida" (verde) ou "Atenção necessária" (amarelo)
+   - Ícone: Clock com cor correspondente
+
+3. **Força de Trabalho:**
+   - Valor: Soma total de Horas de Treinamento no período (formato hh:mm)
+   - Ícone: Users (azul)
+   - Descrição: "Total de horas de treinamento"
+
+4. **Alertas Críticos (Risco):**
+   - Valor: Contagem de bases que possuem ao menos 1 item de estoque abaixo do exigido OU 1 viatura não conforme
+   - Indicador visual:
+     - Se > 0: Ícone AlertTriangle vermelho + número em vermelho
+     - Se = 0: Círculo verde + número em verde
+   - Descrição: "X base(s) com alertas" ou "Nenhum alerta crítico"
+
+#### 2. Gráfico Principal (Composed Chart)
+Gráfico misto usando Recharts (Barra + Linha combinados):
+
+- **Eixo X:** Meses (formato MMM/yyyy)
+- **Barra (Eixo Y Esquerdo):** Volume de Ocorrências (soma de Aero + Não Aero por mês)
+  - Cor: Laranja (#fc4d00)
+  - Nome: "Ocorrências"
+- **Linha (Eixo Y Direito):** Tempo Médio de Resposta (média dos tempos de resposta por mês)
+  - Cor: Verde (#22c55e)
+  - Nome: "Tempo Médio"
+  - Formato do eixo: mm:ss
+- **Objetivo:** Cruzar demanda (ocorrências) vs eficiência (tempo de resposta) para identificar correlações
+
+#### 3. Painéis de Gestão por Exceção (Grid Inferior)
+Dividido em dois painéis lado a lado:
+
+**Painel Esquerdo - Ranking de Atividade:**
+- Título: "Ranking de Atividade (Top 5 Bases)"
+- Tipo: Gráfico de Barras Horizontais
+- Dados: As 5 bases com mais ocorrências acumuladas no período
+- Eixo X: Quantidade de ocorrências
+- Eixo Y: Nome da base
+- Cor: Laranja (#fc4d00)
+
+**Painel Direito - Pontos de Atenção:**
+- Título: "Pontos de Atenção"
+- Tipo: Lista compacta de alertas gerados automaticamente
+- Formato: Cards vermelhos com ícone AlertTriangle
+- Cada alerta contém:
+  - Nome da base (negrito, vermelho escuro)
+  - Mensagem descritiva (texto menor, vermelho médio)
+- Tipos de alertas gerados:
+  - TAF: "X Reprovado(s) no TAF" (quando há reprovados)
+  - Estoque: "Estoque de [Pó Químico/LGE/Nitrogênio] Crítico" (quando atual < exigido)
+  - Viaturas: "Viatura [Modelo] Não Conforme" (quando qtd_nao_conforme > 0)
+- Limite: Máximo de 10 alertas exibidos
+- Estado vazio: Mensagem "Nenhum ponto de atenção identificado" com ícone verde
+
+**Lógica de Agregação:**
+- A função `generateExecutiveSummary()` em `analytics-utils.ts` varre todos os lançamentos e:
+  1. Separa por tipo de indicador usando `indicadores_config`
+  2. Calcula KPIs agregados
+  3. Gera gráficos combinados
+  4. Identifica alertas críticos automaticamente
+  5. Gera ranking de bases por atividade
+
+**Comportamento:**
+- Quando "Visão Geral" está selecionada, o sistema busca TODOS os lançamentos (sem filtro de indicador)
+- Os filtros de Base, Equipe e Data continuam funcionando normalmente
+- Os dados são processados em tempo real conforme os filtros são alterados
 
 ### GRUPO A: ANÁLISE INDIVIDUAL (Deep Dive)
 *Estes indicadores possuem telas exclusivas com visualizações detalhadas.*
@@ -501,7 +665,44 @@ INTEGRAÇÃO COM TABELA COLABORADORES:
 - Cálculos em tempo real: Controle de EPI calcula percentuais automaticamente; TAF e Prova Teórica calculam status automaticamente enquanto o usuário digita.
 Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group) os dados JSONB antes de jogar nos gráficos Recharts.
 
-## 9. Correções e Melhorias Implementadas
+## 9. Módulo de Monitoramento de Aderência (Compliance)
+
+**Conceito:** Ferramenta de auditoria para identificar quais bases estão cumprindo a rotina de lançamentos e engajamento no uso do sistema.
+
+**Objetivo:** Permitir que o Gerente Geral identifique rapidamente:
+- Bases que não estão usando o sistema regularmente.
+- Indicadores que não estão sendo preenchidos conforme esperado.
+- Usuários cadastrados sem acesso há mais de 30 dias.
+
+**Estrutura Técnica:**
+- Arquivo de regras: `src/lib/compliance-rules.ts` define grupos de compliance (A, B, C) e periodicidade esperada para cada indicador.
+- Página: `src/pages/Aderencia.tsx` com tabela de aderência e widget de usuários inativos.
+- Rota: `/aderencia` protegida para Gerente Geral apenas.
+
+**Funcionalidades:**
+1. **Tabela de Aderência:** Organizada em 4 colunas (Base, Rotina Diária, Pendências Mensais, Última Ocorrência).
+2. **Widget de Usuários Inativos:** Alerta mostrando usuários sem lançamentos há mais de 30 dias.
+3. **Filtro Temporal:** Seleção de Mês/Ano para análise de períodos específicos.
+
+**Regras de Compliance por Grupo:**
+
+**GRUPO A: Obrigação Diária (Rotina de Plantão)**
+- Indicadores: 'Atividades Acessórias', 'Horas de Treinamento Mensal'.
+- Regra: Verifica se existe lançamento na Data Atual.
+- Visual: ✅ Hoje OK | ⚠️ Ontem Pendente | ❌ Sem lançamentos há 2+ dias.
+- Alerta: Destacar bases há mais de 24h sem lançar.
+
+**GRUPO B: Eventuais (Sem Alerta de Atraso)**
+- Indicadores: 'Ocorrência Aeronáutica', 'Ocorrência Não Aeronáutica', 'Teste de Aptidão Física (TAF)'.
+- Regra: Não existe "atraso", apenas mostra última data.
+- Visual: "Último: DD/MM/YYYY" (cor neutra/cinza).
+
+**GRUPO C: Obrigação Mensal (Meta do Mês)**
+- Indicadores: 'Prova Teórica', 'Inspeção de Viaturas', 'Tempo de TP/EPR', 'Tempo Resposta', 'Controle de Estoque', 'Controle de Trocas', 'Verificação de TP', 'Higienização de TP', 'Controle de EPI' (9 indicadores).
+- Regra: Verifica se existe pelo menos 1 lançamento no Mês Atual.
+- Visual: ✅ (Verde) se tem no mês | 🟡 (Amarelo) se não tem e mês aberto | 🔴 (Vermelho) se virou o mês e não teve.
+
+## 10. Correções e Melhorias Implementadas
 
 ### 9.1. Nova Tabela: colaboradores
 - Criada tabela para armazenar o efetivo das bases.

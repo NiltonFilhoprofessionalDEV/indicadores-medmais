@@ -7,10 +7,13 @@ import type { Database } from '@/lib/database.types'
 
 type Colaborador = Database['public']['Tables']['colaboradores']['Row']
 type Base = Database['public']['Tables']['bases']['Row']
+type Equipe = Database['public']['Tables']['equipes']['Row']
 
 interface AnalyticsFilterBarProps {
   baseId: string
   onBaseChange: (baseId: string) => void
+  equipeId?: string
+  onEquipeChange?: (equipeId: string) => void
   dataInicio: string
   onDataInicioChange: (data: string) => void
   dataFim: string
@@ -21,11 +24,14 @@ interface AnalyticsFilterBarProps {
   onTipoOcorrenciaChange?: (tipo: string) => void
   showColaboradorFilter?: boolean
   showTipoOcorrenciaFilter?: boolean
+  disableBaseFilter?: boolean
 }
 
 export function AnalyticsFilterBar({
   baseId,
   onBaseChange,
+  equipeId = '',
+  onEquipeChange,
   dataInicio,
   onDataInicioChange,
   dataFim,
@@ -36,6 +42,7 @@ export function AnalyticsFilterBar({
   onTipoOcorrenciaChange,
   showColaboradorFilter = false,
   showTipoOcorrenciaFilter = false,
+  disableBaseFilter = false,
 }: AnalyticsFilterBarProps) {
   // Buscar bases
   const { data: bases } = useQuery<Base[]>({
@@ -44,6 +51,16 @@ export function AnalyticsFilterBar({
       const { data, error } = await supabase.from('bases').select('*').order('nome')
       if (error) throw error
       return (data || []) as Base[]
+    },
+  })
+
+  // Buscar equipes
+  const { data: equipes } = useQuery<Equipe[]>({
+    queryKey: ['equipes'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('equipes').select('*').order('nome')
+      if (error) throw error
+      return (data || []) as Equipe[]
     },
   })
 
@@ -64,11 +81,20 @@ export function AnalyticsFilterBar({
     },
   })
 
+  // Calcular número de colunas dinâmicas baseado nos filtros visíveis
+  const visibleFilters = 4 + (onEquipeChange ? 1 : 0) + (showColaboradorFilter ? 1 : 0) + (showTipoOcorrenciaFilter ? 1 : 0)
+  const gridCols = visibleFilters <= 4 ? 'lg:grid-cols-4' : visibleFilters <= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+    <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-4 p-4 bg-muted/50 rounded-lg`}>
       <div className="space-y-2">
         <Label htmlFor="filter-base">Base</Label>
-        <Select id="filter-base" value={baseId} onChange={(e) => onBaseChange(e.target.value)}>
+        <Select 
+          id="filter-base" 
+          value={baseId} 
+          onChange={(e) => onBaseChange(e.target.value)}
+          disabled={disableBaseFilter}
+        >
           <option value="">Todas as bases</option>
           {bases?.map((base) => (
             <option key={base.id} value={base.id}>
@@ -77,6 +103,20 @@ export function AnalyticsFilterBar({
           ))}
         </Select>
       </div>
+
+      {onEquipeChange && (
+        <div className="space-y-2">
+          <Label htmlFor="filter-equipe">Equipe</Label>
+          <Select id="filter-equipe" value={equipeId} onChange={(e) => onEquipeChange(e.target.value)}>
+            <option value="">Todas as equipes</option>
+            {equipes?.map((equipe) => (
+              <option key={equipe.id} value={equipe.id}>
+                {equipe.nome}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="filter-data-inicio">Data Início</Label>

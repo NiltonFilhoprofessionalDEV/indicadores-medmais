@@ -124,82 +124,112 @@ export function Login() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-lg">Carregando...</div>
+        <div className="text-lg text-gray-700 font-semibold">Carregando...</div>
       </div>
     )
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Indicadores MedMais
-          </CardTitle>
-          <CardDescription className="text-center">
-            Faça login para acessar o sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                {...register('email')}
-                disabled={loading}
+      {/* Conteúdo */}
+      <div className="w-full max-w-md px-6">
+        <Card className="bg-white border border-gray-200" style={{ boxShadow: '0 0 30px 10px rgba(252, 77, 0, 0.3), 0 0 60px 20px rgba(252, 77, 0, 0.15)' }}>
+          <CardHeader className="space-y-4 pb-6">
+            <div className="flex justify-center mb-4">
+              <img 
+                src="/logo-medmais.png" 
+                alt="MedMais Logo" 
+                className="h-20 w-auto"
+                onError={(e) => {
+                  // Fallback caso o logo não esteja disponível
+                  e.currentTarget.style.display = 'none'
+                }}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
+            <CardTitle className="text-3xl font-bold text-center text-gray-900">
+              Indicadores MedMais
+            </CardTitle>
+            <CardDescription className="text-center text-gray-600 text-base">
+              Faça login para acessar o sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700 font-medium">
+                  Email
+                </Label>
                 <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  {...register('password')}
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  {...register('email')}
                   disabled={loading}
-                  className="pr-10"
+                  className="h-12 border-gray-300 focus:border-[#fc4d00] focus:ring-[#fc4d00] transition-all"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-500" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-500" />
-                  )}
-                </Button>
+                {errors.email && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <span>•</span>
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-700 font-medium">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    {...register('password')}
+                    disabled={loading}
+                    className="pr-12 h-12 border-gray-300 focus:border-[#fc4d00] focus:ring-[#fc4d00] transition-all"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                    title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <span>•</span>
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              {error && (
+                <div className="p-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <span className="text-red-500 mt-0.5">⚠</span>
+                  <span>{error}</span>
+                </div>
               )}
-            </div>
 
-            {error && (
-              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                {error}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-[#fc4d00] hover:bg-[#e04400] text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                disabled={loading}
+              >
+                {loading ? 'Entrando...' : 'Entrar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { useState } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { InputWithSuffix } from '@/components/ui/input-with-suffix'
@@ -11,12 +12,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 
 const controleEstoqueSchema = z.object({
-  po_quimico_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  po_quimico_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  lge_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  lge_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  nitrogenio_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  nitrogenio_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
+  po_quimico_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
+  po_quimico_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
+  lge_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
+  lge_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
+  nitrogenio_atual: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
+  nitrogenio_exigido: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
   data_referencia: z.string().min(1, 'Data é obrigatória'),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
@@ -40,7 +41,9 @@ export function ControleEstoqueForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -54,12 +57,12 @@ export function ControleEstoqueForm({
   } = useForm<ControleEstoqueFormData>({
     resolver: zodResolver(controleEstoqueSchema),
     defaultValues: {
-      po_quimico_atual: initialData?.po_quimico_atual ? Number(initialData.po_quimico_atual) : 0,
-      po_quimico_exigido: initialData?.po_quimico_exigido ? Number(initialData.po_quimico_exigido) : 0,
-      lge_atual: initialData?.lge_atual ? Number(initialData.lge_atual) : 0,
-      lge_exigido: initialData?.lge_exigido ? Number(initialData.lge_exigido) : 0,
-      nitrogenio_atual: initialData?.nitrogenio_atual ? Number(initialData.nitrogenio_atual) : 0,
-      nitrogenio_exigido: initialData?.nitrogenio_exigido ? Number(initialData.nitrogenio_exigido) : 0,
+      po_quimico_atual: initialData?.po_quimico_atual ? Number(initialData.po_quimico_atual) : undefined,
+      po_quimico_exigido: initialData?.po_quimico_exigido ? Number(initialData.po_quimico_exigido) : undefined,
+      lge_atual: initialData?.lge_atual ? Number(initialData.lge_atual) : undefined,
+      lge_exigido: initialData?.lge_exigido ? Number(initialData.lge_exigido) : undefined,
+      nitrogenio_atual: initialData?.nitrogenio_atual ? Number(initialData.nitrogenio_atual) : undefined,
+      nitrogenio_exigido: initialData?.nitrogenio_exigido ? Number(initialData.nitrogenio_exigido) : undefined,
       data_referencia: dataReferencia,
       base_id: finalBaseId,
       equipe_id: finalEquipeId,
@@ -69,16 +72,21 @@ export function ControleEstoqueForm({
   const onSubmit = async (data: ControleEstoqueFormData) => {
     try {
       const conteudo = {
-        po_quimico_atual: data.po_quimico_atual,
-        po_quimico_exigido: data.po_quimico_exigido,
-        lge_atual: data.lge_atual,
-        lge_exigido: data.lge_exigido,
-        nitrogenio_atual: data.nitrogenio_atual,
-        nitrogenio_exigido: data.nitrogenio_exigido,
+        po_quimico_atual: data.po_quimico_atual ?? 0,
+        po_quimico_exigido: data.po_quimico_exigido ?? 0,
+        lge_atual: data.lge_atual ?? 0,
+        lge_exigido: data.lge_exigido ?? 0,
+        nitrogenio_atual: data.nitrogenio_atual ?? 0,
+        nitrogenio_exigido: data.nitrogenio_exigido ?? 0,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,

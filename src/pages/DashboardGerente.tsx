@@ -40,7 +40,7 @@ export function DashboardGerente() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Gestão de Usuários</CardTitle>
@@ -55,6 +55,24 @@ export function DashboardGerente() {
               </p>
               <Button onClick={() => navigate('/gestao-usuarios')} className="w-full">
                 Acessar Gestão de Usuários
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Gestão de Efetivo</CardTitle>
+              <CardDescription>
+                Cadastre e gerencie colaboradores das bases
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Gerencie o efetivo (bombeiros/colaboradores) de cada base. Cadastre individualmente
+                ou em lote através de uma lista de nomes.
+              </p>
+              <Button onClick={() => navigate('/colaboradores')} className="w-full">
+                Acessar Gestão de Efetivo
               </Button>
             </CardContent>
           </Card>

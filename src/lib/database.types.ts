@@ -43,6 +43,29 @@ export interface Database {
           created_at?: string
         }
       }
+      colaboradores: {
+        Row: {
+          id: string
+          created_at: string
+          nome: string
+          base_id: string
+          ativo: boolean
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          nome: string
+          base_id: string
+          ativo?: boolean
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          nome?: string
+          base_id?: string
+          ativo?: boolean
+        }
+      }
       indicadores_config: {
         Row: {
           id: string

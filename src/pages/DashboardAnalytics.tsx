@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Database } from '@/lib/database.types'
 import { useLancamentos } from '@/hooks/useLancamentos'
+
+type Base = Database['public']['Tables']['bases']['Row']
+type Equipe = Database['public']['Tables']['equipes']['Row']
+type IndicadorConfig = Database['public']['Tables']['indicadores_config']['Row']
 import {
   processOcorrenciaAeronautica,
   processOcorrenciaNaoAeronautica,
@@ -10,7 +15,6 @@ import {
   processTempoResposta,
   processHorasTreinamento,
 } from '@/lib/analytics-utils'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
@@ -36,31 +40,31 @@ export function DashboardAnalytics() {
   const [indicadorAtivo, setIndicadorAtivo] = useState<string>(INDICADORES[0].id)
 
   // Buscar bases e equipes
-  const { data: bases } = useQuery({
+  const { data: bases } = useQuery<Base[]>({
     queryKey: ['bases'],
     queryFn: async () => {
       const { data, error } = await supabase.from('bases').select('*').order('nome')
       if (error) throw error
-      return data
+      return (data || []) as Base[]
     },
   })
 
-  const { data: equipes } = useQuery({
+  const { data: equipes } = useQuery<Equipe[]>({
     queryKey: ['equipes'],
     queryFn: async () => {
       const { data, error } = await supabase.from('equipes').select('*').order('nome')
       if (error) throw error
-      return data
+      return (data || []) as Equipe[]
     },
   })
 
   // Buscar indicadores config
-  const { data: indicadoresConfig } = useQuery({
+  const { data: indicadoresConfig } = useQuery<IndicadorConfig[]>({
     queryKey: ['indicadores_config'],
     queryFn: async () => {
       const { data, error } = await supabase.from('indicadores_config').select('*').order('nome')
       if (error) throw error
-      return data
+      return (data || []) as IndicadorConfig[]
     },
   })
 

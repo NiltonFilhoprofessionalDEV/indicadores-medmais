@@ -1,15 +1,18 @@
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimeHHMM, validateHHMM } from '@/lib/masks'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
+import { useColaboradores } from '@/hooks/useColaboradores'
 
 const participanteSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
@@ -41,7 +44,9 @@ export function HorasTreinamentoForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -75,6 +80,9 @@ export function HorasTreinamentoForm({
     name: 'participantes',
   })
 
+  // Buscar colaboradores da base para o Select
+  const { data: colaboradores } = useColaboradores(finalBaseId || null)
+
   const onSubmit = async (data: HorasTreinamentoFormData) => {
     try {
       const participantesFiltrados = data.participantes.filter((p) => p.nome.trim() !== '')
@@ -83,8 +91,13 @@ export function HorasTreinamentoForm({
         participantes: participantesFiltrados,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -141,10 +154,25 @@ export function HorasTreinamentoForm({
                 <div key={field.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md">
                   <div className="space-y-1">
                     <Label className="text-xs">Nome *</Label>
-                    <Input
-                      {...register(`participantes.${index}.nome`)}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
+                    <Controller
+                      name={`participantes.${index}.nome`}
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          {...field}
+                          disabled={readOnly || !finalBaseId}
+                          className={readOnly ? 'bg-muted' : ''}
+                        >
+                          <option value="">Selecione um colaborador</option>
+                          {colaboradores
+                            ?.filter((c) => c.ativo)
+                            .map((colaborador) => (
+                              <option key={colaborador.id} value={colaborador.nome}>
+                                {colaborador.nome}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
                     />
                     {errors.participantes?.[index]?.nome && (
                       <p className="text-xs text-destructive">{errors.participantes[index]?.nome?.message}</p>

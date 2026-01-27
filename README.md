@@ -52,3 +52,43 @@ src/
 - `npm run build` - Gera build de produção
 - `npm run preview` - Preview do build de produção
 - `npm run lint` - Executa o linter
+
+## Deploy na Vercel
+
+### Opção 1: Via CLI (Recomendado)
+
+1. **Instalar Vercel CLI** (se ainda não tiver):
+   ```bash
+   npm i -g vercel
+   ```
+
+2. **Fazer login**:
+   ```bash
+   vercel login
+   ```
+
+3. **Configurar variáveis de ambiente**:
+   - Acesse https://vercel.com/dashboard
+   - Vá em Settings > Environment Variables
+   - Adicione `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
+
+4. **Fazer deploy**:
+   ```bash
+   # Deploy de produção
+   vercel --prod
+   
+   # Ou use o script PowerShell
+   .\deploy-vercel.ps1
+   ```
+
+### Opção 2: Via Dashboard da Vercel
+
+1. Acesse https://vercel.com
+2. Clique em "Add New Project"
+3. Conecte seu repositório do GitHub
+4. Configure as variáveis de ambiente
+5. Clique em "Deploy"
+
+O arquivo `vercel.json` já está configurado para SPA com React Router.
+
+📖 Para mais detalhes, consulte [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md)

@@ -1,15 +1,18 @@
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
 import { calculatePercentage } from '@/lib/calculations'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
+import { useColaboradores } from '@/hooks/useColaboradores'
 
 const colaboradorSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
@@ -46,7 +49,9 @@ export function ControleEPIForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -96,6 +101,9 @@ export function ControleEPIForm({
 
   const colaboradores = watch('colaboradores')
 
+  // Buscar colaboradores da base para o Select
+  const { data: colaboradoresLista } = useColaboradores(finalBaseId || null)
+
   // Calcular percentuais automaticamente
   useEffect(() => {
     colaboradores.forEach((colaborador, index) => {
@@ -118,8 +126,13 @@ export function ControleEPIForm({
         colaboradores: colaboradoresFiltrados,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -167,10 +180,10 @@ export function ControleEPIForm({
                   onClick={() =>
                     append({
                       nome: '',
-                      epi_entregue: undefined,
-                      epi_previsto: undefined,
-                      unif_entregue: undefined,
-                      unif_previsto: undefined,
+                      epi_entregue: 0,
+                      epi_previsto: 1,
+                      unif_entregue: 0,
+                      unif_previsto: 1,
                       total_epi_pct: 0,
                       total_unif_pct: 0,
                     })
@@ -187,10 +200,25 @@ export function ControleEPIForm({
                   <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Nome *</Label>
-                      <Input
-                        {...register(`colaboradores.${index}.nome`)}
-                        disabled={readOnly}
-                        className={readOnly ? 'bg-muted' : ''}
+                      <Controller
+                        name={`colaboradores.${index}.nome`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            {...field}
+                            disabled={readOnly || !finalBaseId}
+                            className={readOnly ? 'bg-muted' : ''}
+                          >
+                            <option value="">Selecione um colaborador</option>
+                            {colaboradoresLista
+                              ?.filter((c) => c.ativo)
+                              .map((colaborador) => (
+                                <option key={colaborador.id} value={colaborador.nome}>
+                                  {colaborador.nome}
+                                </option>
+                              ))}
+                          </Select>
+                        )}
                       />
                       {errors.colaboradores?.[index]?.nome && (
                         <p className="text-xs text-destructive">{errors.colaboradores[index]?.nome?.message}</p>

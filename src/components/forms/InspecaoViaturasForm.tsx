@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { useState } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +62,9 @@ export function InspecaoViaturasForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -104,8 +107,13 @@ export function InspecaoViaturasForm({
         inspecoes: inspecoesFiltradas,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -150,7 +158,7 @@ export function InspecaoViaturasForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ viatura: undefined, qtd_inspecoes: undefined, qtd_nao_conforme: undefined })}
+                  onClick={() => append({ viatura: '' as any, qtd_inspecoes: 0, qtd_nao_conforme: 0 })}
                 >
                   Adicionar Linha
                 </Button>

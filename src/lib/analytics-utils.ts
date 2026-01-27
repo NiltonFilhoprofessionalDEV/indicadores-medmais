@@ -3,7 +3,6 @@ import { timeToMinutes, minutesToTime, calculateTimeDifference } from './masks'
 import type { Database } from './database.types'
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
-type JsonContent = Lancamento['conteudo']
 
 /**
  * Utilitários para processar dados JSONB dos lançamentos para Analytics

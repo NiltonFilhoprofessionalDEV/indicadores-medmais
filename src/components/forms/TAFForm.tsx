@@ -6,11 +6,14 @@ import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimeMMSS, validateMMSS } from '@/lib/masks'
 import { calculateTAFStatus } from '@/lib/calculations'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
+import { useColaboradores } from '@/hooks/useColaboradores'
 
 const avaliadoSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
@@ -45,7 +48,9 @@ export function TAFForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -86,6 +91,9 @@ export function TAFForm({
 
   const avaliados = watch('avaliados')
 
+  // Buscar colaboradores da base para o Select
+  const { data: colaboradores } = useColaboradores(finalBaseId || null)
+
   // Calcular status automaticamente quando idade ou tempo mudarem
   useEffect(() => {
     avaliados.forEach((avaliado, index) => {
@@ -108,8 +116,13 @@ export function TAFForm({
         avaliados: avaliadosFiltrados,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -154,7 +167,7 @@ export function TAFForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ nome: '', idade: undefined, tempo: '', status: '', nota: undefined })}
+                  onClick={() => append({ nome: '', idade: 0, tempo: '', status: '', nota: 0 })}
                 >
                   Adicionar Linha
                 </Button>
@@ -166,10 +179,25 @@ export function TAFForm({
                 <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md">
                   <div className="space-y-1">
                     <Label className="text-xs">Nome *</Label>
-                    <Input
-                      {...register(`avaliados.${index}.nome`)}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
+                    <Controller
+                      name={`avaliados.${index}.nome`}
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          {...field}
+                          disabled={readOnly || !finalBaseId}
+                          className={readOnly ? 'bg-muted' : ''}
+                        >
+                          <option value="">Selecione um colaborador</option>
+                          {colaboradores
+                            ?.filter((c) => c.ativo)
+                            .map((colaborador) => (
+                              <option key={colaborador.id} value={colaborador.nome}>
+                                {colaborador.nome}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
                     />
                     {errors.avaliados?.[index]?.nome && (
                       <p className="text-xs text-destructive">{errors.avaliados[index]?.nome?.message}</p>

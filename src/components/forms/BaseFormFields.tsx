@@ -1,9 +1,13 @@
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Database } from '@/lib/database.types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+
+type Base = Database['public']['Tables']['bases']['Row']
+type Equipe = Database['public']['Tables']['equipes']['Row']
 
 interface BaseFormFieldsProps {
   dataReferencia: string
@@ -31,22 +35,22 @@ export function BaseFormFields({
   const { authUser } = useAuth()
 
   // Buscar bases
-  const { data: bases } = useQuery({
+  const { data: bases } = useQuery<Base[]>({
     queryKey: ['bases'],
     queryFn: async () => {
       const { data, error } = await supabase.from('bases').select('*').order('nome')
       if (error) throw error
-      return data
+      return (data || []) as Base[]
     },
   })
 
   // Buscar equipes
-  const { data: equipes } = useQuery({
+  const { data: equipes } = useQuery<Equipe[]>({
     queryKey: ['equipes'],
     queryFn: async () => {
       const { data, error } = await supabase.from('equipes').select('*').order('nome')
       if (error) throw error
-      return data
+      return (data || []) as Equipe[]
     },
   })
 
@@ -120,7 +124,11 @@ export function BaseFormFields({
           id="data_referencia"
           type="date"
           value={dataReferencia}
-          onChange={(e) => onDataChange(e.target.value)}
+          onChange={(e) => {
+            // CORREÇÃO TIMEZONE: O input type="date" já retorna string YYYY-MM-DD
+            // Passar direto sem conversão para evitar problemas de timezone
+            onDataChange(e.target.value)
+          }}
           disabled={readOnly}
           className={readOnly ? 'bg-muted' : ''}
         />

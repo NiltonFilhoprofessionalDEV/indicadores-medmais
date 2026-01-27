@@ -60,8 +60,9 @@ CREATE TABLE public.lancamentos (
     equipe_id UUID NOT NULL REFERENCES public.equipes(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     indicador_id UUID NOT NULL REFERENCES public.indicadores_config(id) ON DELETE CASCADE,
-    conteudo JSONB NOT NULL DEFAULT '{}'::jsonb,
-    CONSTRAINT unique_lancamento_per_indicador_equipe_data UNIQUE (data_referencia, base_id, equipe_id, indicador_id)
+    conteudo JSONB NOT NULL DEFAULT '{}'::jsonb
+    -- CORREÇÃO: Removida constraint UNIQUE para permitir múltiplos lançamentos no mesmo dia
+    -- CONSTRAINT unique_lancamento_per_indicador_equipe_data UNIQUE (data_referencia, base_id, equipe_id, indicador_id)
 );
 
 -- Índices para performance

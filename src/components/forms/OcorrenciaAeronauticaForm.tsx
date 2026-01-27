@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimeHHMM, formatTimeMMSS, validateHHMM, validateMMSS } from '@/lib/masks'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,11 +47,13 @@ export function OcorrenciaAeronauticaForm({
 }: OcorrenciaAeronauticaFormProps) {
   const { saveLancamento, isLoading } = useLancamento()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
-  // Buscar indicador para obter schema_type
-  const { data: indicador } = useQuery({
+  // Buscar indicador para obter schema_type (mantido para possível uso futuro)
+  useQuery({
     queryKey: ['indicador', indicadorId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -73,7 +76,6 @@ export function OcorrenciaAeronauticaForm({
     control,
     formState: { errors },
     setValue,
-    watch,
   } = useForm<OcorrenciaAeronauticaFormData>({
     resolver: zodResolver(ocorrenciaAeronauticaSchema),
     defaultValues: {
@@ -102,8 +104,14 @@ export function OcorrenciaAeronauticaForm({
         termino_ocorrencia: data.termino_ocorrencia,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      // Se data_referencia já é string YYYY-MM-DD, usar direto. Se for Date, converter.
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -242,7 +250,7 @@ export function OcorrenciaAeronauticaForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="termino_ocorrencia">Término da Ocorrência (HH:mm) *</Label>
+            <Label htmlFor="termino_ocorrencia">Hora do término da ocorrência (HH:mm) *</Label>
             <Input
               id="termino_ocorrencia"
               placeholder="15:30"

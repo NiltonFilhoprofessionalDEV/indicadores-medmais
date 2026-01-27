@@ -49,34 +49,73 @@ export function Login() {
     setLoading(true)
 
     try {
+      // Verificar se as variáveis de ambiente estão configuradas
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+
+      if (!supabaseUrl || !supabaseKey) {
+        setError('Erro de configuração: Variáveis de ambiente do Supabase não configuradas. Verifique as configurações na Vercel.')
+        setLoading(false)
+        console.error('Variáveis de ambiente não configuradas:', {
+          hasUrl: !!supabaseUrl,
+          hasKey: !!supabaseKey,
+        })
+        return
+      }
+
+      if (!supabaseUrl.startsWith('http')) {
+        setError('Erro de configuração: URL do Supabase inválida. Deve começar com http:// ou https://')
+        setLoading(false)
+        return
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
       if (authError) {
-        setError(authError.message)
+        // Mensagens de erro mais amigáveis
+        let errorMessage = authError.message
+        
+        if (authError.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.'
+        } else if (authError.message.includes('Email not confirmed')) {
+          errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.'
+        } else if (authError.message.includes('network') || authError.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e as configurações do Supabase.'
+        } else if (authError.message.includes('timeout') || authError.message.includes('aborted')) {
+          errorMessage = 'Tempo de conexão esgotado. Verifique as configurações do Supabase na Vercel.'
+        }
+        
+        setError(errorMessage)
+        console.error('Erro de autenticação:', authError)
         setLoading(false)
         return
       }
 
       if (authData.user) {
         // Verificar o perfil do usuário para redirecionar corretamente
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', authData.user.id)
           .single()
 
-        if (profile?.role === 'geral') {
+        if (profileError) {
+          console.error('Erro ao buscar perfil:', profileError)
+          // Continua mesmo sem perfil, redireciona para dashboard-chefe como padrão
+        }
+
+        if (profile && typeof profile === 'object' && 'role' in profile && (profile as { role: string }).role === 'geral') {
           navigate('/dashboard-gerente')
         } else {
           navigate('/dashboard-chefe')
         }
       }
     } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.')
-      console.error(err)
+      console.error('Erro inesperado no login:', err)
+      setError('Erro inesperado ao fazer login. Verifique o console para mais detalhes.')
     } finally {
       setLoading(false)
     }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { useState } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 
 const controleTrocasSchema = z.object({
-  qtd_trocas: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
+  qtd_trocas: z.number().min(0, 'Quantidade deve ser maior ou igual a 0').optional(),
   data_referencia: z.string().min(1, 'Data é obrigatória'),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
@@ -35,7 +36,9 @@ export function ControleTrocasForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -59,11 +62,16 @@ export function ControleTrocasForm({
   const onSubmit = async (data: ControleTrocasFormData) => {
     try {
       const conteudo = {
-        qtd_trocas: data.qtd_trocas,
+        qtd_trocas: data.qtd_trocas ?? 0,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,

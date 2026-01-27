@@ -4,6 +4,7 @@ import { DashboardChefe } from './pages/DashboardChefe'
 import { DashboardGerente } from './pages/DashboardGerente'
 import { DashboardAnalytics } from './pages/DashboardAnalytics'
 import { GestaoUsuarios } from './pages/GestaoUsuarios'
+import { Colaboradores } from './pages/admin/Colaboradores'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 function App() {
@@ -40,6 +41,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['geral']}>
               <GestaoUsuarios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/colaboradores"
+          element={
+            <ProtectedRoute allowedRoles={['geral']}>
+              <Colaboradores />
             </ProtectedRoute>
           }
         />

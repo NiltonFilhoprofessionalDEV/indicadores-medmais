@@ -5,12 +5,14 @@ import { useState } from 'react'
 import { useLancamento } from '@/hooks/useLancamento'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimeMMSS, validateMMSS } from '@/lib/masks'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
+import { useColaboradores } from '@/hooks/useColaboradores'
 
 const VIATURAS = [
   'CCI 01',
@@ -63,7 +65,9 @@ export function TempoRespostaForm({
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia ? new Date(initialData.data_referencia as string).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
   )
 
   const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
@@ -99,6 +103,9 @@ export function TempoRespostaForm({
     name: 'afericoes',
   })
 
+  // Buscar colaboradores da base para o Select de motorista
+  const { data: colaboradores } = useColaboradores(finalBaseId || null)
+
   const onSubmit = async (data: TempoRespostaFormData) => {
     try {
       const afericoesFiltradas = data.afericoes.filter((a) => a.viatura)
@@ -107,8 +114,13 @@ export function TempoRespostaForm({
         afericoes: afericoesFiltradas,
       }
 
+      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
       await saveLancamento({
-        dataReferencia: data.data_referencia,
+        dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
         baseId: data.base_id,
@@ -153,7 +165,7 @@ export function TempoRespostaForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ viatura: undefined, motorista: '', local: '', tempo: '' })}
+                  onClick={() => append({ viatura: '' as any, motorista: '', local: '', tempo: '' })}
                 >
                   Adicionar Linha
                 </Button>
@@ -162,7 +174,7 @@ export function TempoRespostaForm({
 
             <div className="space-y-3">
               {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md">
+                <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md items-start">
                   <div className="space-y-1">
                     <Label className="text-xs">Viatura *</Label>
                     <Controller
@@ -190,10 +202,25 @@ export function TempoRespostaForm({
 
                   <div className="space-y-1">
                     <Label className="text-xs">Motorista (BA-MC) *</Label>
-                    <Input
-                      {...register(`afericoes.${index}.motorista`)}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
+                    <Controller
+                      name={`afericoes.${index}.motorista`}
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          {...field}
+                          disabled={readOnly || !finalBaseId}
+                          className={readOnly ? 'bg-muted' : ''}
+                        >
+                          <option value="">Selecione um colaborador</option>
+                          {colaboradores
+                            ?.filter((c) => c.ativo)
+                            .map((colaborador) => (
+                              <option key={colaborador.id} value={colaborador.nome}>
+                                {colaborador.nome}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
                     />
                     {errors.afericoes?.[index]?.motorista && (
                       <p className="text-xs text-destructive">{errors.afericoes[index]?.motorista?.message}</p>
@@ -229,14 +256,14 @@ export function TempoRespostaForm({
                     )}
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex items-end">
                     {!readOnly && (
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => remove(index)}
-                        className="mt-6 w-full"
+                        className="w-full"
                       >
                         Remover
                       </Button>

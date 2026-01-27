@@ -6,8 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLancamentos } from '@/hooks/useLancamentos'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { formatDateForDisplay } from '@/lib/date-utils'
 import type { Database } from '@/lib/database.types'
 import {
   OcorrenciaAeronauticaForm,
@@ -161,7 +160,6 @@ export function DashboardChefe() {
 
   const getBaseName = (id: string) => bases?.find((b) => b.id === id)?.nome || 'N/A'
   const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || 'N/A'
-  const getIndicadorName = (id: string) => indicadores?.find((i) => i.id === id)?.nome || 'N/A'
 
   const canEdit = (lancamento: Lancamento) => lancamento.equipe_id === equipeId
 
@@ -285,9 +283,7 @@ export function DashboardChefe() {
                               {lancamentosOrdenados.map((lancamento) => (
                                 <tr key={lancamento.id} className="border-b hover:bg-gray-50">
                                   <td className="p-3">
-                                    {format(new Date(lancamento.data_referencia), 'dd/MM/yyyy', {
-                                      locale: ptBR,
-                                    })}
+                                    {formatDateForDisplay(lancamento.data_referencia)}
                                   </td>
                                   <td className="p-3">{getBaseName(lancamento.base_id)}</td>
                                   <td className="p-3">{getEquipeName(lancamento.equipe_id)}</td>
@@ -346,7 +342,7 @@ export function DashboardChefe() {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
         >
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+          <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
             <CardHeader className="relative">
               <CardTitle>
                 {selectedLancamento ? 'Editar' : 'Novo'} - {selectedIndicador.nome}
@@ -365,10 +361,11 @@ export function DashboardChefe() {
                 ✕
               </Button>
             </CardHeader>
-            <CardContent>
-              <FormComponent
-                indicadorId={selectedIndicador.id}
-                onSuccess={handleFormSuccess}
+            <CardContent className="max-h-[calc(90vh-120px)] overflow-y-auto p-0">
+              <div className="p-6 [&_*]:max-w-none">
+                <FormComponent
+                  indicadorId={selectedIndicador.id}
+                  onSuccess={handleFormSuccess}
                 initialData={
                   selectedLancamento
                     ? {
@@ -379,20 +376,21 @@ export function DashboardChefe() {
                       }
                     : undefined
                 }
-                readOnly={false}
-              />
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowFormModal(false)
-                    setSelectedIndicador(null)
-                    setSelectedLancamento(null)
-                  }}
-                >
-                  Cancelar
-                </Button>
+                  readOnly={false}
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowFormModal(false)
+                      setSelectedIndicador(null)
+                      setSelectedLancamento(null)
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -404,7 +402,7 @@ export function DashboardChefe() {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
         >
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+          <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
             <CardHeader className="relative">
               <CardTitle>Visualizar - {selectedIndicador.nome}</CardTitle>
               <Button
@@ -421,33 +419,35 @@ export function DashboardChefe() {
                 ✕
               </Button>
             </CardHeader>
-            <CardContent>
-              <FormComponent
-                indicadorId={selectedIndicador.id}
-                onSuccess={() => {
-                  setShowViewModal(false)
-                  setSelectedIndicador(null)
-                  setSelectedLancamento(null)
-                }}
+            <CardContent className="max-h-[calc(90vh-120px)] overflow-y-auto p-0">
+              <div className="p-6 [&_*]:max-w-none">
+                <FormComponent
+                  indicadorId={selectedIndicador.id}
+                  onSuccess={() => {
+                    setShowViewModal(false)
+                    setSelectedIndicador(null)
+                    setSelectedLancamento(null)
+                  }}
                 initialData={{
                   data_referencia: selectedLancamento.data_referencia,
                   base_id: selectedLancamento.base_id,
                   equipe_id: selectedLancamento.equipe_id,
                   ...(selectedLancamento.conteudo as Record<string, unknown>),
                 }}
-                readOnly={true}
-              />
-              <div className="mt-4 flex justify-end">
-                <Button
-                  onClick={() => {
-                    setShowViewModal(false)
-                    setSelectedIndicador(null)
-                    setSelectedLancamento(null)
-                  }}
-                  variant="outline"
-                >
-                  Fechar
-                </Button>
+                  readOnly={true}
+                />
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    onClick={() => {
+                      setShowViewModal(false)
+                      setSelectedIndicador(null)
+                      setSelectedLancamento(null)
+                    }}
+                    variant="outline"
+                  >
+                    Fechar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

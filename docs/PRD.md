@@ -21,8 +21,9 @@ Escrita: Insere/Edita apenas para sua Equipe.
 A. Tabelas de Catálogo (Dados Estáticos)
 
 O script SQL de inicialização deve criar e popular estas tabelas automaticamente:
-bases: Tabela contendo exatamente as 34 bases abaixo:
-Dados: "ALTAMIRA", "ARACAJU", "BACACHERI", "BELEM", "BRASILIA", "CAMPO DE MARTE", "CARAJAS", "CONFINS", "CONGONHAS", "CUIABA", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIANIA", "IMPERATRIZ", "JACAREPAGUA", "JOINVILE", "LONDRINA", "MACAE", "MACAPA", "MACEIO", "MARABA", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTAREM", "SÃO LUIZ", "SINOP", "TERESINA", "VITORIA".
+bases: Tabela contendo as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
+Bases Aeroportuárias: "ALTAMIRA", "ARACAJU", "BACACHERI", "BELEM", "BRASILIA", "CAMPO DE MARTE", "CARAJAS", "CONFINS", "CONGONHAS", "CUIABA", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIANIA", "IMPERATRIZ", "JACAREPAGUA", "JOINVILE", "LONDRINA", "MACAE", "MACAPA", "MACEIO", "MARABA", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTAREM", "SÃO LUIZ", "SINOP", "TERESINA", "VITORIA".
+Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral).
 
 equipes: Tabela contendo as 5 equipes padrão:
 
@@ -211,9 +212,43 @@ Autenticação via Supabase Auth.
 
 Tela 2: Painel do Chefe (Dashboard & Histórico)
 
-Histórico: Tabela com lançamentos da Base.
+Histórico: Painel de Controle de Lançamentos Profissional
 
-Regra: Pode Editar/Excluir apenas dados da sua Equipe. Dados de outras equipes da mesma base são "Read-only" (apenas visualização).
+Estrutura:
+- Barra de Ferramentas (Toolbar) com filtros dinâmicos:
+  - Input de Busca: Busca por texto em campos como local, observações, tipo de ocorrência (busca no JSONB conteudo).
+  - Select "Filtrar por Indicador": Lista todos os 14 indicadores disponíveis.
+  - Select "Mês/Ano": Filtro por período (últimos 12 meses disponíveis).
+  - Botão "Limpar Filtros": Reseta todos os filtros e retorna à primeira página.
+
+- Tabela de Lançamentos (Visual "Excel Inteligente"):
+  - Coluna DATA: Exibe data formatada usando formatDateForDisplay (DD/MM/YYYY) para evitar erros de timezone.
+  - Coluna INDICADOR: Badge colorida por categoria:
+    - Vermelho (destructive): Ocorrências Aeronáuticas e Não Aeronáuticas.
+    - Azul/Preto (default): TAF, Prova Teórica, Treinamento, Tempo TP/EPR.
+    - Cinza (secondary): Tempo Resposta, Inspeção de Viaturas.
+    - Borda (outline): Estoque, Trocas, Higienização, EPI.
+  - Coluna RESUMO: Texto curto e relevante extraído dinamicamente do JSONB conteudo:
+    - Ocorrências: "Local: [nome do local]" ou "Tipo: [tipo]".
+    - TAF/Treinamento/Prova Teórica: "[X] avaliados" ou "[X] colaboradores".
+    - Estoque: "Pó Químico: [quantidade]kg" ou lista de itens principais.
+    - Tempo Resposta: "[X] aferições".
+    - Outros: Resumo específico conforme o tipo de indicador.
+  - Colunas BASE e EQUIPE: Nomes das bases e equipes.
+  - Coluna AÇÕES: Botões Ver/Editar/Excluir com regra de permissão:
+    - Se for da minha equipe: Ver/Editar/Excluir disponíveis.
+    - Se for de outra equipe: Apenas Ver (somente leitura).
+
+- Paginação Server-Side:
+  - Implementação: Usa .range(from, to) do Supabase para buscar apenas os registros da página atual.
+  - Tamanho de página: 20 registros por página (configurável).
+  - Ordenação: Sempre data_referencia decrescente (mais recente primeiro).
+  - Rodapé de Paginação:
+    - Exibe "Página X de Y ([total] lançamentos)".
+    - Botões "Anterior" e "Próximo" com estados disabled quando apropriado.
+    - Scroll automático para o topo da tabela ao mudar de página.
+
+Regra de Permissão: Pode Editar/Excluir apenas dados da sua Equipe. Dados de outras equipes da mesma base são "Read-only" (apenas visualização).
 Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo readOnly={true}.
 
 Tela 3: Dashboard Gerencial
@@ -221,23 +256,46 @@ Filtros Globais: Base, Equipe, Período.
 Botão "Gestão de Usuários" (Admin).
 
 Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
-Objetivo: Cadastrar os Chefes de Equipe e vincular corretamente à Base/Equipe.
+Objetivo: Cadastrar e gerenciar os Chefes de Equipe e vincular corretamente à Base/Equipe.
 
 Visualização:
-Tabela listando todos os usuários cadastrados (Nome | Email | Base | Equipe | Perfil).
+Filtro Dinâmico por Base: Select acima da tabela com opção "Todas as Bases" (padrão) e lista de todas as bases disponíveis.
+- Ao selecionar uma base específica: Mostra apenas Chefes de Equipe vinculados àquela base + Gerentes Gerais (que sempre aparecem).
+- Ao selecionar "Todas as Bases": Mostra todos os usuários cadastrados.
+- Comportamento: Gerentes Gerais (role='geral') sempre aparecem na lista, independente do filtro selecionado, para garantir que o administrador nunca desapareça da visualização.
+
+Tabela listando todos os usuários cadastrados (Nome | Email | Base | Equipe | Perfil | Ações).
 Botão "Adicionar Novo Usuário" no topo.
+Coluna Ações: Botões "Editar" e "Remover" para cada usuário.
 
 Formulário de Cadastro (Modal):
-Nome Completo: Texto.
-Email: Email (Será o login).
-Senha Provisória: Password (min 6 chars).
+Nome Completo: Texto (obrigatório).
+Email: Email (obrigatório no cadastro, opcional na edição).
+Senha Provisória: Password (min 6 chars no cadastro, opcional na edição).
 Perfil (Role): Select ("Gerente Geral" ou "Chefe de Equipe").
-Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe.
-Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe.
+- Seleção Automática de Base: Quando o usuário seleciona "Gerente Geral", o campo Base é automaticamente preenchido com "ADMINISTRATIVO" e desabilitado (campo visual apenas, não editável). O campo Equipe não é exibido para Gerentes Gerais.
+- Seleção Manual: Quando o usuário seleciona "Chefe de Equipe", os campos Base e Equipe aparecem normalmente e são obrigatórios para seleção manual.
+Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe, automático se for Gerente Geral.
+Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe, não exibido se for Gerente Geral.
 
-Ação de Salvar:
-IMPORTANTE: O Frontend NÃO deve usar supabase.auth.signUp (pois isso desloga o admin).
-O Frontend deve chamar a Edge Function create-user passando os dados.
+Modo Edição:
+- Ao clicar em "Editar", o modal abre preenchido com os dados do usuário selecionado.
+- Título do modal muda para "Editar Usuário".
+- Campo Email: Opcional (placeholder: "Deixe em branco para manter o atual").
+  - Se o email do usuário for "N/A", o campo é automaticamente limpo (vazio) para permitir edição.
+  - Validação aceita: email válido, string vazia ou "N/A".
+- Campo Senha: Opcional (placeholder: "Deixe em branco para manter a atual").
+- Mensagem de ajuda: "Altere os dados do usuário. Deixe a senha em branco para manter a atual."
+- Botão de ação: "Salvar Alterações".
+- Tratamento de erros: Mensagens específicas quando Edge Function não está disponível ou retorna erro.
+
+Ações:
+- Criar Usuário: O Frontend chama a Edge Function create-user passando os dados.
+- Editar Usuário: O Frontend chama a Edge Function update-user passando id, nome, role, base_id, equipe_id, email (opcional), password (opcional).
+- Remover Usuário: O Frontend chama a Edge Function delete-user passando userId.
+
+IMPORTANTE: O Frontend NÃO deve usar supabase.auth.signUp ou métodos diretos de auth (pois isso desloga o admin).
+Todas as operações devem ser feitas via Edge Functions usando Service Role Key.
 
 Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Apenas Gerente Geral)
 Objetivo: Cadastrar e gerenciar o efetivo (bombeiros/colaboradores) de cada base.
@@ -268,37 +326,136 @@ Integração:
 - A lista atualiza automaticamente após adicionar/remover (invalidateQueries).
 - Todos os colaboradores são vinculados à base selecionada no momento do cadastro.
 
-7. Módulo de Analytics (Dashboard da Diretoria) - CRÍTICO
-Arquitetura: Filtros Globais (Base/Data/Equipe) + Abas por Indicador.
-Especificações Gráficas por Indicador:
+## 7. Módulo de Analytics (Dashboard Hub - Diretoria/ANAC)
 
-1. Ocorrência Aeronáutica
-KPIs: Total Ocorrências | Maior tempo 1ª viatura | Maior tempo última viatura | Total Horas Somadas.
-Gráfico: Linha (Evolução mensal).
-Listas: Por Localidade | Lista Geral Detalhada.
+**Conceito:** Dashboard com navegação lateral (Sidebar) para análise granular e individual dos indicadores críticos. Transforma dados técnicos em tomadas de decisão para a Diretoria.
 
-2. Ocorrência Não Aeronáutica
-KPIs: Total Ocorrências | Total Horas Somadas.
-Gráficos: Linha (Evolução mensal) | Barras (Top 5 Tipos) | Barras (Tempo Total por mês).
-Listas: Por Localidade | Lista Geral Detalhada.
+**Arquitetura de Layout:**
+- **Sidebar (Esquerda):** Menu de navegação lateral com categorias organizadas:
+  - "Visão Geral" (Resumo de tudo)
+  - "Ocorrências" (Submenu: Aero, Não Aero, Acessórias)
+  - "Pessoal & Treino" (Submenu: TAF, Prova, Treino, TP/EPR)
+  - "Frota" (Submenu: Tempo Resposta, Inspeção)
+  - "Logística" (Agrupa Estoque, EPI, Trocas)
+- **Conteúdo Principal (Centro):** Área dinâmica que muda conforme a visão selecionada
+- **Barra de Filtros (Topo do Conteúdo):** Filtros específicos para cada visão usando componente `AnalyticsFilterBar`
 
-3. Teste de Aptidão Física (TAF)
-KPIs: Menor Tempo | Tempo Médio | Tempo Máximo.
-Gráficos: Barras (Distribuição Minutos) | Barras (Média por Equipe) | Rosca (% Aprovado/Reprovado) | Linha (Evolução Média Mensal) | Scatter/Barra (Média por Idade).
+**Filtros Dinâmicos (AnalyticsFilterBar):**
+- **Filtros Globais (Sempre presentes):**
+  1. **Base:** Select com opção "Todas as bases" + lista de bases
+  2. **Data Início:** Input tipo date
+  3. **Data Fim:** Input tipo date
+- **Filtros Condicionais:**
+  - **Filtro por Colaborador:** Aparece quando a visão é TAF, Prova Teórica, Treinamento ou TP/EPR
+    - Select com lista de colaboradores ativos da base selecionada
+    - Lógica: Se um colaborador for selecionado, os gráficos filtram os dados JSONB para mostrar apenas o histórico dele
+  - **Filtro por Tipo de Ocorrência:** Aparece quando a visão é Ocorrência Aeronáutica ou Não Aeronáutica
+    - Select com opções: "Todos os tipos", "Incêndio", "Resgate", "Emergência Médica", "Outros"
 
-4. Tempo TP/EPR
-KPIs: Menor Tempo | Tempo Médio | Tempo Máximo.
-Gráficos: Linha (Evolução Média Mensal) | Barras (Desempenho por Equipe).
-Lista: Completa com status.
+**Processamento de Dados:**
+- Funções utilitárias em `src/lib/analytics-utils.ts` para "achatar" (flatten) dados JSONB antes de gerar gráficos
+- Função `filterByColaborador()` para filtrar lançamentos por nome dentro de arrays JSONB (avaliados, participantes, afericoes, colaboradores)
+- Todas as funções de processamento suportam filtragem por colaborador quando aplicável
 
-5. Tempo Resposta
-KPIs: Menor Tempo (Exibir Motorista+Viatura) | Maior Tempo (Exibir Motorista+Viatura).
-Gráfico: Linha (Evolução Tempo Médio Mensal).
-Lista: Completa detalhada.
+### GRUPO A: ANÁLISE INDIVIDUAL (Deep Dive)
+*Estes indicadores possuem telas exclusivas com visualizações detalhadas.*
 
-6. Horas de Treinamento
-Gráficos: Linha (Média Horas Mensal) | Barras (Total Horas por Equipe) | Linha (Total Absoluto Mensal).
-Lista: Completa.
+#### 1. Ocorrência Aeronáutica
+*   **KPIs:**
+    *   Total de Ocorrências
+    *   Maior Tempo 1ª Viatura
+    *   Maior Tempo Última Viatura
+    *   Total Horas Somadas
+*   **Gráficos:**
+    *   [Linha] Evolução Mensal (Eixo X = Meses, Eixo Y = Quantidade)
+
+#### 2. Ocorrência Não Aeronáutica
+*   **KPIs:**
+    *   Total de Ocorrências
+    *   Total Horas Somadas
+*   **Gráficos:**
+    *   [Linha] Evolução Mensal
+    *   [Barras Horizontais] Top 5 Tipos (Contagem por tipo_ocorrencia)
+
+#### 3. Atividades Acessórias
+*   **KPIs:**
+    *   Total de Atividades Realizadas
+*   **Gráficos:**
+    *   [Linha] Evolução Mensal
+    *   [Barras] Volume por Tipo de Atividade
+
+#### 4. Teste de Aptidão Física (TAF)
+*   **Filtro Crítico:** **Buscar Colaborador** (Select com lista de colaboradores ativos)
+    *   *Comportamento:* Se um colaborador for selecionado, os gráficos mostram apenas o histórico dele
+*   **KPIs:**
+    *   Menor Tempo
+    *   Tempo Médio
+    *   Tempo Máximo
+*   **Gráficos:**
+    *   [Rosca/Donut] Taxa de Aprovação Global (Verde = Aprovado, Vermelho = Reprovado) com % no centro
+    *   [Linha] Evolução Média Mensal (Curva de Agilidade)
+
+#### 5. Prova Teórica (PTR-BA)
+*   **Filtro Crítico:** **Buscar Colaborador**
+*   **KPIs:**
+    *   Total Avaliados
+    *   Nota Média
+    *   Taxa de Aprovação (%)
+*   **Gráficos:**
+    *   [Rosca/Donut] Taxa de Aprovação (Verde = Aprovado, Vermelho = Reprovado)
+    *   [Linha] Evolução Nota Média Mensal
+
+#### 6. Horas de Treinamento
+*   **Filtro Crítico:** **Buscar Colaborador**
+*   **Gráficos:**
+    *   [Barras] Total de Horas por Equipe
+    *   [Linha] Evolução Mensal (Total Absoluto)
+
+#### 7. Inspeção de Viaturas
+*   **KPIs:**
+    *   Total Inspeções
+    *   Total Não Conforme
+    *   Taxa de Conformidade (%)
+*   **Gráficos:**
+    *   [Barras] Manutenção de Viaturas (Soma de qtd_nao_conforme agrupado por Modelo de Viatura: CCI 01, CCI 02, etc)
+
+#### 8. Tempo TP/EPR
+*   **Filtro Crítico:** **Buscar Colaborador**
+*   **KPIs:**
+    *   Menor Tempo
+    *   Tempo Médio
+    *   Tempo Máximo
+*   **Gráficos:**
+    *   [Linha] Evolução Média Mensal
+
+#### 9. Tempo Resposta
+*   **KPIs:**
+    *   Menor Tempo (com Motorista e Viatura)
+*   **Gráficos:**
+    *   [Linha] Curva de Agilidade (Tempo Médio Mensal) - Inclui "Linha de Referência" (Meta) se possível
+*   **Tabela Destaque:** "Top 3 Melhores Tempos de Resposta" (Mostrar Motorista, Viatura e Tempo)
+
+---
+
+### GRUPO B: LOGÍSTICA & MATERIAIS (Visão Agrupada)
+*Estes indicadores são analisados em conjunto em uma única tela chamada "Logística".*
+
+**Indicadores Agrupados:** Estoque, EPI, Trocas
+
+*   **Gráfico 1 (Saúde do Estoque):** [Barras Compostas]
+    *   Para Pó Químico, LGE e Nitrogênio
+    *   Barra 1: Quantidade Atual
+    *   Barra 2: Quantidade Exigida
+    *   Regra de Cor: Se Atual < Exigido, a barra Atual deve ser Vermelha (#ef4444). Se ok, Azul/Verde
+*   **Gráfico 2 (Entrega de EPI/Uniformes):** [Área/Linha]
+    *   Média da % de atingimento (total_epi_pct e total_unif_pct)
+*   **KPIs de Movimentação:** Total de Trocas no período
+
+**Detalhes Técnicos:**
+- Todos os gráficos usam Recharts
+- Gráficos de pizza são sempre Donut (Roscas) com a % no centro ou legenda clara
+- Cores do tema shadcn (primary, destructive, muted) para consistência visual
+- Data Parsing: Funções em `analytics-utils.ts` suportam filtragem por nome dentro dos arrays JSON (ex: encontrar todas as provas do 'João' dentro dos lançamentos)
 
 8. Instruções Técnicas para o Cursor (Coding Steps)
 
@@ -310,6 +467,29 @@ Receber o payload: { email, password, nome, role, base_id, equipe_id }.
 Instanciar o createClient usando a SUPABASE_SERVICE_ROLE_KEY (acesso admin).
 Executar auth.admin.createUser({ email, password, email_confirm: true }).
 Pegar o ID gerado e inserir na tabela public.profiles com os dados recebidos.
+Retornar sucesso ou erro para o frontend.
+
+1.2. Edge Function (update-user)
+Para permitir edição de usuários existentes sem interromper a sessão atual:
+Crie uma função Supabase (supabase functions new update-user).
+Lógica:
+Receber o payload: { id, nome, role, base_id, equipe_id, email (opcional), password (opcional) }.
+Instanciar o createClient usando a SUPABASE_SERVICE_ROLE_KEY (acesso admin).
+Verificar se o usuário existe na tabela public.profiles.
+Atualizar a tabela public.profiles: nome, role, base_id, equipe_id.
+Se email ou password forem fornecidos e diferentes do atual:
+  - Usar auth.admin.updateUserById(id, { email, password }) para atualizar credenciais.
+Retornar sucesso ou erro para o frontend.
+Observação: Se email ou password não forem fornecidos (ou vazios), apenas o perfil é atualizado.
+
+1.3. Edge Function (delete-user)
+Para permitir remoção de usuários:
+Crie uma função Supabase (supabase functions new delete-user).
+Lógica:
+Receber o payload: { userId }.
+Instanciar o createClient usando a SUPABASE_SERVICE_ROLE_KEY (acesso admin).
+Deletar o perfil da tabela public.profiles.
+Deletar o usuário do auth usando auth.admin.deleteUser(userId).
 Retornar sucesso ou erro para o frontend.
 Database: Gerar SQL para criar tabelas, JSONB e Policies RLS rigorosas.
 Forms: Criar os 14 formulários em src/components/forms/. Use zod para validação e useFieldArray para as listas dinâmicas. Implementar a lógica de cálculo (ex: Notas do TAF) dentro do form usando watch ou useEffect.
@@ -346,3 +526,63 @@ Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group
   - Todos os 14 formulários em src/components/forms/ (onSubmit atualizado)
   - src/pages/DashboardChefe.tsx (exibição de datas atualizada)
   - src/hooks/useLancamento.ts (normalização de data antes de inserir)
+
+### 9.4. Funcionalidade: Edição de Usuários (Admin)
+- IMPLEMENTAÇÃO: Adicionada funcionalidade completa para editar usuários existentes na tela de Gestão de Usuários.
+- Funcionalidades:
+  - Botão "Editar" na tabela de usuários que abre modal com dados preenchidos.
+  - Modal reutilizado para criação e edição (modo edit detectado automaticamente).
+  - Campos opcionais na edição: Email e Senha podem ser deixados em branco para manter valores atuais.
+  - Validação inteligente: Schema Zod aceita string vazia, "N/A" ou email válido no modo edição.
+  - Edge Function `update-user` criada para atualizar perfil e credenciais via Service Role Key.
+- Arquivos criados:
+  - supabase/functions/update-user/index.ts (Edge Function)
+  - supabase/functions/update-user/README.md (Documentação)
+  - DEPLOY_EDGE_FUNCTION_UPDATE_USER.md (Guia de deploy)
+- Arquivos modificados:
+  - src/pages/GestaoUsuarios.tsx (adicionada mutation updateUserMutation, função handleEditClick, schema updateUserSchema)
+
+### 9.5. Correção: Validação de Email no Modo Edição
+- PROBLEMA: Ao editar usuário com email "N/A" (valor padrão quando email não está disponível), o schema de validação rejeitava o formulário por não ser um email válido.
+- SOLUÇÃO IMPLEMENTADA:
+  - Schema `updateUserSchema` atualizado para aceitar: email válido, string vazia (`''`) ou literal `'N/A'` usando `z.union()`.
+  - Função `handleEditClick` ajustada para limpar automaticamente o campo email quando o valor for `'N/A'`, permitindo edição sem erros.
+  - Mutation `updateUserMutation` ajustada para não enviar `'N/A'` ou string vazia para a Edge Function (mantém email atual).
+- Arquivos modificados:
+  - src/pages/GestaoUsuarios.tsx (schema updateUserSchema, handleEditClick, updateUserMutation)
+
+### 9.6. Melhoria: Tratamento de Erros na Edição de Usuários
+- IMPLEMENTAÇÃO: Melhorado tratamento de erros na mutation `updateUserMutation` para capturar mensagens específicas da Edge Function.
+- Funcionalidades:
+  - Tratamento robusto de erros "non-2xx status code" com fallback para chamada direta via fetch.
+  - Extração de mensagens de erro do `response.data` quando disponível.
+  - Mensagens amigáveis ao usuário quando Edge Function não está disponível.
+  - Logs detalhados no console para debug.
+- Arquivos modificados:
+  - src/pages/GestaoUsuarios.tsx (updateUserMutation com tratamento de erros melhorado)
+
+### 9.7. Melhoria: Filtro por Base na Gestão de Usuários
+- IMPLEMENTAÇÃO: Adicionado filtro dinâmico por Base na tela de Gestão de Usuários para facilitar a visualização do efetivo.
+- Funcionalidades:
+  - Select de filtro acima da tabela com opção "Todas as Bases" (padrão) e lista de todas as bases.
+  - Filtro server-side: Quando uma base é selecionada, a query busca apenas Chefes de Equipe daquela base.
+  - Comportamento especial: Gerentes Gerais (role='geral') sempre aparecem na lista, independente do filtro selecionado.
+  - Query otimizada: Usa duas queries separadas quando há filtro (usuários da base + gerentes gerais) e combina os resultados removendo duplicatas.
+  - Cache inteligente: Query key inclui `filtroBaseId` para cachear resultados por filtro.
+- Arquivos modificados:
+  - src/pages/GestaoUsuarios.tsx (adicionado estado filtroBaseId, Select de filtro, query atualizada com lógica de filtro)
+
+### 9.8. Melhoria: Base ADMINISTRATIVO para Gerentes Gerais
+- IMPLEMENTAÇÃO: Criada base especial 'ADMINISTRATIVO' para organizar usuários com perfil de Gerente Geral.
+- Funcionalidades:
+  - Migration SQL criada para inserir a base 'ADMINISTRATIVO' no banco de dados (se não existir).
+  - Seleção automática: Quando o usuário seleciona o perfil "Gerente Geral" no formulário, o campo Base é automaticamente preenchido com "ADMINISTRATIVO" e desabilitado.
+  - Campo Equipe: Não é exibido para Gerentes Gerais (apenas para Chefes de Equipe).
+  - Filtro: A base 'ADMINISTRATIVO' aparece automaticamente no dropdown de filtro, permitindo filtrar Gerentes Gerais facilmente.
+  - Edição: Ao editar um Gerente Geral, o sistema garante que a base seja 'ADMINISTRATIVO' (busca automaticamente se não estiver definida).
+- Arquivos criados:
+  - supabase/migrations/004_add_base_administrativo.sql (Migration para inserir base ADMINISTRATIVO)
+  - APLICAR_MIGRACAO_BASE_ADMINISTRATIVO.md (Guia de aplicação da migration)
+- Arquivos modificados:
+  - src/pages/GestaoUsuarios.tsx (adicionado useEffect para seleção automática, lógica de exibição condicional de campos, handleEditClick atualizado)
+  - docs/PRD.md (Seção 4 atualizada com base ADMINISTRATIVO, Seção 6 atualizada com regra de preenchimento automático)

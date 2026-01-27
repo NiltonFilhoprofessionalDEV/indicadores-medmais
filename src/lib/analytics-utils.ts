@@ -13,6 +13,43 @@ type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 // ============================================
 
 /**
+ * Filtra lançamentos por nome de colaborador dentro de arrays JSONB
+ */
+export function filterByColaborador(lancamentos: Lancamento[], colaboradorNome: string): Lancamento[] {
+  if (!colaboradorNome) return lancamentos
+
+  const filtered: Lancamento[] = []
+  
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as Record<string, unknown>
+    let hasMatch = false
+    
+    // Arrays comuns: avaliados, participantes, afericoes, colaboradores
+    const arrayKeys = ['avaliados', 'participantes', 'afericoes', 'colaboradores']
+    
+    arrayKeys.forEach((key) => {
+      if (Array.isArray(conteudo[key])) {
+        const array = conteudo[key] as Array<Record<string, unknown>>
+        const hasColaborador = array.some((item) => {
+          const nome = item.nome || item.motorista
+          return nome && String(nome).toLowerCase().includes(colaboradorNome.toLowerCase())
+        })
+        if (hasColaborador) {
+          hasMatch = true
+        }
+      }
+    })
+    
+    // Se encontrou match, incluir o lançamento
+    if (hasMatch) {
+      filtered.push(lancamento)
+    }
+  })
+  
+  return filtered
+}
+
+/**
  * Agrupa lançamentos por mês
  */
 export function groupByMonth(lancamentos: Lancamento[]): Map<string, Lancamento[]> {
@@ -664,4 +701,358 @@ function secondsToMMSS(seconds: number): string {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+/**
+ * 7. ATIVIDADES ACESSÓRIAS
+ */
+export function processAtividadesAcessorias(lancamentos: Lancamento[]) {
+  const atividades: Array<{
+    tipo_atividade: string
+    qtd_equipamentos?: number
+    qtd_bombeiros?: number
+    tempo_gasto?: string
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { atividades?: Array<Record<string, unknown>> }
+    if (conteudo.atividades && Array.isArray(conteudo.atividades)) {
+      conteudo.atividades.forEach((atividade) => {
+        atividades.push({
+          tipo_atividade: (atividade.tipo_atividade as string) || '',
+          qtd_equipamentos: atividade.qtd_equipamentos ? Number(atividade.qtd_equipamentos) : undefined,
+          qtd_bombeiros: atividade.qtd_bombeiros ? Number(atividade.qtd_bombeiros) : undefined,
+          tempo_gasto: (atividade.tempo_gasto as string) || undefined,
+          data_referencia: lancamento.data_referencia,
+        })
+      })
+    }
+  })
+
+  const totalAtividades = atividades.length
+  const tiposCount = new Map<string, number>()
+  atividades.forEach((a) => {
+    const tipo = a.tipo_atividade || 'Não informado'
+    tiposCount.set(tipo, (tiposCount.get(tipo) || 0) + 1)
+  })
+
+  // Evolução mensal
+  const monthlyData = Array.from(groupByMonth(lancamentos).entries())
+    .map(([month, lancs]) => {
+      try {
+        return {
+          mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          quantidade: lancs.length,
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; quantidade: number } => item !== null)
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+
+  return {
+    kpis: {
+      totalAtividades,
+    },
+    graficoEvolucaoMensal: monthlyData,
+    graficoPorTipo: Array.from(tiposCount.entries())
+      .map(([tipo, qtd]) => ({ tipo, qtd }))
+      .sort((a, b) => b.qtd - a.qtd),
+    listaCompleta: atividades,
+  }
+}
+
+/**
+ * 8. PROVA TEÓRICA
+ */
+export function processProvaTeorica(lancamentos: Lancamento[], colaboradorNome?: string) {
+  const avaliados: Array<{
+    nome: string
+    nota: number
+    status: string
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { avaliados?: Array<Record<string, unknown>> }
+    if (conteudo.avaliados && Array.isArray(conteudo.avaliados)) {
+      conteudo.avaliados.forEach((avaliado) => {
+        const nome = (avaliado.nome as string) || ''
+        if (!colaboradorNome || nome.toLowerCase().includes(colaboradorNome.toLowerCase())) {
+          avaliados.push({
+            nome,
+            nota: Number(avaliado.nota) || 0,
+            status: (avaliado.status as string) || '',
+            data_referencia: lancamento.data_referencia,
+          })
+        }
+      })
+    }
+  })
+
+  const total = avaliados.length
+  const aprovados = avaliados.filter((a) => a.status === 'Aprovado').length
+  const reprovados = avaliados.filter((a) => a.status === 'Reprovado').length
+  const notaMedia = total > 0 ? avaliados.reduce((sum, a) => sum + a.nota, 0) / total : 0
+
+  // Evolução mensal
+  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  avaliados.forEach((a) => {
+    const month = format(parse(a.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+    const current = mediaPorMes.get(month) || { total: 0, count: 0 }
+    mediaPorMes.set(month, {
+      total: current.total + a.nota,
+      count: current.count + 1,
+    })
+  })
+
+  return {
+    kpis: {
+      totalAvaliados: total,
+      notaMedia: notaMedia.toFixed(2),
+      taxaAprovacao: total > 0 ? ((aprovados / total) * 100).toFixed(1) : '0.0',
+    },
+    graficoAprovadoReprovado: [
+      { name: 'Aprovado', value: aprovados, porcentagem: total > 0 ? (aprovados / total) * 100 : 0 },
+      { name: 'Reprovado', value: reprovados, porcentagem: total > 0 ? (reprovados / total) * 100 : 0 },
+    ],
+    graficoEvolucaoMediaMensal: Array.from(mediaPorMes.entries())
+      .map(([mes, data]) => {
+        try {
+          return {
+            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+            media: (data.total / data.count).toFixed(2),
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter((item): item is { mes: string; media: string } => item !== null)
+      .sort((a, b) => a.mes.localeCompare(b.mes)),
+    listaCompleta: avaliados,
+  }
+}
+
+/**
+ * 9. INSPEÇÃO DE VIATURAS
+ */
+export function processInspecaoViaturas(lancamentos: Lancamento[]) {
+  const inspecoes: Array<{
+    viatura: string
+    qtd_inspecoes: number
+    qtd_nao_conforme: number
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { inspecoes?: Array<Record<string, unknown>> }
+    if (conteudo.inspecoes && Array.isArray(conteudo.inspecoes)) {
+      conteudo.inspecoes.forEach((inspecao) => {
+        inspecoes.push({
+          viatura: (inspecao.viatura as string) || '',
+          qtd_inspecoes: Number(inspecao.qtd_inspecoes) || 0,
+          qtd_nao_conforme: Number(inspecao.qtd_nao_conforme) || 0,
+          data_referencia: lancamento.data_referencia,
+        })
+      })
+    }
+  })
+
+  const totalInspecoes = inspecoes.reduce((sum, i) => sum + i.qtd_inspecoes, 0)
+  const totalNaoConforme = inspecoes.reduce((sum, i) => sum + i.qtd_nao_conforme, 0)
+
+  // Por modelo de viatura
+  const porViatura = new Map<string, { inspecoes: number; naoConforme: number }>()
+  inspecoes.forEach((i) => {
+    const current = porViatura.get(i.viatura) || { inspecoes: 0, naoConforme: 0 }
+    porViatura.set(i.viatura, {
+      inspecoes: current.inspecoes + i.qtd_inspecoes,
+      naoConforme: current.naoConforme + i.qtd_nao_conforme,
+    })
+  })
+
+  return {
+    kpis: {
+      totalInspecoes,
+      totalNaoConforme,
+      taxaConformidade: totalInspecoes > 0 ? (((totalInspecoes - totalNaoConforme) / totalInspecoes) * 100).toFixed(1) : '100.0',
+    },
+    graficoPorViatura: Array.from(porViatura.entries())
+      .map(([viatura, data]) => ({
+        viatura,
+        inspecoes: data.inspecoes,
+        naoConforme: data.naoConforme,
+      }))
+      .sort((a, b) => b.naoConforme - a.naoConforme),
+    listaCompleta: inspecoes,
+  }
+}
+
+/**
+ * 10. CONTROLE DE ESTOQUE
+ */
+export function processControleEstoque(lancamentos: Lancamento[]) {
+  const itens: Array<{
+    tipo_material: string
+    qtd_atual: number
+    qtd_exigida: number
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { itens?: Array<Record<string, unknown>> }
+    if (conteudo.itens && Array.isArray(conteudo.itens)) {
+      conteudo.itens.forEach((item) => {
+        itens.push({
+          tipo_material: (item.tipo_material as string) || '',
+          qtd_atual: Number(item.qtd_atual) || 0,
+          qtd_exigida: Number(item.qtd_exigida) || 0,
+          data_referencia: lancamento.data_referencia,
+        })
+      })
+    }
+  })
+
+  // Agrupar por tipo de material (última entrada de cada tipo)
+  const porMaterial = new Map<string, { atual: number; exigida: number }>()
+  itens.forEach((item) => {
+    porMaterial.set(item.tipo_material, {
+      atual: item.qtd_atual,
+      exigida: item.qtd_exigida,
+    })
+  })
+
+  return {
+    kpis: {
+      totalMateriais: porMaterial.size,
+    },
+    graficoSaudeEstoque: Array.from(porMaterial.entries())
+      .map(([material, data]) => ({
+        material,
+        atual: data.atual,
+        exigida: data.exigida,
+        status: data.atual < data.exigida ? 'Crítico' : 'OK',
+      }))
+      .sort((a, b) => a.material.localeCompare(b.material)),
+    listaCompleta: itens,
+  }
+}
+
+/**
+ * 11. CONTROLE DE EPI
+ */
+export function processControleEPI(lancamentos: Lancamento[]) {
+  const colaboradores: Array<{
+    nome: string
+    epi_entregue: number
+    epi_previsto: number
+    unif_entregue: number
+    unif_previsto: number
+    total_epi_pct: number
+    total_unif_pct: number
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { colaboradores?: Array<Record<string, unknown>> }
+    if (conteudo.colaboradores && Array.isArray(conteudo.colaboradores)) {
+      conteudo.colaboradores.forEach((colab) => {
+        colaboradores.push({
+          nome: (colab.nome as string) || '',
+          epi_entregue: Number(colab.epi_entregue) || 0,
+          epi_previsto: Number(colab.epi_previsto) || 0,
+          unif_entregue: Number(colab.unif_entregue) || 0,
+          unif_previsto: Number(colab.unif_previsto) || 0,
+          total_epi_pct: Number(colab.total_epi_pct) || 0,
+          total_unif_pct: Number(colab.total_unif_pct) || 0,
+          data_referencia: lancamento.data_referencia,
+        })
+      })
+    }
+  })
+
+  const totalEPI = colaboradores.reduce((sum, c) => sum + c.total_epi_pct, 0)
+  const totalUnif = colaboradores.reduce((sum, c) => sum + c.total_unif_pct, 0)
+  const mediaEPI = colaboradores.length > 0 ? totalEPI / colaboradores.length : 0
+  const mediaUnif = colaboradores.length > 0 ? totalUnif / colaboradores.length : 0
+
+  return {
+    kpis: {
+      mediaEPI: mediaEPI.toFixed(1),
+      mediaUnif: mediaUnif.toFixed(1),
+    },
+    graficoEntregaEPI: Array.from(groupByMonth(lancamentos).entries())
+      .map(([month]) => {
+        const mesColabs = colaboradores.filter((c) => {
+          const monthKey = format(parse(c.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+          return monthKey === month
+        })
+        const mediaMes = mesColabs.length > 0
+          ? mesColabs.reduce((sum, c) => sum + c.total_epi_pct, 0) / mesColabs.length
+          : 0
+        try {
+          return {
+            mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+            media: mediaMes.toFixed(1),
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter((item): item is { mes: string; media: string } => item !== null)
+      .sort((a, b) => a.mes.localeCompare(b.mes)),
+    listaCompleta: colaboradores,
+  }
+}
+
+/**
+ * 12. CONTROLE DE TROCAS
+ */
+export function processControleTrocas(lancamentos: Lancamento[]) {
+  const trocas: Array<{
+    qtd_trocas: number
+    data_referencia: string
+  }> = []
+
+  lancamentos.forEach((lancamento) => {
+    const conteudo = lancamento.conteudo as { qtd_trocas?: number }
+    if (conteudo.qtd_trocas !== undefined) {
+      trocas.push({
+        qtd_trocas: Number(conteudo.qtd_trocas) || 0,
+        data_referencia: lancamento.data_referencia,
+      })
+    }
+  })
+
+  const totalTrocas = trocas.reduce((sum, t) => sum + t.qtd_trocas, 0)
+
+  // Evolução mensal
+  const monthlyData = Array.from(groupByMonth(lancamentos).entries())
+    .map(([month]) => {
+      const mesTrocas = trocas.filter((t) => {
+        const monthKey = format(parse(t.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+        return monthKey === month
+      })
+      const totalMes = mesTrocas.reduce((sum, t) => sum + t.qtd_trocas, 0)
+      try {
+        return {
+          mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          quantidade: totalMes,
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; quantidade: number } => item !== null)
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+
+  return {
+    kpis: {
+      totalTrocas,
+    },
+    graficoEvolucaoMensal: monthlyData,
+    listaCompleta: trocas,
+  }
 }

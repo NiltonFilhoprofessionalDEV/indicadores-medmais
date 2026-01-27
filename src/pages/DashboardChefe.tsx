@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLancamentos } from '@/hooks/useLancamentos'
-import { formatDateForDisplay } from '@/lib/date-utils'
+import { HistoryTable } from '@/components/HistoryTable'
 import type { Database } from '@/lib/database.types'
 import {
   OcorrenciaAeronauticaForm,
@@ -70,11 +69,7 @@ export function DashboardChefe() {
     },
   })
 
-  // Buscar lançamentos da base (chefe vê toda a base)
-  const { data: lancamentos, isLoading } = useLancamentos({
-    baseId: baseId || undefined,
-    enabled: !!baseId,
-  })
+  // Removido: useLancamentos agora é usado dentro do HistoryTable
 
   // Buscar bases e equipes para exibir nomes
   const { data: bases } = useQuery<Base[]>({
@@ -215,126 +210,17 @@ export function DashboardChefe() {
           </CardContent>
         </Card>
 
-        {/* Seção: Histórico */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Lançamentos</CardTitle>
-            <CardDescription>
-              Visualize todos os lançamentos da sua base agrupados por indicador. Você pode editar/excluir apenas os
-              lançamentos da sua equipe.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                <p className="mt-2 text-gray-600">Carregando...</p>
-              </div>
-            ) : !lancamentos || lancamentos.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                Nenhum lançamento encontrado.
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {(() => {
-                  // Agrupar lançamentos por indicador
-                  const lancamentosPorIndicador = lancamentos.reduce((acc, lancamento) => {
-                    const indicadorId = lancamento.indicador_id
-                    if (!acc[indicadorId]) {
-                      acc[indicadorId] = []
-                    }
-                    acc[indicadorId].push(lancamento)
-                    return acc
-                  }, {} as Record<string, Lancamento[]>)
-
-                  // Ordenar por nome do indicador
-                  const indicadoresOrdenados = indicadores?.filter((ind) => 
-                    lancamentosPorIndicador[ind.id]
-                  ).sort((a, b) => a.nome.localeCompare(b.nome)) || []
-
-                  return indicadoresOrdenados.map((indicador) => {
-                    const lancamentosDoIndicador = lancamentosPorIndicador[indicador.id] || []
-                    // Ordenar lançamentos por data (mais recente primeiro)
-                    const lancamentosOrdenados = [...lancamentosDoIndicador].sort((a, b) => {
-                      const dateA = new Date(a.data_referencia).getTime()
-                      const dateB = new Date(b.data_referencia).getTime()
-                      return dateB - dateA
-                    })
-
-                    return (
-                      <div key={indicador.id} className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-100 px-4 py-3 border-b">
-                          <h3 className="font-semibold text-lg">{indicador.nome}</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {lancamentosOrdenados.length} lançamento{lancamentosOrdenados.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="border-b bg-gray-50">
-                                <th className="text-left p-3 font-semibold text-sm">Data</th>
-                                <th className="text-left p-3 font-semibold text-sm">Base</th>
-                                <th className="text-left p-3 font-semibold text-sm">Equipe</th>
-                                <th className="text-left p-3 font-semibold text-sm">Ações</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {lancamentosOrdenados.map((lancamento) => (
-                                <tr key={lancamento.id} className="border-b hover:bg-gray-50">
-                                  <td className="p-3">
-                                    {formatDateForDisplay(lancamento.data_referencia)}
-                                  </td>
-                                  <td className="p-3">{getBaseName(lancamento.base_id)}</td>
-                                  <td className="p-3">{getEquipeName(lancamento.equipe_id)}</td>
-                                  <td className="p-3">
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleVerLancamento(lancamento)}
-                                      >
-                                        Ver
-                                      </Button>
-                                      {canEdit(lancamento) && (
-                                        <>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleEditarLancamento(lancamento)}
-                                          >
-                                            Editar
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleExcluirLancamento(lancamento)}
-                                            className="text-red-600 hover:text-red-700"
-                                          >
-                                            Excluir
-                                          </Button>
-                                        </>
-                                      )}
-                                      {!canEdit(lancamento) && (
-                                        <span className="text-xs text-gray-400 px-2 py-1">
-                                          Somente leitura
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )
-                  })
-                })()}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Seção: Histórico - Novo Componente com Paginação e Filtros */}
+        <HistoryTable
+          baseId={baseId || undefined}
+          equipeId={equipeId || undefined}
+          onView={handleVerLancamento}
+          onEdit={handleEditarLancamento}
+          onDelete={handleExcluirLancamento}
+          canEdit={canEdit}
+          getBaseName={getBaseName}
+          getEquipeName={getEquipeName}
+        />
       </main>
 
       {/* Modal: Formulário de Cadastro/Edição */}

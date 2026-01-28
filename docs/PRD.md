@@ -334,7 +334,7 @@ Filtro Dinâmico por Base: Select acima da tabela com opção "Todas as Bases" (
 - Comportamento: Gerentes Gerais (role='geral') sempre aparecem na lista, independente do filtro selecionado, para garantir que o administrador nunca desapareça da visualização.
 
 Tabela listando todos os usuários cadastrados (Nome | Email | Base | Equipe | Perfil | Ações).
-Botão "Adicionar Novo Usuário" no topo.
+Botões no topo: "Adicionar Novo Usuário" e "Cadastro em Lote".
 Coluna Ações: Botões "Editar" e "Remover" para cada usuário.
 
 Formulário de Cadastro (Modal):
@@ -358,8 +358,36 @@ Modo Edição:
 - Botão de ação: "Salvar Alterações".
 - Tratamento de erros: Mensagens específicas quando Edge Function não está disponível ou retorna erro.
 
+Cadastro em Lote (Bulk Action):
+- Botão "Cadastro em Lote" abre modal largo (max-w-6xl) com formulário de múltiplos usuários.
+- Interface: Tabela com linhas dinâmicas usando `useFieldArray` do React Hook Form.
+- Estado Inicial: Formulário inicia com 5 linhas vazias pré-configuradas.
+- Colunas por Linha:
+  * Nome Completo (Input Texto obrigatório)
+  * Email (Input Email obrigatório)
+  * Senha (Input Password com botão "Gerar Senha Padrão" que preenche "Mudar@123")
+  * Perfil (Select: Chefe ou Gerente)
+  * Base (Select com funcionalidade "Replicar para Todos")
+  * Equipe (Select com funcionalidade "Replicar para Todos")
+  * Botão de Excluir Linha (Lixeira)
+- Funcionalidade "Replicar para Todos":
+  * Barra de ferramentas no topo das colunas Base e Equipe com botão "Aplicar a todos".
+  * Ao selecionar uma Base/Equipe no topo e clicar em "Aplicar a todos", todas as linhas abaixo assumem o mesmo valor.
+  * Facilita cadastro de equipe inteira de uma vez.
+- Lógica de Envio:
+  * Ao clicar em "Salvar Todos", mostra barra de progresso ("Salvando 1 de 5...").
+  * Frontend itera sobre o array e chama a Edge Function `create-user` para cada linha sequencialmente (com delay de 300ms entre chamadas para evitar rate limit).
+  * Tratamento de Erro Parcial: Se alguns salvarem e outros falharem, mostra resumo final com sucessos e falhas.
+  * Exemplo: "4 Usuários criados com sucesso. 1 Falha: [Email]".
+  * Exibe lista detalhada de resultados com ícones de sucesso/erro para cada usuário.
+- Botões de Ação:
+  * "+ Adicionar Linha" para adicionar mais linhas ao formulário.
+  * "Cancelar" para fechar o modal sem salvar.
+  * "Salvar Todos (N)" onde N é o número de linhas no formulário.
+
 Ações:
 - Criar Usuário: O Frontend chama a Edge Function create-user passando os dados.
+- Criar Usuários em Lote: O Frontend itera sobre array de usuários e chama a Edge Function create-user sequencialmente para cada um, com tratamento de erros parciais.
 - Editar Usuário: O Frontend chama a Edge Function update-user passando id, nome, role, base_id, equipe_id, email (opcional), password (opcional).
 - Remover Usuário: O Frontend chama a Edge Function delete-user passando userId.
 

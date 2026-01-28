@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { BulkUserForm } from '@/components/BulkUserForm'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -75,6 +76,7 @@ interface UsuarioComEmail {
 export function GestaoUsuarios() {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [usuarioToDelete, setUsuarioToDelete] = useState<UsuarioComEmail | null>(null)
   const [confirmacaoTexto, setConfirmacaoTexto] = useState('')
@@ -776,6 +778,9 @@ export function GestaoUsuarios() {
               <Button onClick={handleNewUserClick} className="bg-white text-[#fc4d00] hover:bg-white/90 transition-all duration-200">
                 Adicionar Novo Usuário
               </Button>
+              <Button onClick={() => setShowBulkModal(true)} className="bg-white text-[#fc4d00] hover:bg-white/90 transition-all duration-200">
+                Cadastro em Lote
+              </Button>
               <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
                 Voltar
               </Button>
@@ -1068,6 +1073,21 @@ export function GestaoUsuarios() {
                 </form>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Modal de Cadastro em Lote */}
+        {showBulkModal && bases && equipes && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <BulkUserForm
+              bases={bases}
+              equipes={equipes}
+              onSuccess={() => {
+                setShowBulkModal(false)
+                queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+              }}
+              onCancel={() => setShowBulkModal(false)}
+            />
           </div>
         )}
 

@@ -29,7 +29,7 @@ const bulkUserSchema = z.object({
     z.object({
       nome: z.string().min(1, 'Nome é obrigatório'),
       email: z.string().email('Email inválido'),
-      password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+      password: z.string().min(1, 'Senha é obrigatória'),
       role: z.enum(['geral', 'chefe'], {
         required_error: 'Selecione um perfil',
       }),

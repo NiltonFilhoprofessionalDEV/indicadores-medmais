@@ -147,40 +147,148 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
       setProgress({ current: i + 1, total: usersToCreate.length })
 
       try {
-        const response = await supabase.functions.invoke('create-user', {
-          body: {
-            email: user.email,
-            password: user.password,
-            nome: user.nome,
-            role: user.role,
-            base_id: user.role === 'chefe' ? user.base_id || null : null,
-            equipe_id: user.role === 'chefe' ? user.equipe_id || null : null,
-          },
+        const payload = {
+          email: user.email,
+          password: user.password,
+          nome: user.nome,
+          role: user.role,
+          base_id: user.role === 'chefe' ? user.base_id || null : null,
+          equipe_id: user.role === 'chefe' ? user.equipe_id || null : null,
+        }
+        
+        console.log(`[BulkUserForm] Criando usuário ${i + 1}/${usersToCreate.length}:`, {
+          email: payload.email,
+          nome: payload.nome,
+          role: payload.role,
+          hasBaseId: !!payload.base_id,
+          hasEquipeId: !!payload.equipe_id,
         })
+        
+        const response = await supabase.functions.invoke('create-user', {
+          body: payload,
+        })
+        
+        console.log(`[BulkUserForm] Resposta para ${user.email}:`, response)
 
+        // Se houver erro na chamada da função
         if (response.error) {
-          const errorMessage = response.error.message || 'Erro desconhecido'
-          resultsArray.push({
-            success: false,
-            email: user.email,
-            nome: user.nome,
-            error: errorMessage,
-          })
-        } else if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-          resultsArray.push({
-            success: false,
-            email: user.email,
-            nome: user.nome,
-            error: String(response.data.error),
-          })
+          const errorMessage = response.error.message || ''
+          
+          // Se o erro é "non-2xx status code", tentar extrair a mensagem do response.data
+          if (errorMessage.includes('non-2xx') || errorMessage.includes('status code')) {
+            // Tentar fazer uma chamada direta para obter a mensagem de erro
+            try {
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+              const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+              const { data: sessionData } = await supabase.auth.getSession()
+              
+              const directResponse = await fetch(
+                `${supabaseUrl}/functions/v1/create-user`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                    ...(sessionData.session ? { 'apikey': supabaseAnonKey } : {}),
+                  },
+                  body: JSON.stringify({
+                    email: user.email,
+                    password: user.password,
+                    nome: user.nome,
+                    role: user.role,
+                    base_id: user.role === 'chefe' ? user.base_id || null : null,
+                    equipe_id: user.role === 'chefe' ? user.equipe_id || null : null,
+                  }),
+                }
+              )
+
+              const responseData = await directResponse.json()
+              
+              if (!directResponse.ok) {
+                const errorMsg = responseData?.error || responseData?.message || errorMessage
+                resultsArray.push({
+                  success: false,
+                  email: user.email,
+                  nome: user.nome,
+                  error: errorMsg,
+                })
+              } else {
+                // Sucesso na chamada direta
+                resultsArray.push({
+                  success: true,
+                  email: user.email,
+                  nome: user.nome,
+                })
+              }
+            } catch (fetchError: any) {
+              // Se falhar na chamada direta, usar a mensagem original ou a do fetchError
+              const finalError = fetchError?.message || response.data?.error || errorMessage || 'Erro desconhecido'
+              resultsArray.push({
+                success: false,
+                email: user.email,
+                nome: user.nome,
+                error: finalError,
+              })
+            }
+          } else {
+            // Outro tipo de erro
+            let finalErrorMessage = errorMessage || 'Erro desconhecido'
+            
+            // Tentar extrair mensagem de erro do response.data se disponível
+            if (response.data && typeof response.data === 'object') {
+              if ('error' in response.data) {
+                finalErrorMessage = String(response.data.error) || finalErrorMessage
+              } else if ('message' in response.data) {
+                finalErrorMessage = String(response.data.message) || finalErrorMessage
+              }
+            }
+            
+            resultsArray.push({
+              success: false,
+              email: user.email,
+              nome: user.nome,
+              error: finalErrorMessage,
+            })
+          }
+        } else if (response.data) {
+          // Verificar se há erro no resultado (status não 2xx)
+          if (typeof response.data === 'object' && 'error' in response.data) {
+            const errorMessage = typeof response.data.error === 'string' 
+              ? response.data.error 
+              : 'Erro desconhecido'
+            resultsArray.push({
+              success: false,
+              email: user.email,
+              nome: user.nome,
+              error: errorMessage,
+            })
+          } else if (typeof response.data === 'object' && 'success' in response.data && response.data.success) {
+            // Sucesso
+            resultsArray.push({
+              success: true,
+              email: user.email,
+              nome: user.nome,
+            })
+          } else {
+            // Resposta inesperada
+            resultsArray.push({
+              success: false,
+              email: user.email,
+              nome: user.nome,
+              error: 'Resposta inesperada da Edge Function',
+            })
+          }
         } else {
+          // Sem dados na resposta
           resultsArray.push({
-            success: true,
+            success: false,
             email: user.email,
             nome: user.nome,
+            error: 'Nenhuma resposta da Edge Function',
           })
         }
       } catch (error: any) {
+        console.error('Erro ao criar usuário:', user.email, error)
         resultsArray.push({
           success: false,
           email: user.email,

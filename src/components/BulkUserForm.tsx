@@ -126,11 +126,27 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
   }
 
   const onSubmit = async (data: BulkUserFormData) => {
-    // Filtrar apenas usuários com nome preenchido
-    const usersToCreate = data.users.filter((user) => user.nome.trim() !== '')
+    // Filtrar apenas usuários com nome preenchido e validar campos obrigatórios
+    const usersToCreate = data.users.filter((user) => {
+      if (user.nome.trim() === '') return false
+      if (user.email.trim() === '') return false
+      if (user.password.trim() === '') return false
+      if (user.role === 'chefe' && (!user.base_id || !user.equipe_id)) {
+        return false
+      }
+      return true
+    })
 
     if (usersToCreate.length === 0) {
-      alert('Adicione pelo menos um usuário com nome preenchido')
+      alert('Adicione pelo menos um usuário válido com todos os campos obrigatórios preenchidos')
+      return
+    }
+
+    // Validar emails únicos
+    const emails = usersToCreate.map((u) => u.email.toLowerCase())
+    const uniqueEmails = new Set(emails)
+    if (emails.length !== uniqueEmails.size) {
+      alert('Erro: Existem emails duplicados na lista. Verifique e corrija antes de continuar.')
       return
     }
 

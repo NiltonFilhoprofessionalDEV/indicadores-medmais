@@ -14,14 +14,14 @@ type Equipe = Database['public']['Tables']['equipes']['Row']
 
 const DEFAULT_PASSWORD = 'Mudar@123'
 
-// Função para gerar senha baseada no email (parte antes do @)
+// Função para gerar senha baseada no email (parte antes do @ + @)
 function generatePasswordFromEmail(email: string): string {
   if (!email || !email.includes('@')) {
     return DEFAULT_PASSWORD
   }
-  const emailPrefix = email.split('@')[0].toLowerCase()
-  // Remover caracteres especiais e espaços, manter apenas letras e números
-  const cleanPrefix = emailPrefix.replace(/[^a-z0-9]/g, '')
+  const emailPrefix = email.split('@')[0]
+  // Retornar parte antes do @ + @ (exemplo: cabralsussa@)
+  return `${emailPrefix}@`
   // Se o prefixo estiver vazio após limpeza, usar senha padrão
   if (cleanPrefix.length === 0) {
     return DEFAULT_PASSWORD
@@ -578,7 +578,7 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => generatePasswordFromEmail(index)}
+                            onClick={() => generateDefaultPassword(index)}
                             className="h-9 px-2"
                             title={users[index].email && users[index].email.includes('@')
                               ? `Gerar senha do email: ${users[index].email.split('@')[0]}@`
@@ -597,15 +597,9 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                             {showPasswords[index] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                         </div>
-                        {users[index].password && (
+                        {users[index].password && users[index].password.endsWith('@') && (
                           <p className="text-xs text-blue-600 font-medium">
-                            {users[index].password === DEFAULT_PASSWORD ? (
-                              <>Senha padrão: <span className="font-mono">{DEFAULT_PASSWORD}</span></>
-                            ) : users[index].email && users[index].password.endsWith('@123') ? (
-                              <>Senha gerada do email: <span className="font-mono">{users[index].password}</span></>
-                            ) : (
-                              <>Senha: <span className="font-mono">{users[index].password}</span></>
-                            )}
+                            Senha gerada automaticamente: <span className="font-mono">{users[index].password}</span>
                           </p>
                         )}
                         {errors.users?.[index]?.password && (

@@ -88,7 +88,7 @@ export function GestaoUsuarios() {
   
   const DEFAULT_PASSWORD = 'Mudar@123'
   
-  // Função para gerar senha baseada no email
+  // Função para gerar senha baseada no email (parte antes do @ + @)
   const generatePasswordFromEmail = (email: string) => {
     if (email && email.includes('@')) {
       const emailPrefix = email.split('@')[0]

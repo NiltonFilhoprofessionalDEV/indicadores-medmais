@@ -87,6 +87,31 @@ export function GestaoUsuarios() {
   const queryClient = useQueryClient()
   
   const DEFAULT_PASSWORD = 'Mudar@123'
+  
+  // Função para gerar senha baseada no email
+  const generatePasswordFromEmail = (email: string) => {
+    if (email && email.includes('@')) {
+      const emailPrefix = email.split('@')[0]
+      return `${emailPrefix}@`
+    }
+    return DEFAULT_PASSWORD
+  }
+
+  // Função para gerar senha baseada no email (parte antes do @)
+  function generatePasswordFromEmail(email: string): string {
+    if (!email || !email.includes('@')) {
+      return DEFAULT_PASSWORD
+    }
+    const emailPrefix = email.split('@')[0].toLowerCase()
+    // Remover caracteres especiais e espaços, manter apenas letras e números
+    const cleanPrefix = emailPrefix.replace(/[^a-z0-9]/g, '')
+    // Se o prefixo estiver vazio após limpeza, usar senha padrão
+    if (cleanPrefix.length === 0) {
+      return DEFAULT_PASSWORD
+    }
+    // Gerar senha: prefixo + @123 (mínimo 6 caracteres)
+    return `${cleanPrefix}@123`
+  }
 
   // Buscar usuários
   type Profile = Database['public']['Tables']['profiles']['Row']
@@ -943,7 +968,24 @@ export function GestaoUsuarios() {
                       id="email" 
                       type="email" 
                       placeholder={isEditMode ? "Deixe em branco para manter o atual" : "usuario@exemplo.com"} 
-                      {...register('email')} 
+                      {...register('email', {
+                        onChange: (e) => {
+                          register('email').onChange(e)
+                          // Auto-gerar senha baseada no email quando não estiver em modo de edição
+                          if (!isEditMode) {
+                            const emailValue = e.target.value
+                            const currentPassword = watch('password')
+                            // Só gerar se não houver senha ou se for a senha padrão
+                            if (!currentPassword || currentPassword === DEFAULT_PASSWORD || currentPassword === '') {
+                              if (emailValue && emailValue.includes('@')) {
+                                const generatedPassword = generatePasswordFromEmail(emailValue)
+                                setValue('password', generatedPassword)
+                                setShowPassword(true) // Mostrar senha quando gerada automaticamente
+                              }
+                            }
+                          }
+                        }
+                      })} 
                     />
                     {errors.email && (
                       <p className="text-sm text-destructive">{errors.email.message}</p>
@@ -977,22 +1019,37 @@ export function GestaoUsuarios() {
                         </Button>
                       </div>
                       {!isEditMode && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setValue('password', DEFAULT_PASSWORD)
-                            setShowPassword(true)
-                          }}
-                          title={`Usar senha padrão: ${DEFAULT_PASSWORD}`}
-                        >
-                          🔑 Gerar Padrão
-                        </Button>
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const emailValue = watch('email')
+                              if (emailValue && emailValue.includes('@')) {
+                                const generatedPassword = generatePasswordFromEmail(emailValue)
+                                setValue('password', generatedPassword)
+                                setShowPassword(true)
+                              } else {
+                                setValue('password', DEFAULT_PASSWORD)
+                                setShowPassword(true)
+                              }
+                            }}
+                            title="Gerar senha baseada no email ou usar padrão"
+                          >
+                            🔑 Gerar
+                          </Button>
+                        </>
                       )}
                     </div>
-                    {watch('password') === DEFAULT_PASSWORD && !isEditMode && (
+                    {watch('password') && !isEditMode && (
                       <p className="text-xs text-blue-600 font-medium">
-                        Senha padrão gerada: <span className="font-mono">{DEFAULT_PASSWORD}</span>
+                        {watch('password') === DEFAULT_PASSWORD ? (
+                          <>Senha padrão: <span className="font-mono">{DEFAULT_PASSWORD}</span></>
+                        ) : watch('email') && watch('password')?.endsWith('@123') ? (
+                          <>Senha gerada do email: <span className="font-mono">{watch('password')}</span></>
+                        ) : (
+                          <>Senha: <span className="font-mono">{watch('password')}</span></>
+                        )}
                       </p>
                     )}
                     {errors.password && (

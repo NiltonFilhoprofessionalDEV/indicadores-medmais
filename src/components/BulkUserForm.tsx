@@ -14,6 +14,22 @@ type Equipe = Database['public']['Tables']['equipes']['Row']
 
 const DEFAULT_PASSWORD = 'Mudar@123'
 
+// Função para gerar senha baseada no email (parte antes do @)
+function generatePasswordFromEmail(email: string): string {
+  if (!email || !email.includes('@')) {
+    return DEFAULT_PASSWORD
+  }
+  const emailPrefix = email.split('@')[0].toLowerCase()
+  // Remover caracteres especiais e espaços, manter apenas letras e números
+  const cleanPrefix = emailPrefix.replace(/[^a-z0-9]/g, '')
+  // Se o prefixo estiver vazio após limpeza, usar senha padrão
+  if (cleanPrefix.length === 0) {
+    return DEFAULT_PASSWORD
+  }
+  // Gerar senha: prefixo + @123 (mínimo 6 caracteres)
+  return `${cleanPrefix}@123`
+}
+
 const bulkUserSchema = z.object({
   users: z.array(
     z.object({
@@ -92,9 +108,28 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
   // Buscar base ADMINISTRATIVO para Gerentes Gerais
   const baseAdministrativo = bases.find((b) => b.nome === 'ADMINISTRATIVO')
 
-  // Função para gerar senha padrão
+  // Função para gerar senha baseada no email ou padrão
   const generateDefaultPassword = (index: number) => {
-    setValue(`users.${index}.password`, DEFAULT_PASSWORD)
+    const currentEmail = watch(`users.${index}.email`)
+    if (currentEmail && currentEmail.includes('@')) {
+      const generatedPassword = generatePasswordFromEmail(currentEmail)
+      setValue(`users.${index}.password`, generatedPassword)
+    } else {
+      setValue(`users.${index}.password`, DEFAULT_PASSWORD)
+    }
+  }
+  
+  // Auto-gerar senha quando email for preenchido
+  const handleEmailChange = (index: number, email: string) => {
+    setValue(`users.${index}.email`, email)
+    // Se não houver senha ou senha for a padrão, gerar baseada no email
+    const currentPassword = watch(`users.${index}.password`)
+    if (!currentPassword || currentPassword === DEFAULT_PASSWORD || currentPassword === '') {
+      if (email && email.includes('@')) {
+        const generatedPassword = generatePasswordFromEmail(email)
+        setValue(`users.${index}.password`, generatedPassword)
+      }
+    }
   }
 
   // Função para replicar Base para todos
@@ -519,6 +554,10 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                         type="email"
                         placeholder="email@exemplo.com"
                         className="h-9 text-sm"
+                        onChange={(e) => {
+                          register(`users.${index}.email`).onChange(e)
+                          handleEmailChange(index, e.target.value)
+                        }}
                       />
                       {errors.users?.[index]?.email && (
                         <p className="text-xs text-red-600 mt-1">
@@ -539,9 +578,11 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => generateDefaultPassword(index)}
+                            onClick={() => generatePasswordFromEmail(index)}
                             className="h-9 px-2"
-                            title={`Gerar senha padrão: ${DEFAULT_PASSWORD}`}
+                            title={users[index].email && users[index].email.includes('@')
+                              ? `Gerar senha do email: ${users[index].email.split('@')[0]}@`
+                              : `Gerar senha padrão: ${DEFAULT_PASSWORD}`}
                           >
                             🔑
                           </Button>
@@ -556,9 +597,15 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                             {showPasswords[index] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                         </div>
-                        {users[index].password === DEFAULT_PASSWORD && (
+                        {users[index].password && (
                           <p className="text-xs text-blue-600 font-medium">
-                            Senha padrão: <span className="font-mono">{DEFAULT_PASSWORD}</span>
+                            {users[index].password === DEFAULT_PASSWORD ? (
+                              <>Senha padrão: <span className="font-mono">{DEFAULT_PASSWORD}</span></>
+                            ) : users[index].email && users[index].password.endsWith('@123') ? (
+                              <>Senha gerada do email: <span className="font-mono">{users[index].password}</span></>
+                            ) : (
+                              <>Senha: <span className="font-mono">{users[index].password}</span></>
+                            )}
                           </p>
                         )}
                         {errors.users?.[index]?.password && (

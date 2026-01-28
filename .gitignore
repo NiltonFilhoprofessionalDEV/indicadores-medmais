@@ -28,3 +28,7 @@ dist-ssr
 .env.local
 .env.production
 .vercel
+
+# Submodules inválidos (diretórios que não devem ser rastreados)
+Projeto-indicadores/
+indicadores_medmais01/

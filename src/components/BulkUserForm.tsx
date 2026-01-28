@@ -22,12 +22,6 @@ function generatePasswordFromEmail(email: string): string {
   const emailPrefix = email.split('@')[0]
   // Retornar parte antes do @ + @ (exemplo: cabralsussa@)
   return `${emailPrefix}@`
-  // Se o prefixo estiver vazio após limpeza, usar senha padrão
-  if (cleanPrefix.length === 0) {
-    return DEFAULT_PASSWORD
-  }
-  // Gerar senha: prefixo + @123 (mínimo 6 caracteres)
-  return `${cleanPrefix}@123`
 }
 
 const bulkUserSchema = z.object({

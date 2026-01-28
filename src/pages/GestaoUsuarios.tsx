@@ -97,22 +97,6 @@ export function GestaoUsuarios() {
     return DEFAULT_PASSWORD
   }
 
-  // Função para gerar senha baseada no email (parte antes do @)
-  function generatePasswordFromEmail(email: string): string {
-    if (!email || !email.includes('@')) {
-      return DEFAULT_PASSWORD
-    }
-    const emailPrefix = email.split('@')[0].toLowerCase()
-    // Remover caracteres especiais e espaços, manter apenas letras e números
-    const cleanPrefix = emailPrefix.replace(/[^a-z0-9]/g, '')
-    // Se o prefixo estiver vazio após limpeza, usar senha padrão
-    if (cleanPrefix.length === 0) {
-      return DEFAULT_PASSWORD
-    }
-    // Gerar senha: prefixo + @123 (mínimo 6 caracteres)
-    return `${cleanPrefix}@123`
-  }
-
   // Buscar usuários
   type Profile = Database['public']['Tables']['profiles']['Row']
   const { data: usuarios, isLoading, error: usuariosError } = useQuery<UsuarioComEmail[]>({

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BulkUserForm } from '@/components/BulkUserForm'
+import { Eye, EyeOff } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -82,7 +83,10 @@ export function GestaoUsuarios() {
   const [confirmacaoTexto, setConfirmacaoTexto] = useState('')
   const [isEditMode, setIsEditMode] = useState(false)
   const [filtroBaseId, setFiltroBaseId] = useState<string>('')
+  const [showPassword, setShowPassword] = useState(false)
   const queryClient = useQueryClient()
+  
+  const DEFAULT_PASSWORD = 'Mudar@123'
 
   // Buscar usuários
   type Profile = Database['public']['Tables']['profiles']['Row']
@@ -948,12 +952,49 @@ export function GestaoUsuarios() {
 
                   <div className="space-y-2">
                     <Label htmlFor="password">Senha {isEditMode ? '(opcional)' : '*'}</Label>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      placeholder={isEditMode ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"} 
-                      {...register('password')} 
-                    />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input 
+                          id="password" 
+                          type={showPassword ? 'text' : 'password'} 
+                          placeholder={isEditMode ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"} 
+                          {...register('password')} 
+                          className="pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                          title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {!isEditMode && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setValue('password', DEFAULT_PASSWORD)
+                            setShowPassword(true)
+                          }}
+                          title={`Usar senha padrão: ${DEFAULT_PASSWORD}`}
+                        >
+                          🔑 Gerar Padrão
+                        </Button>
+                      )}
+                    </div>
+                    {watch('password') === DEFAULT_PASSWORD && !isEditMode && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        Senha padrão gerada: <span className="font-mono">{DEFAULT_PASSWORD}</span>
+                      </p>
+                    )}
                     {errors.password && (
                       <p className="text-sm text-destructive">{errors.password.message}</p>
                     )}

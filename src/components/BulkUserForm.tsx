@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Copy, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Copy, Trash2, CheckCircle2, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -58,6 +58,8 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [results, setResults] = useState<UserCreationResult[]>([])
   const [showResults, setShowResults] = useState(false)
+  const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({})
+  const [usersToCreateRef, setUsersToCreateRef] = useState<Array<{ email: string; password: string; nome: string; role: 'geral' | 'chefe'; base_id?: string; equipe_id?: string }>>([])
 
   const {
     control,
@@ -136,6 +138,9 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
       }
       return true
     })
+    
+    // Armazenar referência para mostrar senhas depois
+    setUsersToCreateRef(usersToCreate)
 
     if (usersToCreate.length === 0) {
       alert('Adicione pelo menos um usuário válido com todos os campos obrigatórios preenchidos')
@@ -388,25 +393,50 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
           {showResults && results.length > 0 && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
               <h3 className="font-semibold text-sm mb-2">Resultado do Cadastro:</h3>
-              {results.map((result, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-2 text-sm p-2 rounded ${
-                    result.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                  }`}
-                >
-                  {result.success ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-                  <span className="font-medium">{result.nome}</span>
-                  <span className="text-xs">({result.email})</span>
-                  {result.error && (
-                    <span className="text-xs ml-auto">Erro: {result.error}</span>
-                  )}
+              {results.map((result, idx) => {
+                // Encontrar a senha usada para este usuário
+                const userIndex = usersToCreateRef.findIndex((u) => u.email === result.email)
+                const userPassword = userIndex >= 0 ? usersToCreateRef[userIndex].password : DEFAULT_PASSWORD
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center gap-2 text-sm p-2 rounded ${
+                      result.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                    }`}
+                  >
+                    {result.success ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{result.nome}</span>
+                        <span className="text-xs">({result.email})</span>
+                      </div>
+                      {result.success && (
+                        <div className="mt-1 text-xs font-mono bg-white px-2 py-1 rounded border">
+                          <span className="font-semibold">Senha:</span> {userPassword}
+                        </div>
+                      )}
+                    </div>
+                    {result.error && (
+                      <span className="text-xs ml-auto">Erro: {result.error}</span>
+                    )}
+                  </div>
+                )
+              })}
+              {results.some((r) => r.success) && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-xs font-semibold text-blue-900 mb-1">
+                    ⚠️ IMPORTANTE: Anote as senhas acima. Elas não serão exibidas novamente!
+                  </p>
+                  <p className="text-xs text-blue-800">
+                    Senha padrão do sistema: <span className="font-mono font-semibold">{DEFAULT_PASSWORD}</span>
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -497,29 +527,46 @@ export function BulkUserForm({ bases, equipes, onSuccess, onCancel }: BulkUserFo
                       )}
                     </td>
                     <td className="p-2">
-                      <div className="flex gap-1">
-                        <Input
-                          {...register(`users.${index}.password`)}
-                          type="password"
-                          placeholder="Senha"
-                          className="h-9 text-sm flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateDefaultPassword(index)}
-                          className="h-9 px-2"
-                          title="Gerar senha padrão"
-                        >
-                          🔑
-                        </Button>
+                      <div className="space-y-1">
+                        <div className="flex gap-1">
+                          <Input
+                            {...register(`users.${index}.password`)}
+                            type={showPasswords[index] ? 'text' : 'password'}
+                            placeholder="Senha"
+                            className="h-9 text-sm flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateDefaultPassword(index)}
+                            className="h-9 px-2"
+                            title={`Gerar senha padrão: ${DEFAULT_PASSWORD}`}
+                          >
+                            🔑
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, [index]: !prev[index] }))}
+                            className="h-9 px-2"
+                            title={showPasswords[index] ? 'Ocultar senha' : 'Mostrar senha'}
+                          >
+                            {showPasswords[index] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        {users[index].password === DEFAULT_PASSWORD && (
+                          <p className="text-xs text-blue-600 font-medium">
+                            Senha padrão: <span className="font-mono">{DEFAULT_PASSWORD}</span>
+                          </p>
+                        )}
+                        {errors.users?.[index]?.password && (
+                          <p className="text-xs text-red-600 mt-1">
+                            {errors.users[index]?.password?.message}
+                          </p>
+                        )}
                       </div>
-                      {errors.users?.[index]?.password && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.users[index]?.password?.message}
-                        </p>
-                      )}
                     </td>
                     <td className="p-2">
                       <select

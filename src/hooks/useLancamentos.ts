@@ -52,6 +52,7 @@ export function useLancamentos({
       searchText,
     ],
     enabled,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       // Função auxiliar para busca no cliente (fallback)
       const performClientSideSearch = async (

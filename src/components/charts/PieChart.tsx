@@ -1,11 +1,19 @@
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
+const TOOLTIP_STYLE = {
+  backgroundColor: 'rgba(255,255,255,0.98)',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+  padding: '10px 14px',
+}
+
 interface PieChartProps {
   data: Array<{ name: string; value: number; porcentagem?: number }>
   colors?: string[]
 }
 
-const DEFAULT_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']
+const DEFAULT_COLORS = ['#fc4d00', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6']
 
 export function PieChart({ data, colors = DEFAULT_COLORS }: PieChartProps) {
   return (
@@ -15,18 +23,19 @@ export function PieChart({ data, colors = DEFAULT_COLORS }: PieChartProps) {
           data={data}
           cx="50%"
           cy="50%"
-          labelLine={false}
-          label={({ name, porcentagem }) => `${name}: ${porcentagem?.toFixed(1) || 0}%`}
-          outerRadius={80}
-          fill="#8884d8"
+          labelLine={{ stroke: '#94a3b8' }}
+          label={({ name, porcentagem }) => `${name}: ${porcentagem?.toFixed(1) ?? 0}%`}
+          outerRadius={100}
+          stroke="none"
+          paddingAngle={1}
           dataKey="value"
         >
           {data.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke="white" strokeWidth={2} />
           ))}
         </Pie>
-        <Tooltip />
-        <Legend />
+        <Tooltip contentStyle={TOOLTIP_STYLE} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
       </RechartsPieChart>
     </ResponsiveContainer>
   )

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { getRulesByGrupo, isGrupoA, isGrupoB } from '@/lib/compliance-rules'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import type { Database } from '@/lib/database.types'
-import { format, startOfMonth, endOfMonth, parse, isToday, isYesterday, differenceInDays, startOfDay } from 'date-fns'
+import { format, startOfMonth, parse, isToday, isYesterday, differenceInDays, startOfDay } from 'date-fns'
 import { Info } from 'lucide-react'
 
 type Base = Database['public']['Tables']['bases']['Row']

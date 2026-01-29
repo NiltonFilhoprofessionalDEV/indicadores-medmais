@@ -1602,11 +1602,9 @@ export function processControleEstoque(lancamentos: Lancamento[], bases?: Array<
 
   porBase.forEach((data, baseId) => {
     const baseNome = bases?.find((b) => b.id === baseId)?.nome || baseId
-    let temDeficit = false
 
     if (data.po_quimico_atual < data.po_quimico_exigido) {
       basesComDeficit.add(baseId)
-      temDeficit = true
       alertasFaltaMaterial.push({
         base: baseNome,
         material: 'Pó Químico',
@@ -1615,7 +1613,6 @@ export function processControleEstoque(lancamentos: Lancamento[], bases?: Array<
     }
     if (data.lge_atual < data.lge_exigido) {
       basesComDeficit.add(baseId)
-      temDeficit = true
       alertasFaltaMaterial.push({
         base: baseNome,
         material: 'LGE',
@@ -1624,7 +1621,6 @@ export function processControleEstoque(lancamentos: Lancamento[], bases?: Array<
     }
     if (data.nitrogenio_atual < data.nitrogenio_exigido) {
       basesComDeficit.add(baseId)
-      temDeficit = true
       alertasFaltaMaterial.push({
         base: baseNome,
         material: 'Nitrogênio',

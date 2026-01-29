@@ -144,9 +144,8 @@ export function Settings() {
         status: 'pendente',
       }
 
-      const { error } = await supabase
-        .from('feedbacks')
-        .insert(payload as Database['public']['Tables']['feedbacks']['Insert'])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- insert tipado como never no client; schema permite tipo + status
+      const { error } = await supabase.from('feedbacks').insert(payload as any)
       if (error) throw error
     },
     onSuccess: () => {

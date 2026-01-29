@@ -2,15 +2,28 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Settings, LogOut, FileSpreadsheet } from 'lucide-react'
+import { Settings, LogOut, FileSpreadsheet, MessageSquare } from 'lucide-react'
 
 export function DashboardGerente() {
   const { authUser } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  const { data: feedbackPendentes } = useQuery({
+    queryKey: ['suporte-feedbacks-pendentes'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('feedbacks')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pendente')
+      if (error) throw error
+      return count ?? 0
+    },
+    enabled: !!authUser?.user?.id,
+  })
 
   const handleLogout = async () => {
     try {
@@ -68,7 +81,7 @@ export function DashboardGerente() {
               <div>
                 <h1 className="text-2xl font-bold text-white">Dashboard - Administrador</h1>
                 <p className="text-sm text-white/90">
-                  {authUser?.profile?.nome} - {authUser?.profile?.role}
+                  {authUser?.profile?.nome}
                 </p>
               </div>
             </div>
@@ -113,18 +126,39 @@ export function DashboardGerente() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Gestão de Usuários</CardTitle>
+              <CardTitle className="text-lg">Dashboard Analytics</CardTitle>
               <CardDescription className="text-sm">
-                Cadastre e gerencie usuários do sistema
+                Análise de indicadores operacionais
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col flex-1 pt-0 pb-6">
               <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Acesse a tela de gestão de usuários para cadastrar novos Chefes de Equipe
-                e vinculá-los às suas respectivas Bases e Equipes.
+                Visualize gráficos e análises detalhadas dos indicadores operacionais
+                com filtros por Base, Equipe e Período.
               </p>
-              <Button onClick={() => navigate('/gestao-usuarios')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
-                Acessar Gestão de Usuários
+              <Button onClick={() => navigate('/dashboard-analytics')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
+                Acessar Dashboard Analytics
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col h-full">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-5 w-5 text-[#fc4d00]" />
+                <CardTitle className="text-lg">Explorador de Dados</CardTitle>
+              </div>
+              <CardDescription className="text-sm">
+                Auditoria completa, filtros avançados e exportação para Excel (CSV)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col flex-1 pt-0 pb-6">
+              <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
+                Acesse relatórios avançados com filtros detalhados e exporte dados
+                para análise externa em formato CSV.
+              </p>
+              <Button onClick={() => navigate('/dashboard/explorer')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
+                Acessar Explorador de Dados
               </Button>
             </CardContent>
           </Card>
@@ -149,18 +183,18 @@ export function DashboardGerente() {
 
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Dashboard Analytics</CardTitle>
+              <CardTitle className="text-lg">Gestão de Usuários</CardTitle>
               <CardDescription className="text-sm">
-                Análise de indicadores operacionais
+                Cadastre e gerencie usuários do sistema
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col flex-1 pt-0 pb-6">
               <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Visualize gráficos e análises detalhadas dos indicadores operacionais
-                com filtros por Base, Equipe e Período.
+                Acesse a tela de gestão de usuários para cadastrar novos Chefes de Equipe
+                e vinculá-los às suas respectivas Bases e Equipes.
               </p>
-              <Button onClick={() => navigate('/dashboard-analytics')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
-                Acessar Dashboard Analytics
+              <Button onClick={() => navigate('/gestao-usuarios')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
+                Acessar Gestão de Usuários
               </Button>
             </CardContent>
           </Card>
@@ -186,20 +220,25 @@ export function DashboardGerente() {
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-[#fc4d00]" />
-                <CardTitle className="text-lg">Explorador de Dados</CardTitle>
+                <MessageSquare className="h-5 w-5 text-[#fc4d00]" />
+                <CardTitle className="text-lg">Suporte / Feedback</CardTitle>
+                {typeof feedbackPendentes === 'number' && feedbackPendentes > 0 && (
+                  <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    {feedbackPendentes} pendente{feedbackPendentes !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <CardDescription className="text-sm">
-                Auditoria completa, filtros avançados e exportação para Excel (CSV)
+                Veja os feedbacks enviados pelos usuários e dê as tratativas
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col flex-1 pt-0 pb-6">
               <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Acesse relatórios avançados com filtros detalhados e exporte dados
-                para análise externa em formato CSV.
+                Os usuários podem enviar sugestões, reportar bugs ou outros no suporte.
+                Acesse a tela de suporte para visualizar e atualizar o status de cada feedback.
               </p>
-              <Button onClick={() => navigate('/dashboard/explorer')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
-                Acessar Explorador de Dados
+              <Button onClick={() => navigate('/suporte')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
+                Acessar Suporte
               </Button>
             </CardContent>
           </Card>

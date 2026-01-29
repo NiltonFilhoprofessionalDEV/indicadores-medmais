@@ -13,7 +13,7 @@ Forms: React Hook Form + Zod (Schema Validation).
 Gerente Geral: Acesso irrestrito. Pode cadastrar usuários.
 
 Chefe de Equipe:
-Leitura: Vê dados de toda a sua Base (para comparação).
+Leitura: Vê dados de toda a sua Base (para comparação).a
 Escrita: Insere/Edita apenas para sua Equipe.
 
 4. Estrutura de Dados (Supabase)
@@ -59,10 +59,11 @@ Campos: id (PK, UUID), created_at, nome (TEXT), base_id (FK bases), ativo (BOOLE
 RLS: Leitura permitida para autenticados da mesma base; Escrita apenas para Admin (Service Role).
 
 feedbacks: Tabela para armazenar feedbacks, sugestões e relatórios de bugs dos usuários.
-Campos: id (PK, UUID), created_at (TIMESTAMP), user_id (FK profiles), tipo ('bug' | 'sugestao' | 'outros'), mensagem (TEXT), status ('pendente' | 'em_andamento' | 'resolvido' | 'fechado', default: 'pendente').
+Campos: id (PK, UUID), created_at (TIMESTAMP), user_id (FK profiles), tipo ('bug' | 'sugestao' | 'outros'), mensagem (TEXT), status ('pendente' | 'em_andamento' | 'resolvido' | 'fechado', default: 'pendente'), tratativa_tipo (TEXT, opcional — tipo de tratativa realizada pelo suporte).
 RLS:
 - Insert: Usuários autenticados podem criar feedbacks.
 - Select: Usuários veem seus próprios feedbacks. Gerentes Gerais (role='geral') veem todos os feedbacks.
+- Update: Gerentes Gerais (role='geral') podem atualizar feedbacks (status e tratativa_tipo).
 
 lancamentos: Tabela central (Single Source of Truth).
 Estratégia: Uso de JSONB para dados variáveis.
@@ -278,10 +279,16 @@ Estrutura:
 Regra de Permissão: Pode Editar/Excluir apenas dados da sua Equipe. Dados de outras equipes da mesma base são "Read-only" (apenas visualização).
 Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo readOnly={true}.
 
-Tela 3: Dashboard Gerencial
+Tela 3: Dashboard Gerencial (Administrador)
+Header: Exibe apenas o nome do usuário (sem a palavra "geral" ou role ao lado).
 Filtros Globais: Base, Equipe, Período.
-Botão "Gestão de Usuários" (Admin).
-Botão/Card de acesso rápido ao Explorador de Dados para auditoria detalhada.
+Cards de acesso rápido:
+- Gestão de Usuários (Admin).
+- Gestão de Efetivo (Colaboradores).
+- Dashboard Analytics.
+- Monitoramento de Aderência.
+- Explorador de Dados.
+- Suporte / Feedback: Card com ícone MessageSquare. Permite acessar a tela de suporte para ver feedbacks enviados pelos usuários e dar tratativas. Exibe badge com a quantidade de feedbacks pendentes quando houver (ex.: "3 pendentes"). Rota: `/suporte`.
 
 Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
 
@@ -435,6 +442,42 @@ Tela 6: Explorador de Dados (/dashboard/explorer) - Apenas Gerente Geral
   - Botão de exportação para CSV/Excel (a ser implementado).
 
 **Status:** Funcionalidade em desenvolvimento. Página base criada com estrutura visual e navegação funcional.
+
+Tela: Suporte / Feedback (/suporte) - Apenas Gerente Geral
+**Objetivo:** Permitir que o administrador visualize todos os feedbacks enviados pelos usuários (via Configurações > Suporte/Feedback) e registre as tratativas realizadas.
+
+**Acesso:**
+- Rota: `/suporte`.
+- Permissão: Apenas `role === 'geral'` (Gerente Geral).
+- Navegação: Card "Suporte / Feedback" no Dashboard Administrador (Tela 3), com ícone MessageSquare. O card exibe um badge com a quantidade de feedbacks pendentes quando houver (ex.: "3 pendentes").
+
+**Estrutura da Tela:**
+- Header: Título "Suporte / Feedback", subtítulo "Veja os feedbacks enviados pelos usuários e dê as tratativas", botão "Voltar ao Dashboard".
+- Filtro por status: Select com opções Todos, Pendente, Em Andamento, Resolvido, Fechado.
+- Tabela de feedbacks (colunas):
+  - Data (data/hora de criação, formato pt-BR).
+  - Usuário (nome do perfil; fallback: primeiros 8 caracteres do user_id).
+  - Tipo (Bug, Sugestão, Outros).
+  - Mensagem (resumo com line-clamp-2).
+  - Ação: Botão "Ver" (ícone Eye) que abre modal com detalhe completo do feedback.
+  - Status: Select para alterar (Pendente, Em Andamento, Resolvido, Fechado). Atualização imediata no Supabase.
+  - Tipo de tratativa: Select para registrar a tratativa realizada. Opções: Selecione a tratativa, Correção aplicada, Em análise, Respondido ao usuário, Fechado sem alteração, Outros. Atualização imediata no Supabase.
+- Modal de detalhe (ao clicar em "Ver"): Exibe data, usuário, tipo, status, tipo de tratativa (se houver) e mensagem completa em área com scroll (max-h-60). Botão Fechar. Clique no fundo escuro também fecha o modal.
+- Paginação (abaixo da tabela):
+  - Texto "Mostrando X a Y de Z feedback(s)".
+  - Select "Itens por página" com opções 5, 10, 20, 50 (padrão 10).
+  - Botões "Anterior" e "Próxima" (ícones ChevronLeft/ChevronRight), desabilitados na primeira/última página.
+  - Texto "Página N de M".
+  - Ao alterar o filtro por status, a página volta para 1. Ao alterar itens por página, a página volta para 1.
+
+**Banco de dados:**
+- Tabela `feedbacks`: coluna `tratativa_tipo` (TEXT, opcional). Migration: `supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql`.
+- RLS: Política "Gerentes Gerais podem atualizar feedbacks" (FOR UPDATE) para permitir que administradores atualizem `status` e `tratativa_tipo`.
+
+**Arquivos:**
+- Página: `src/pages/Suporte.tsx`.
+- Rota em `App.tsx`: `/suporte` com `ProtectedRoute` para role `geral`.
+- Dashboard Administrador: card e contagem de pendentes em `src/pages/DashboardGerente.tsx`.
 
 Tela 7: Configurações do Usuário (/settings)
 **Objetivo:** Permitir que usuários gerenciem seu perfil, segurança e enviem feedback ao sistema.
@@ -1433,3 +1476,30 @@ Com as otimizações implementadas, o sistema deve suportar:
   - src/lib/analytics-utils.ts (refatoração completa de `processHorasTreinamento` com agregação por colaborador, classificação de conformidade e novos gráficos)
   - src/components/charts/BarChart.tsx (adicionado suporte para `ReferenceLine` para exibir linha de referência em gráficos)
   - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Treinamento com novos KPIs de conformidade e gráficos focados em compliance)
+
+### 9.24. Módulo Suporte / Feedback (Administrador) e Ajustes no Dashboard Administrador
+- **OBJETIVO:** Permitir que o administrador visualize todos os feedbacks enviados pelos usuários (via Configurações > Suporte/Feedback) e registre as tratativas realizadas; ajustar o header do Dashboard Administrador.
+- **IMPLEMENTAÇÃO:**
+  1. **Dashboard Administrador (Tela 3):**
+     - Header: Removida a palavra "geral" (ou role) ao lado do nome do usuário. Agora exibe apenas o nome do usuário no subtítulo do header.
+     - Novo card "Suporte / Feedback": Ícone MessageSquare. Descrição: "Veja os feedbacks enviados pelos usuários e dê as tratativas". Botão "Acessar Suporte" navega para `/suporte`. Badge exibe a quantidade de feedbacks pendentes (status = 'pendente') quando > 0 (ex.: "3 pendentes").
+  2. **Nova tela: Suporte / Feedback (/suporte):**
+     - Rota: `/suporte`. Protegida para role `geral` (Gerente Geral).
+     - Filtro por status: Todos, Pendente, Em Andamento, Resolvido, Fechado.
+     - Tabela: Data, Usuário (nome do perfil), Tipo (Bug/Sugestão/Outros), Mensagem (resumo), Ação (botão Ver), Status (select para alterar), Tipo de tratativa (select). Larguras mínimas nos selects para evitar texto cortado (Status: min-w 170px; Tipo de tratativa: min-w 260px).
+     - Coluna "Tipo de tratativa": Select com opções: Selecione a tratativa, Correção aplicada, Em análise, Respondido ao usuário, Fechado sem alteração, Outros. Valor persistido na coluna `tratativa_tipo` da tabela `feedbacks`.
+     - Botão "Ver" (coluna Ação): Abre modal com detalhe completo do feedback (data, usuário, tipo, status, tipo de tratativa se houver, mensagem completa em área com scroll). Fechar por botão ou clique no fundo.
+     - Paginação: "Mostrando X a Y de Z feedback(s)"; select "Itens por página" (5, 10, 20, 50, padrão 10); botões Anterior/Próxima; "Página N de M". Ao alterar filtro ou itens por página, página volta para 1.
+     - Tratamento de erro: Exibição de mensagem amigável quando a query de feedbacks falha (ex.: permissão RLS). Evitada query `.in('id', [])` quando não há feedbacks (lista vazia de user_ids).
+  3. **Banco de dados:**
+     - Tabela `feedbacks`: adicionada coluna `tratativa_tipo` (TEXT, opcional). Migration: `supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql`.
+     - RLS: Política "Gerentes Gerais podem atualizar feedbacks" (FOR UPDATE) para permitir que administradores atualizem `status` e `tratativa_tipo`.
+  4. **Tipos:** `database.types.ts` atualizado com `tratativa_tipo` em Row, Insert e Update da tabela `feedbacks`.
+- **Arquivos criados:**
+  - src/pages/Suporte.tsx (página completa de suporte com listagem, filtro, paginação, modal de detalhe, atualização de status e tratativa_tipo)
+  - supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql (coluna tratativa_tipo e política UPDATE)
+- **Arquivos modificados:**
+  - src/App.tsx (rota /suporte com lazy load e ProtectedRoute para 'geral')
+  - src/pages/DashboardGerente.tsx (card Suporte/Feedback, query de feedbacks pendentes, ícone MessageSquare)
+  - src/lib/database.types.ts (tratativa_tipo em feedbacks)
+  - docs/PRD.md (seção 4 feedbacks com tratativa_tipo e UPDATE; Tela 3 com header e card Suporte; nova Tela Suporte/Feedback; item 9.24)

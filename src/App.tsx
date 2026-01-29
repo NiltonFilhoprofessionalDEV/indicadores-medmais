@@ -12,6 +12,7 @@ const Colaboradores = lazy(() => import('./pages/admin/Colaboradores').then(m =>
 const Aderencia = lazy(() => import('./pages/Aderencia').then(m => ({ default: m.Aderencia })))
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
 const DataExplorer = lazy(() => import('./pages/DataExplorer').then(m => ({ default: m.DataExplorer })))
+const Suporte = lazy(() => import('./pages/Suporte').then(m => ({ default: m.Suporte })))
 
 // Componente de loading simples
 function PageLoader() {
@@ -89,6 +90,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['geral']}>
                 <DataExplorer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suporte"
+            element={
+              <ProtectedRoute allowedRoles={['geral']}>
+                <Suporte />
               </ProtectedRoute>
             }
           />

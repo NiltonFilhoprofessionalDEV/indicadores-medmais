@@ -123,6 +123,7 @@ export interface Database {
           tipo: 'bug' | 'sugestao' | 'outros'
           mensagem: string
           status: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+          tratativa_tipo: string | null
         }
         Insert: {
           id?: string
@@ -131,6 +132,7 @@ export interface Database {
           tipo: 'bug' | 'sugestao' | 'outros'
           mensagem: string
           status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+          tratativa_tipo?: string | null
         }
         Update: {
           id?: string
@@ -139,6 +141,7 @@ export interface Database {
           tipo?: 'bug' | 'sugestao' | 'outros'
           mensagem?: string
           status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+          tratativa_tipo?: string | null
         }
       }
       lancamentos: {

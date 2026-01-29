@@ -5,6 +5,7 @@ import type { Database } from '@/lib/database.types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
 
 type Base = Database['public']['Tables']['bases']['Row']
 type Equipe = Database['public']['Tables']['equipes']['Row']
@@ -120,17 +121,12 @@ export function BaseFormFields({
 
       <div className="space-y-2">
         <Label htmlFor="data_referencia">Data de Referência</Label>
-        <Input
+        <DatePicker
           id="data_referencia"
-          type="date"
           value={dataReferencia}
-          onChange={(e) => {
-            // CORREÇÃO TIMEZONE: O input type="date" já retorna string YYYY-MM-DD
-            // Passar direto sem conversão para evitar problemas de timezone
-            onDataChange(e.target.value)
-          }}
+          onChange={onDataChange}
           disabled={readOnly}
-          className={readOnly ? 'bg-muted' : ''}
+          placeholder="Selecione a data"
         />
       </div>
     </div>

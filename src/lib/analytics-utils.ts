@@ -1,5 +1,6 @@
 import { format, parse } from 'date-fns'
 import { timeToMinutes, minutesToTime, calculateTimeDifference } from './masks'
+import { calculateTAFStatus } from './calculations'
 import type { Database } from './database.types'
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
@@ -131,59 +132,125 @@ export function processOcorrenciaAeronautica(lancamentos: Lancamento[]) {
 
   // KPIs
   const totalOcorrencias = items.length
-  const maiorTempo1Viatura = items.reduce((max, item) => {
-    const tempo = parseTimeMMSS(item.conteudo.tempo_chegada_1_cci)
-    return tempo > max ? tempo : max
-  }, 0)
-  const maiorTempoUltViatura = items.reduce((max, item) => {
-    const tempo = parseTimeMMSS(item.conteudo.tempo_chegada_ult_cci)
-    return tempo > max ? tempo : max
-  }, 0)
-  
-  // Total horas somadas
-  let totalHoras = 0
+
+  // Tempo Médio Resposta (1º CCI) - média do campo tempo_chegada_1_cci
+  const tempos1CCI: number[] = []
   items.forEach((item) => {
-    if (item.conteudo.hora_acionamento && item.conteudo.termino_ocorrencia) {
-      const diff = calculateTimeDifference(
-        item.conteudo.hora_acionamento,
-        item.conteudo.termino_ocorrencia
-      )
-      totalHoras += timeToMinutes(diff)
+    if (item.conteudo.tempo_chegada_1_cci) {
+      const tempo = parseTimeMMSS(item.conteudo.tempo_chegada_1_cci)
+      if (tempo > 0) {
+        tempos1CCI.push(tempo)
+      }
     }
   })
+  const tempoMedioResposta1CCI = tempos1CCI.length > 0
+    ? tempos1CCI.reduce((a, b) => a + b, 0) / tempos1CCI.length
+    : 0
 
-  // Gráfico: Evolução mensal
-  const monthlyData = Array.from(groupByMonth(lancamentos).entries())
-    .map(([month, lancs]) => {
+  // Pior Tempo Resposta (1º CCI) - valor máximo
+  const piorTempoResposta1CCI = tempos1CCI.length > 0
+    ? Math.max(...tempos1CCI)
+    : 0
+
+  // % de Intervenções - porcentagem onde acao === 'Intervenção'
+  const totalIntervencoes = items.filter((item) => 
+    item.conteudo.acao === 'Intervenção'
+  ).length
+  const percentualIntervencoes = totalOcorrencias > 0
+    ? (totalIntervencoes / totalOcorrencias) * 100
+    : 0
+
+  // Gráfico 1: Perfil da Operação (Donut Chart) - Posicionamento vs Intervenção
+  const perfilOperacao = [
+    {
+      name: 'Posicionamento',
+      value: items.filter((item) => item.conteudo.acao === 'Posicionamento').length,
+      porcentagem: totalOcorrencias > 0
+        ? (items.filter((item) => item.conteudo.acao === 'Posicionamento').length / totalOcorrencias) * 100
+        : 0,
+    },
+    {
+      name: 'Intervenção',
+      value: totalIntervencoes,
+      porcentagem: percentualIntervencoes,
+    },
+  ]
+
+  // Gráfico 2: Agilidade da Equipe (Line Chart) - Tempo Médio de Resposta por Mês
+  const tempoRespostaPorMes = new Map<string, { total: number; count: number }>()
+  items.forEach((item) => {
+    if (item.conteudo.tempo_chegada_1_cci) {
+      const tempo = parseTimeMMSS(item.conteudo.tempo_chegada_1_cci)
+      if (tempo > 0) {
+        try {
+          const date = parse(item.data_referencia, 'yyyy-MM-dd', new Date())
+          const monthKey = format(date, 'yyyy-MM')
+          const current = tempoRespostaPorMes.get(monthKey) || { total: 0, count: 0 }
+          tempoRespostaPorMes.set(monthKey, {
+            total: current.total + tempo,
+            count: current.count + 1,
+          })
+        } catch {
+          // Ignora datas inválidas
+        }
+      }
+    }
+  })
+  const agilidadeEquipe = Array.from(tempoRespostaPorMes.entries())
+    .map(([month, data]) => {
       try {
+        const date = parse(month + '-01', 'yyyy-MM-dd', new Date())
         return {
-          mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-          quantidade: lancs.length,
+          mes: format(date, 'MMM/yyyy'),
+          mesKey: month,
+          tempoMedioSegundos: data.count > 0 ? data.total / data.count : 0,
+          tempoMedioFormatado: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
         }
       } catch {
         return null
       }
     })
-    .filter((item): item is { mes: string; quantidade: number } => item !== null)
-    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .filter((item): item is { mes: string; mesKey: string; tempoMedioSegundos: number; tempoMedioFormatado: string } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey))
 
-  // Lista por localidade
+  // Gráfico 3: Mapa de Calor de Locais (Bar Chart Horizontal) - Top 5
   const porLocalidade = new Map<string, number>()
   items.forEach((item) => {
     const local = item.conteudo.local || 'Não informado'
     porLocalidade.set(local, (porLocalidade.get(local) || 0) + 1)
   })
+  const top5Locais = Array.from(porLocalidade.entries())
+    .map(([local, qtd]) => ({ local, qtd }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .slice(0, 5)
 
   return {
     kpis: {
       totalOcorrencias,
-      maiorTempo1Viatura: secondsToMMSS(maiorTempo1Viatura),
-      maiorTempoUltViatura: secondsToMMSS(maiorTempoUltViatura),
-      totalHorasSomadas: minutesToTime(totalHoras),
+      tempoMedioResposta1CCI: secondsToMMSS(Math.round(tempoMedioResposta1CCI)),
+      tempoMedioResposta1CCISegundos: tempoMedioResposta1CCI,
+      piorTempoResposta1CCI: secondsToMMSS(Math.round(piorTempoResposta1CCI)),
+      piorTempoResposta1CCISegundos: piorTempoResposta1CCI,
+      percentualIntervencoes: Math.round(percentualIntervencoes * 100) / 100,
     },
-    graficoEvolucaoMensal: monthlyData,
-    porLocalidade: Array.from(porLocalidade.entries()).map(([local, qtd]) => ({ local, qtd })),
+    graficoPerfilOperacao: perfilOperacao,
+    graficoAgilidadeEquipe: agilidadeEquipe,
+    graficoTop5Locais: top5Locais,
     listaDetalhada: items,
+  }
+}
+
+/**
+ * Calcula tempo médio de resposta entre duas horas (hora_chegada - hora_acionamento) em minutos
+ * Exportada para uso em outros módulos se necessário
+ */
+export function calculateResponseTimeAvg(horaAcionamento: string, horaChegada: string): number {
+  if (!horaAcionamento || !horaChegada) return 0
+  try {
+    const diff = calculateTimeDifference(horaAcionamento, horaChegada)
+    return timeToMinutes(diff)
+  } catch {
+    return 0
   }
 }
 
@@ -206,33 +273,58 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
 
   // KPIs
   const totalOcorrencias = items.length
-  let totalHoras = 0
+  
+  // Calcular durações para média
+  const duracoes: number[] = []
   items.forEach((item) => {
     if (item.conteudo.duracao_total) {
-      totalHoras += timeToMinutes(item.conteudo.duracao_total)
+      duracoes.push(timeToMinutes(item.conteudo.duracao_total))
     } else if (item.conteudo.hora_acionamento && item.conteudo.hora_termino) {
       const diff = calculateTimeDifference(
         item.conteudo.hora_acionamento,
         item.conteudo.hora_termino
       )
-      totalHoras += timeToMinutes(diff)
+      duracoes.push(timeToMinutes(diff))
     }
   })
+  const duracaoMedia = duracoes.length > 0 
+    ? duracoes.reduce((a, b) => a + b, 0) / duracoes.length 
+    : 0
 
-  // Gráfico: Evolução mensal
-  const monthlyData = Array.from(groupByMonth(lancamentos).entries())
+  // Calcular tempo médio de resposta (hora_chegada - hora_acionamento)
+  const temposResposta: number[] = []
+  items.forEach((item) => {
+    if (item.conteudo.hora_acionamento && item.conteudo.hora_chegada) {
+      const tempo = calculateResponseTimeAvg(item.conteudo.hora_acionamento, item.conteudo.hora_chegada)
+      if (tempo > 0) {
+        temposResposta.push(tempo)
+      }
+    }
+  })
+  const tempoMedioResposta = temposResposta.length > 0
+    ? temposResposta.reduce((a, b) => a + b, 0) / temposResposta.length
+    : 0
+
+  // Gráfico: Evolução mensal (garantir ordenação cronológica)
+  const monthlyDataRaw = Array.from(groupByMonth(lancamentos).entries())
     .map(([month, lancs]) => {
       try {
+        const date = parse(month + '-01', 'yyyy-MM-dd', new Date())
         return {
-          mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          mes: format(date, 'MMM/yyyy'),
+          mesKey: month, // Para ordenação correta
           quantidade: lancs.length,
         }
       } catch {
         return null
       }
     })
-    .filter((item): item is { mes: string; quantidade: number } => item !== null)
-    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .filter((item): item is { mes: string; mesKey: string; quantidade: number } => item !== null)
+  
+  // Ordenar por chave cronológica (yyyy-MM) antes de remover mesKey
+  const monthlyData = monthlyDataRaw
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey))
+    .map(({ mesKey, ...rest }) => rest) // Remover mesKey após ordenação
 
   // Top 5 Tipos
   const tiposCount = new Map<string, number>()
@@ -245,7 +337,47 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
     .sort((a, b) => b.qtd - a.qtd)
     .slice(0, 5)
 
-  // Tempo Total por mês
+  // Eficiência por Tipo (Tempo Médio de Resposta por Tipo)
+  const tempoRespostaPorTipo = new Map<string, { total: number; count: number }>()
+  items.forEach((item) => {
+    if (item.conteudo.hora_acionamento && item.conteudo.hora_chegada) {
+      const tipo = item.conteudo.tipo_ocorrencia || 'Não informado'
+      const tempo = calculateResponseTimeAvg(item.conteudo.hora_acionamento, item.conteudo.hora_chegada)
+      if (tempo > 0) {
+        const current = tempoRespostaPorTipo.get(tipo) || { total: 0, count: 0 }
+        tempoRespostaPorTipo.set(tipo, {
+          total: current.total + tempo,
+          count: current.count + 1,
+        })
+      }
+    }
+  })
+  const eficienciaPorTipo = Array.from(tempoRespostaPorTipo.entries())
+    .map(([tipo, data]) => ({
+      tipo,
+      tempoMedioMinutos: data.count > 0 ? data.total / data.count : 0,
+    }))
+    .sort((a, b) => b.tempoMedioMinutos - a.tempoMedioMinutos) // Ordenar do maior para o menor
+
+  // Locais Frequentes (Top 5)
+  const locaisCount = new Map<string, number>()
+  items.forEach((item) => {
+    const local = (item.conteudo.local || 'Não informado').trim()
+    const localLower = local.toLowerCase()
+    // Agrupar case-insensitive
+    const existingKey = Array.from(locaisCount.keys()).find(k => k.toLowerCase() === localLower)
+    if (existingKey) {
+      locaisCount.set(existingKey, (locaisCount.get(existingKey) || 0) + 1)
+    } else {
+      locaisCount.set(local, (locaisCount.get(local) || 0) + 1)
+    }
+  })
+  const top5Locais = Array.from(locaisCount.entries())
+    .map(([local, qtd]) => ({ local, qtd }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .slice(0, 5)
+
+  // Tempo Total por mês (mantido para compatibilidade, mas ordenado cronologicamente)
   const tempoPorMes = new Map<string, number>()
   items.forEach((item) => {
     const month = format(parse(item.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
@@ -261,16 +393,18 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
       try {
         return {
           mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          mesKey: mes,
           tempoTotal: minutos,
         }
       } catch {
         return null
       }
     })
-    .filter((item): item is { mes: string; tempoTotal: number } => item !== null)
-    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .filter((item): item is { mes: string; mesKey: string; tempoTotal: number } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey))
+    .map(({ mesKey, ...rest }) => rest)
 
-  // Por localidade
+  // Por localidade (mantido para compatibilidade)
   const porLocalidade = new Map<string, number>()
   items.forEach((item) => {
     const local = item.conteudo.local || 'Não informado'
@@ -280,11 +414,15 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
   return {
     kpis: {
       totalOcorrencias,
-      totalHorasSomadas: minutesToTime(totalHoras),
+      duracaoMedia: minutesToTime(Math.round(duracaoMedia)),
+      tempoMedioResposta: secondsToMMSS(Math.round(tempoMedioResposta * 60)), // Converter minutos para segundos e depois para MM:ss
+      tempoMedioRespostaMinutos: tempoMedioResposta, // Manter em minutos para cálculos
     },
     graficoEvolucaoMensal: monthlyData,
     graficoTop5Tipos: top5Tipos,
+    graficoEficienciaPorTipo: eficienciaPorTipo,
     graficoTempoTotalPorMes: tempoTotalPorMes,
+    top5Locais: top5Locais,
     porLocalidade: Array.from(porLocalidade.entries()).map(([local, qtd]) => ({ local, qtd })),
     listaDetalhada: items,
   }
@@ -292,8 +430,9 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
 
 /**
  * 3. TESTE DE APTIDÃO FÍSICA (TAF)
+ * Quando colaboradorNome é informado, processa apenas os avaliados que batem com o nome (dados individuais).
  */
-export function processTAF(lancamentos: Lancamento[]) {
+export function processTAF(lancamentos: Lancamento[], colaboradorNome?: string) {
   const avaliados: Array<{
     nome: string
     idade: number
@@ -308,11 +447,20 @@ export function processTAF(lancamentos: Lancamento[]) {
     const conteudo = lancamento.conteudo as { avaliados?: Array<Record<string, unknown>> }
     if (conteudo.avaliados && Array.isArray(conteudo.avaliados)) {
       conteudo.avaliados.forEach((avaliado) => {
+        const nome = (avaliado.nome as string) || ''
+        if (colaboradorNome && !nome.toLowerCase().includes(colaboradorNome.toLowerCase())) return
+        const idade = Number(avaliado.idade) || 0
+        const tempo = (avaliado.tempo as string) || ''
+        let status = String(avaliado.status || '').trim()
+        if ((!status || status === '-') && idade && tempo && tempo.includes(':')) {
+          const res = calculateTAFStatus(idade, tempo)
+          status = res.status
+        }
         avaliados.push({
-          nome: (avaliado.nome as string) || '',
-          idade: Number(avaliado.idade) || 0,
-          tempo: (avaliado.tempo as string) || '',
-          status: (avaliado.status as string) || '',
+          nome,
+          idade,
+          tempo,
+          status,
           nota: avaliado.nota ? Number(avaliado.nota) : undefined,
           data_referencia: lancamento.data_referencia,
           equipe_id: lancamento.equipe_id,
@@ -350,9 +498,10 @@ export function processTAF(lancamentos: Lancamento[]) {
     }
   })
 
-  // % Aprovado/Reprovado
-  const aprovados = avaliados.filter((a) => a.status === 'Aprovado').length
-  const reprovados = avaliados.filter((a) => a.status === 'Reprovado').length
+  // % Aprovado/Reprovado (normalizar: trim + case-insensitive)
+  const norm = (s: string) => (s || '').trim().toLowerCase()
+  const aprovados = avaliados.filter((a) => norm(a.status) === 'aprovado').length
+  const reprovados = avaliados.filter((a) => norm(a.status) === 'reprovado').length
   const total = avaliados.length
 
   // Evolução média mensal
@@ -383,42 +532,88 @@ export function processTAF(lancamentos: Lancamento[]) {
     }
   })
 
+  // Calcular taxa de aprovação
+  const taxaAprovacao = total > 0 ? ((aprovados / total) * 100).toFixed(1) : '0.0'
+
+  // Gráfico 2: Evolução do Condicionamento (Line Chart) - CORRIGIDO: Ordenação cronológica
+  const evolucaoCondicionamentoRaw = Array.from(mediaPorMes.entries())
+    .map(([mes, data]) => {
+      try {
+        const date = parse(mes + '-01', 'yyyy-MM-dd', new Date())
+        return {
+          mes: format(date, 'MMM/yyyy'),
+          mesKey: mes, // Para ordenação cronológica correta
+          tempoMedioSegundos: data.count > 0 ? data.total / data.count : 0,
+          tempoMedioFormatado: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; mesKey: string; tempoMedioSegundos: number; tempoMedioFormatado: string } => item !== null)
+  const evolucaoCondicionamento = evolucaoCondicionamentoRaw.sort((a, b) => a.mesKey.localeCompare(b.mesKey))
+
+  // Gráfico 3: Performance por Faixa Etária (Bar Chart)
+  const performancePorFaixaEtaria = new Map<string, { total: number; count: number }>()
+  avaliados.forEach((a) => {
+    if (a.tempo && a.idade) {
+      let faixa = ''
+      if (a.idade <= 30) {
+        faixa = 'Até 30 anos'
+      } else if (a.idade <= 40) {
+        faixa = '31-40 anos'
+      } else {
+        faixa = 'Acima de 40 anos'
+      }
+      const tempo = parseTimeMMSS(a.tempo)
+      const current = performancePorFaixaEtaria.get(faixa) || { total: 0, count: 0 }
+      performancePorFaixaEtaria.set(faixa, {
+        total: current.total + tempo,
+        count: current.count + 1,
+      })
+    }
+  })
+  const graficoPerformancePorFaixaEtaria = Array.from(performancePorFaixaEtaria.entries())
+    .map(([faixa, data]) => ({
+      faixa,
+      tempoMedioSegundos: data.count > 0 ? data.total / data.count : 0,
+      tempoMedioFormatado: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+    }))
+    .sort((a, b) => {
+      // Ordenar: Até 30, 31-40, Acima de 40
+      const ordem: Record<string, number> = { 'Até 30 anos': 1, '31-40 anos': 2, 'Acima de 40 anos': 3 }
+      return (ordem[a.faixa] || 99) - (ordem[b.faixa] || 99)
+    })
+
+  // Gráfico 4: Distribuição de Notas (Bar Chart)
+  const distribuicaoNotas = new Map<number, number>()
+  avaliados.forEach((a) => {
+    if (a.nota !== undefined && a.nota !== null) {
+      distribuicaoNotas.set(a.nota, (distribuicaoNotas.get(a.nota) || 0) + 1)
+    }
+  })
+  const graficoDistribuicaoNotas = Array.from(distribuicaoNotas.entries())
+    .map(([nota, qtd]) => ({ nota, quantidade: qtd }))
+    .sort((a, b) => b.nota - a.nota) // Ordenar do maior para o menor (Nota 10 primeiro)
+
   return {
     kpis: {
-      menorTempo: secondsToMMSS(menorTempo),
-      tempoMedio: secondsToMMSS(tempoMedio),
-      tempoMaximo: secondsToMMSS(tempoMaximo),
+      totalAvaliados: total,
+      taxaAprovacao,
+      melhorTempo: secondsToMMSS(menorTempo), // Recorde
+      melhorTempoSegundos: menorTempo,
+      tempoMedioGeral: secondsToMMSS(Math.round(tempoMedio)), // Tempo Médio Geral
+      tempoMedioGeralSegundos: tempoMedio,
+      aprovados,
+      reprovados,
     },
-    graficoDistribuicaoMinutos: Array.from(distribuicaoMinutos.entries())
-      .map(([minutos, qtd]) => ({ minutos, quantidade: qtd }))
-      .sort((a, b) => a.minutos - b.minutos),
-    graficoMediaPorEquipe: Array.from(porEquipe.entries()).map(([equipe, data]) => ({
-      equipe,
-      media: secondsToMMSS(data.total / data.count),
-    })),
     graficoAprovadoReprovado: [
       { name: 'Aprovado', value: aprovados, porcentagem: total > 0 ? (aprovados / total) * 100 : 0 },
       { name: 'Reprovado', value: reprovados, porcentagem: total > 0 ? (reprovados / total) * 100 : 0 },
     ],
-    graficoEvolucaoMediaMensal: Array.from(mediaPorMes.entries())
-      .map(([mes, data]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            media: secondsToMMSS(data.total / data.count),
-          }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; media: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
-    graficoMediaPorIdade: Array.from(mediaPorIdade.entries())
-      .map(([idade, data]) => ({
-        idade: `${idade}-${idade + 9} anos`,
-        media: secondsToMMSS(data.total / data.count),
-      }))
-      .sort((a, b) => a.idade.localeCompare(b.idade)),
+    graficoEvolucaoCondicionamento: evolucaoCondicionamento,
+    graficoPerformancePorFaixaEtaria,
+    graficoDistribuicaoNotas,
     listaCompleta: avaliados,
   }
 }
@@ -433,80 +628,155 @@ export function processTempoTPEPR(lancamentos: Lancamento[]) {
     status: string
     data_referencia: string
     equipe_id: string
+    tempoSegundos: number
   }> = []
 
   lancamentos.forEach((lancamento) => {
     const conteudo = lancamento.conteudo as { avaliados?: Array<Record<string, unknown>> }
     if (conteudo.avaliados && Array.isArray(conteudo.avaliados)) {
       conteudo.avaliados.forEach((avaliado) => {
+        const tempoStr = (avaliado.tempo as string) || ''
+        const tempoSegundos = parseTimeMMSS(tempoStr)
+        // Calcular status baseado em tempo <= 59s (Aprovado) vs > 59s (Reprovado)
+        const statusCalculado = tempoSegundos > 0 && tempoSegundos <= 59 ? 'Aprovado' : 'Reprovado'
+        
         avaliados.push({
           nome: (avaliado.nome as string) || '',
-          tempo: (avaliado.tempo as string) || '',
-          status: (avaliado.status as string) || '',
+          tempo: tempoStr,
+          status: statusCalculado,
           data_referencia: lancamento.data_referencia,
           equipe_id: lancamento.equipe_id,
+          tempoSegundos,
         })
       })
     }
   })
 
-  const tempos = avaliados.filter((a) => a.tempo).map((a) => parseTimeMMSS(a.tempo))
+  const tempos = avaliados.filter((a) => a.tempoSegundos > 0).map((a) => a.tempoSegundos)
+  const totalAvaliacoes = avaliados.filter((a) => a.tempoSegundos > 0).length
 
   // KPIs
   const menorTempo = tempos.length > 0 ? Math.min(...tempos) : 0
   const tempoMedio = tempos.length > 0 ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0
-  const tempoMaximo = tempos.length > 0 ? Math.max(...tempos) : 0
+  
+  // Encontrar recorde com nome e equipe
+  const recordeIndex = tempos.indexOf(menorTempo)
+  const recordeAvaliado = recordeIndex >= 0 ? avaliados.filter((a) => a.tempoSegundos > 0)[recordeIndex] : null
+  
+  // Taxa de Prontidão (% de bombeiros que fizeram abaixo de 59s)
+  const dentroDaMeta = avaliados.filter((a) => a.tempoSegundos > 0 && a.tempoSegundos <= 59).length
+  const taxaProntidao = totalAvaliacoes > 0 ? (dentroDaMeta / totalAvaliacoes) * 100 : 0
 
-  // Média mensal
-  const mediaPorMes = new Map<string, { total: number; count: number }>()
-  avaliados.forEach((a) => {
-    if (a.tempo) {
-      const month = format(parse(a.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
-      const tempo = parseTimeMMSS(a.tempo)
-      const current = mediaPorMes.get(month) || { total: 0, count: 0 }
-      mediaPorMes.set(month, {
-        total: current.total + tempo,
-        count: current.count + 1,
-      })
-    }
-  })
+  // Gráfico 1: Aderência à Meta (Donut Chart)
+  const graficoAderenciaMeta = [
+    { name: 'Dentro da Meta (≤59s)', value: dentroDaMeta, porcentagem: taxaProntidao },
+    { name: 'Acima da Meta (>59s)', value: totalAvaliacoes - dentroDaMeta, porcentagem: 100 - taxaProntidao },
+  ]
 
-  // Desempenho por equipe
+  // Gráfico 2: Performance por Equipe (com Reference Line em 60s)
   const porEquipe = new Map<string, { total: number; count: number }>()
   avaliados.forEach((a) => {
-    if (a.tempo) {
-      const tempo = parseTimeMMSS(a.tempo)
+    if (a.tempoSegundos > 0) {
       const current = porEquipe.get(a.equipe_id) || { total: 0, count: 0 }
       porEquipe.set(a.equipe_id, {
-        total: current.total + tempo,
+        total: current.total + a.tempoSegundos,
         count: current.count + 1,
       })
     }
   })
+  const graficoPerformancePorEquipe = Array.from(porEquipe.entries()).map(([equipe, data]) => ({
+    equipe,
+    mediaSegundos: data.count > 0 ? data.total / data.count : 0,
+    mediaFormatada: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+  }))
+
+  // Gráfico 3: Distribuição de Tempos (Histograma)
+  const distribuicaoTempos = new Map<string, number>()
+  avaliados.forEach((a) => {
+    if (a.tempoSegundos > 0) {
+      let faixa = ''
+      if (a.tempoSegundos >= 30 && a.tempoSegundos <= 40) {
+        faixa = '30-40s'
+      } else if (a.tempoSegundos >= 41 && a.tempoSegundos <= 50) {
+        faixa = '41-50s'
+      } else if (a.tempoSegundos >= 51 && a.tempoSegundos <= 59) {
+        faixa = '51-59s'
+      } else if (a.tempoSegundos >= 60 && a.tempoSegundos <= 70) {
+        faixa = '1m-1m10s'
+      } else if (a.tempoSegundos > 70) {
+        faixa = '1m10s+'
+      } else {
+        faixa = '<30s'
+      }
+      distribuicaoTempos.set(faixa, (distribuicaoTempos.get(faixa) || 0) + 1)
+    }
+  })
+  const graficoDistribuicaoTempos = Array.from(distribuicaoTempos.entries())
+    .map(([faixa, qtd]) => ({ faixa, qtd }))
+    .sort((a, b) => {
+      // Ordenar: <30s, 30-40s, 41-50s, 51-59s, 1m-1m10s, 1m10s+
+      const ordem: Record<string, number> = {
+        '<30s': 1,
+        '30-40s': 2,
+        '41-50s': 3,
+        '51-59s': 4,
+        '1m-1m10s': 5,
+        '1m10s+': 6,
+      }
+      return (ordem[a.faixa] || 99) - (ordem[b.faixa] || 99)
+    })
+
+  // Gráfico 4: Evolução Mensal (Line Chart) - Ordenação Cronológica Corrigida
+  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  avaliados.forEach((a) => {
+    if (a.tempoSegundos > 0) {
+      try {
+        const date = parse(a.data_referencia, 'yyyy-MM-dd', new Date())
+        const monthKey = format(date, 'yyyy-MM')
+        const current = mediaPorMes.get(monthKey) || { total: 0, count: 0 }
+        mediaPorMes.set(monthKey, {
+          total: current.total + a.tempoSegundos,
+          count: current.count + 1,
+        })
+      } catch {
+        // Ignorar datas inválidas
+      }
+    }
+  })
+  const graficoEvolucaoMediaMensal = Array.from(mediaPorMes.entries())
+    .map(([mesKey, data]) => {
+      try {
+        return {
+          mes: format(parse(mesKey + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          mesKey,
+          mediaSegundos: data.count > 0 ? data.total / data.count : 0,
+          mediaFormatada: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; mesKey: string; mediaSegundos: number; mediaFormatada: string } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey)) // Ordenação cronológica correta
 
   return {
     kpis: {
-      menorTempo: secondsToMMSS(menorTempo),
-      tempoMedio: secondsToMMSS(tempoMedio),
-      tempoMaximo: secondsToMMSS(tempoMaximo),
-    },
-    graficoEvolucaoMediaMensal: Array.from(mediaPorMes.entries())
-      .map(([mes, data]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            media: secondsToMMSS(data.total / data.count),
+      totalAvaliacoes,
+      taxaProntidao: Math.round(taxaProntidao * 100) / 100,
+      tempoMedioGeral: secondsToMMSS(Math.round(tempoMedio)),
+      tempoMedioGeralSegundos: tempoMedio,
+      recorde: recordeAvaliado
+        ? {
+            tempo: secondsToMMSS(menorTempo),
+            nome: recordeAvaliado.nome,
+            equipe_id: recordeAvaliado.equipe_id,
           }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; media: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
-    graficoDesempenhoPorEquipe: Array.from(porEquipe.entries()).map(([equipe, data]) => ({
-      equipe,
-      media: secondsToMMSS(data.total / data.count),
-    })),
+        : null,
+    },
+    graficoAderenciaMeta,
+    graficoPerformancePorEquipe,
+    graficoDistribuicaoTempos,
+    graficoEvolucaoMediaMensal,
     listaCompleta: avaliados,
   }
 }
@@ -521,69 +791,127 @@ export function processTempoResposta(lancamentos: Lancamento[]) {
     local: string
     tempo: string
     data_referencia: string
+    tempoSegundos: number
   }> = []
 
   lancamentos.forEach((lancamento) => {
     const conteudo = lancamento.conteudo as { afericoes?: Array<Record<string, unknown>> }
     if (conteudo.afericoes && Array.isArray(conteudo.afericoes)) {
       conteudo.afericoes.forEach((afericao) => {
+        const tempoStr = (afericao.tempo as string) || ''
+        const tempoSegundos = parseTimeMMSS(tempoStr)
         afericoes.push({
           viatura: (afericao.viatura as string) || '',
           motorista: (afericao.motorista as string) || '',
           local: (afericao.local as string) || '',
-          tempo: (afericao.tempo as string) || '',
+          tempo: tempoStr,
           data_referencia: lancamento.data_referencia,
+          tempoSegundos,
         })
       })
     }
   })
 
-  const tempos = afericoes.filter((a) => a.tempo).map((a) => parseTimeMMSS(a.tempo))
+  const tempos = afericoes.filter((a) => a.tempoSegundos > 0).map((a) => a.tempoSegundos)
+  const totalExercicios = afericoes.filter((a) => a.tempoSegundos > 0).length
 
   // KPIs
-  const menorTempoIdx = tempos.length > 0 ? tempos.indexOf(Math.min(...tempos)) : -1
-  const maiorTempoIdx = tempos.length > 0 ? tempos.indexOf(Math.max(...tempos)) : -1
+  const menorTempo = tempos.length > 0 ? Math.min(...tempos) : 0
+  const maiorTempo = tempos.length > 0 ? Math.max(...tempos) : 0
+  const tempoMedio = tempos.length > 0 ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0
 
-  // Média mensal
-  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  // Encontrar recorde (menor tempo) com viatura
+  const recordeIndex = tempos.indexOf(menorTempo)
+  const recordeAfericao = recordeIndex >= 0 ? afericoes.filter((a) => a.tempoSegundos > 0)[recordeIndex] : null
+
+  // Encontrar maior tempo (alerta) com viatura
+  const alertaIndex = tempos.indexOf(maiorTempo)
+  const alertaAfericao = alertaIndex >= 0 ? afericoes.filter((a) => a.tempoSegundos > 0)[alertaIndex] : null
+
+  // Gráfico 1: Performance por Viatura (Bar Chart)
+  const porViatura = new Map<string, { total: number; count: number }>()
   afericoes.forEach((a) => {
-    if (a.tempo) {
-      const month = format(parse(a.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
-      const tempo = parseTimeMMSS(a.tempo)
-      const current = mediaPorMes.get(month) || { total: 0, count: 0 }
-      mediaPorMes.set(month, {
-        total: current.total + tempo,
+    if (a.tempoSegundos > 0) {
+      const current = porViatura.get(a.viatura) || { total: 0, count: 0 }
+      porViatura.set(a.viatura, {
+        total: current.total + a.tempoSegundos,
         count: current.count + 1,
       })
     }
   })
+  const graficoPerformancePorViatura = Array.from(porViatura.entries())
+    .map(([viatura, data]) => ({
+      viatura,
+      mediaSegundos: data.count > 0 ? data.total / data.count : 0,
+      mediaFormatada: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+    }))
+    .sort((a, b) => a.viatura.localeCompare(b.viatura)) // Ordenar por nome da viatura
+
+  // Gráfico 2: Curva de Agilidade (Line Chart) - Ordenação Cronológica Corrigida
+  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  afericoes.forEach((a) => {
+    if (a.tempoSegundos > 0) {
+      try {
+        const date = parse(a.data_referencia, 'yyyy-MM-dd', new Date())
+        const monthKey = format(date, 'yyyy-MM')
+        const current = mediaPorMes.get(monthKey) || { total: 0, count: 0 }
+        mediaPorMes.set(monthKey, {
+          total: current.total + a.tempoSegundos,
+          count: current.count + 1,
+        })
+      } catch {
+        // Ignorar datas inválidas
+      }
+    }
+  })
+  const graficoCurvaAgilidade = Array.from(mediaPorMes.entries())
+    .map(([mesKey, data]) => {
+      try {
+        return {
+          mes: format(parse(mesKey + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          mesKey,
+          mediaSegundos: data.count > 0 ? data.total / data.count : 0,
+          mediaFormatada: data.count > 0 ? secondsToMMSS(Math.round(data.total / data.count)) : '00:00',
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; mesKey: string; mediaSegundos: number; mediaFormatada: string } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey)) // Ordenação cronológica correta
+
+  // Gráfico 3: Consistência (Donut Chart) - Classificação por faixas
+  const excelente = afericoes.filter((a) => a.tempoSegundos > 0 && a.tempoSegundos < 120).length // < 2min
+  const bom = afericoes.filter((a) => a.tempoSegundos >= 120 && a.tempoSegundos <= 180).length // 2min - 3min
+  const critico = afericoes.filter((a) => a.tempoSegundos > 180).length // > 3min
+
+  const graficoConsistencia = [
+    { name: 'Excelente (< 2min)', value: excelente, porcentagem: totalExercicios > 0 ? (excelente / totalExercicios) * 100 : 0 },
+    { name: 'Bom (2min - 3min)', value: bom, porcentagem: totalExercicios > 0 ? (bom / totalExercicios) * 100 : 0 },
+    { name: 'Crítico (> 3min)', value: critico, porcentagem: totalExercicios > 0 ? (critico / totalExercicios) * 100 : 0 },
+  ]
 
   return {
     kpis: {
-      menorTempo: menorTempoIdx >= 0 ? {
-        tempo: secondsToMMSS(tempos[menorTempoIdx]),
-        motorista: afericoes[menorTempoIdx].motorista,
-        viatura: afericoes[menorTempoIdx].viatura,
-      } : null,
-      maiorTempo: maiorTempoIdx >= 0 ? {
-        tempo: secondsToMMSS(tempos[maiorTempoIdx]),
-        motorista: afericoes[maiorTempoIdx].motorista,
-        viatura: afericoes[maiorTempoIdx].viatura,
-      } : null,
-    },
-    graficoEvolucaoMediaMensal: Array.from(mediaPorMes.entries())
-      .map(([mes, data]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            media: secondsToMMSS(data.total / data.count),
+      menorTempo: recordeAfericao
+        ? {
+            tempo: secondsToMMSS(menorTempo),
+            viatura: recordeAfericao.viatura,
           }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; media: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
+        : null,
+      maiorTempo: alertaAfericao
+        ? {
+            tempo: secondsToMMSS(maiorTempo),
+            viatura: alertaAfericao.viatura,
+          }
+        : null,
+      tempoMedioGeral: secondsToMMSS(Math.round(tempoMedio)),
+      tempoMedioGeralSegundos: tempoMedio,
+      totalExercicios,
+    },
+    graficoPerformancePorViatura,
+    graficoCurvaAgilidade,
+    graficoConsistencia,
     listaCompleta: afericoes,
   }
 }
@@ -613,71 +941,112 @@ export function processHorasTreinamento(lancamentos: Lancamento[]) {
     }
   })
 
-  // Média mensal
-  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  // Agrupar por colaborador e somar horas (meta: 16 horas mensais)
+  const horasPorColaborador = new Map<string, { totalHorasMinutos: number; equipe_id: string }>()
   participantes.forEach((p) => {
-    if (p.horas) {
-      const month = format(parse(p.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
-      const horas = timeToMinutes(p.horas)
-      const current = mediaPorMes.get(month) || { total: 0, count: 0 }
-      mediaPorMes.set(month, {
-        total: current.total + horas,
-        count: current.count + 1,
+    if (p.horas && p.nome) {
+      const horasMinutos = timeToMinutes(p.horas)
+      const current = horasPorColaborador.get(p.nome) || { totalHorasMinutos: 0, equipe_id: p.equipe_id }
+      horasPorColaborador.set(p.nome, {
+        totalHorasMinutos: current.totalHorasMinutos + horasMinutos,
+        equipe_id: p.equipe_id,
       })
     }
   })
 
-  // Total por equipe
-  const totalPorEquipe = new Map<string, number>()
-  participantes.forEach((p) => {
-    if (p.horas) {
-      const horas = timeToMinutes(p.horas)
-      totalPorEquipe.set(p.equipe_id, (totalPorEquipe.get(p.equipe_id) || 0) + horas)
+  // Classificar cada colaborador: Conforme (>=16h) ou Não Conforme (<16h)
+  const metaHorasMinutos = 16 * 60 // 16 horas em minutos
+  const colaboradoresConformes: Array<{ nome: string; horas: number; equipe_id: string }> = []
+  const colaboradoresNaoConformes: Array<{ nome: string; horas: number; equipe_id: string }> = []
+
+  horasPorColaborador.forEach((data, nome) => {
+    const horasTotais = data.totalHorasMinutos / 60 // Converter para horas
+    if (data.totalHorasMinutos >= metaHorasMinutos) {
+      colaboradoresConformes.push({ nome, horas: horasTotais, equipe_id: data.equipe_id })
+    } else {
+      colaboradoresNaoConformes.push({ nome, horas: horasTotais, equipe_id: data.equipe_id })
     }
   })
 
-  // Total absoluto mensal
-  const totalAbsolutoPorMes = new Map<string, number>()
-  participantes.forEach((p) => {
-    if (p.horas) {
-      const month = format(parse(p.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
-      const horas = timeToMinutes(p.horas)
-      totalAbsolutoPorMes.set(month, (totalAbsolutoPorMes.get(month) || 0) + horas)
+  const efetivoTotal = horasPorColaborador.size
+  const efetivoApto = colaboradoresConformes.length
+  const efetivoIrregular = colaboradoresNaoConformes.length
+
+  // Média de Horas Geral
+  const somaTotalHoras = Array.from(horasPorColaborador.values()).reduce((sum, data) => sum + (data.totalHorasMinutos / 60), 0)
+  const mediaHorasGeral = efetivoTotal > 0 ? somaTotalHoras / efetivoTotal : 0
+
+  // KPIs de Conformidade
+  const percentualApto = efetivoTotal > 0 ? (efetivoApto / efetivoTotal) * 100 : 0
+  const percentualIrregular = efetivoTotal > 0 ? (efetivoIrregular / efetivoTotal) * 100 : 0
+
+  // Gráfico 1: Situação da Tropa (Donut Chart)
+  const graficoSituacaoTropa = [
+    { name: 'Conforme (>=16h)', value: efetivoApto, porcentagem: percentualApto },
+    { name: 'Não Conforme (<16h)', value: efetivoIrregular, porcentagem: percentualIrregular },
+  ]
+
+  // Gráfico 2: Distribuição de Carga Horária (Histograma - Bar Chart)
+  const distribuicaoCargaHoraria = new Map<string, number>()
+  horasPorColaborador.forEach((data) => {
+    const horasTotais = data.totalHorasMinutos / 60
+    let faixa = ''
+    if (horasTotais === 0 || horasTotais < 8) {
+      faixa = '0-8h'
+    } else if (horasTotais < 16) {
+      faixa = '8-15h'
+    } else if (horasTotais <= 24) {
+      faixa = '16-24h'
+    } else {
+      faixa = '25h+'
     }
+    distribuicaoCargaHoraria.set(faixa, (distribuicaoCargaHoraria.get(faixa) || 0) + 1)
   })
+  const graficoDistribuicaoCargaHoraria = Array.from(distribuicaoCargaHoraria.entries())
+    .map(([faixa, qtd]) => ({ faixa, quantidade: qtd }))
+    .sort((a, b) => {
+      // Ordenar: 0-8h, 8-15h, 16-24h, 25h+
+      const ordem: Record<string, number> = { '0-8h': 1, '8-15h': 2, '16-24h': 3, '25h+': 4 }
+      return (ordem[a.faixa] || 99) - (ordem[b.faixa] || 99)
+    })
+
+  // Gráfico 3: Desempenho por Equipe (Bar Chart com Reference Line em 16h)
+  const mediaPorEquipe = new Map<string, { totalHoras: number; count: number }>()
+  horasPorColaborador.forEach((data, nome) => {
+    const horasTotais = data.totalHorasMinutos / 60
+    const current = mediaPorEquipe.get(data.equipe_id) || { totalHoras: 0, count: 0 }
+    mediaPorEquipe.set(data.equipe_id, {
+      totalHoras: current.totalHoras + horasTotais,
+      count: current.count + 1,
+    })
+  })
+  const graficoDesempenhoPorEquipe = Array.from(mediaPorEquipe.entries())
+    .map(([equipeId, data]) => ({
+      equipe: equipeId,
+      mediaHoras: data.count > 0 ? data.totalHoras / data.count : 0,
+    }))
+    .sort((a, b) => b.mediaHoras - a.mediaHoras) // Ordenar do maior para o menor
 
   return {
-    graficoMediaHorasMensal: Array.from(mediaPorMes.entries())
-      .map(([mes, data]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            media: minutesToTime(Math.round(data.total / data.count)),
-          }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; media: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
-    graficoTotalHorasPorEquipe: Array.from(totalPorEquipe.entries()).map(([equipe, minutos]) => ({
-      equipe,
-      totalHoras: minutesToTime(minutos),
+    kpis: {
+      efetivoTotalAnalisado: efetivoTotal,
+      efetivoApto: efetivoApto,
+      efetivoAptoPercentual: Number(percentualApto.toFixed(1)),
+      efetivoIrregular: efetivoIrregular,
+      efetivoIrregularPercentual: Number(percentualIrregular.toFixed(1)),
+      mediaHorasGeral: Number(mediaHorasGeral.toFixed(2)),
+      mediaHorasGeralFormatada: mediaHorasGeral.toFixed(2),
+    },
+    graficoSituacaoTropa,
+    graficoDistribuicaoCargaHoraria,
+    graficoDesempenhoPorEquipe,
+    listaCompleta: Array.from(horasPorColaborador.entries()).map(([nome, data]) => ({
+      nome,
+      horas: data.totalHorasMinutos / 60,
+      horasFormatadas: minutesToTime(data.totalHorasMinutos),
+      status: data.totalHorasMinutos >= metaHorasMinutos ? 'Conforme' : 'Não Conforme',
+      equipe_id: data.equipe_id,
     })),
-    graficoTotalAbsolutoMensal: Array.from(totalAbsolutoPorMes.entries())
-      .map(([mes, minutos]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            totalHoras: minutesToTime(minutos),
-          }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; totalHoras: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
-    listaCompleta: participantes,
   }
 }
 
@@ -688,10 +1057,18 @@ export function processHorasTreinamento(lancamentos: Lancamento[]) {
 /**
  * Converte tempo mm:ss para segundos
  */
-function parseTimeMMSS(time: string): number {
+export function parseTimeMMSS(time: string): number {
   if (!time || !time.includes(':')) return 0
   const [minutes, seconds] = time.split(':').map(Number)
   return minutes * 60 + seconds
+}
+
+/**
+ * Converte string "mm:ss" em segundos
+ * Alias para parseTimeMMSS para compatibilidade com requisitos
+ */
+export function parseMmSsToSeconds(timeString: string): number {
+  return parseTimeMMSS(timeString)
 }
 
 /**
@@ -705,6 +1082,9 @@ function secondsToMMSS(seconds: number): string {
 
 /**
  * 7. ATIVIDADES ACESSÓRIAS
+ * Suporta dois formatos de conteudo:
+ * - Array: conteudo.atividades = [ { tipo_atividade, ... } ]
+ * - Objeto único: conteudo = { tipo_atividade, qtd_equipamentos, ... } (formulário atual)
  */
 export function processAtividadesAcessorias(lancamentos: Lancamento[]) {
   const atividades: Array<{
@@ -715,51 +1095,155 @@ export function processAtividadesAcessorias(lancamentos: Lancamento[]) {
     data_referencia: string
   }> = []
 
+  const pushAtividade = (
+    tipo: string,
+    qtdEq: number | undefined,
+    qtdBom: number | undefined,
+    tempo: string | undefined,
+    dataRef: string
+  ) => {
+    atividades.push({
+      tipo_atividade: tipo || 'Não informado',
+      qtd_equipamentos: qtdEq,
+      qtd_bombeiros: qtdBom,
+      tempo_gasto: tempo,
+      data_referencia: dataRef,
+    })
+  }
+
   lancamentos.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as { atividades?: Array<Record<string, unknown>> }
+    const conteudo = lancamento.conteudo as {
+      atividades?: Array<Record<string, unknown>>
+      tipo_atividade?: string
+      qtd_equipamentos?: number
+      qtd_bombeiros?: number
+      tempo_gasto?: string
+    }
     if (conteudo.atividades && Array.isArray(conteudo.atividades)) {
       conteudo.atividades.forEach((atividade) => {
-        atividades.push({
-          tipo_atividade: (atividade.tipo_atividade as string) || '',
-          qtd_equipamentos: atividade.qtd_equipamentos ? Number(atividade.qtd_equipamentos) : undefined,
-          qtd_bombeiros: atividade.qtd_bombeiros ? Number(atividade.qtd_bombeiros) : undefined,
-          tempo_gasto: (atividade.tempo_gasto as string) || undefined,
-          data_referencia: lancamento.data_referencia,
-        })
+        pushAtividade(
+          (atividade.tipo_atividade as string) || '',
+          atividade.qtd_equipamentos ? Number(atividade.qtd_equipamentos) : undefined,
+          atividade.qtd_bombeiros ? Number(atividade.qtd_bombeiros) : undefined,
+          (atividade.tempo_gasto as string) || undefined,
+          lancamento.data_referencia
+        )
       })
+    } else if (conteudo.tipo_atividade) {
+      pushAtividade(
+        String(conteudo.tipo_atividade),
+        conteudo.qtd_equipamentos !== undefined ? Number(conteudo.qtd_equipamentos) : undefined,
+        conteudo.qtd_bombeiros !== undefined ? Number(conteudo.qtd_bombeiros) : undefined,
+        conteudo.tempo_gasto ? String(conteudo.tempo_gasto) : undefined,
+        lancamento.data_referencia
+      )
     }
   })
 
+  // KPIs
   const totalAtividades = atividades.length
+
+  // Total de Horas Empenhadas: Soma de todo o tempo_gasto (HH:mm)
+  let totalHorasMinutos = 0
+  atividades.forEach((a) => {
+    if (a.tempo_gasto) {
+      totalHorasMinutos += timeToMinutes(a.tempo_gasto)
+    }
+  })
+  const totalHorasEmpenhadas = minutesToTime(totalHorasMinutos)
+
+  // Equipamentos Inspecionados: Soma do campo qtd_equipamentos
+  const totalEquipamentos = atividades.reduce((sum, a) => {
+    return sum + (a.qtd_equipamentos || 0)
+  }, 0)
+
+  // Média de Bombeiros: Média do campo qtd_bombeiros (arredondado)
+  const bombeirosValues = atividades
+    .map((a) => a.qtd_bombeiros)
+    .filter((val): val is number => val !== undefined && val !== null)
+  const mediaBombeiros = bombeirosValues.length > 0
+    ? Math.round(bombeirosValues.reduce((a, b) => a + b, 0) / bombeirosValues.length)
+    : 0
+
+  // Gráfico 1: Onde gastamos nosso tempo? (Donut Chart) - Tempo por tipo_atividade
+  const tempoPorTipo = new Map<string, number>()
+  atividades.forEach((a) => {
+    if (a.tempo_gasto && a.tipo_atividade) {
+      const tempoMinutos = timeToMinutes(a.tempo_gasto)
+      const tipo = a.tipo_atividade || 'Não informado'
+      tempoPorTipo.set(tipo, (tempoPorTipo.get(tipo) || 0) + tempoMinutos)
+    }
+  })
+  const graficoTempoPorTipo = Array.from(tempoPorTipo.entries())
+    .map(([tipo, minutos]) => {
+      const totalTempo = atividades.reduce((sum, a) => {
+        if (a.tipo_atividade === tipo && a.tempo_gasto) {
+          return sum + timeToMinutes(a.tempo_gasto)
+        }
+        return sum
+      }, 0)
+      const totalGeral = Array.from(tempoPorTipo.values()).reduce((a, b) => a + b, 0)
+      return {
+        name: tipo,
+        value: minutos,
+        porcentagem: totalGeral > 0 ? (minutos / totalGeral) * 100 : 0,
+      }
+    })
+    .sort((a, b) => b.value - a.value)
+
+  // Gráfico 2: Ranking de Frequência (Bar Chart Horizontal) - Atividades por tipo
   const tiposCount = new Map<string, number>()
   atividades.forEach((a) => {
     const tipo = a.tipo_atividade || 'Não informado'
     tiposCount.set(tipo, (tiposCount.get(tipo) || 0) + 1)
   })
+  const graficoRankingFrequencia = Array.from(tiposCount.entries())
+    .map(([tipo, qtd]) => ({ tipo, qtd }))
+    .sort((a, b) => b.qtd - a.qtd)
 
-  // Evolução mensal
-  const monthlyData = Array.from(groupByMonth(lancamentos).entries())
-    .map(([month, lancs]) => {
+  // Gráfico 3: Evolução de Produtividade (Composed Chart) - Quantidade e Horas por mês
+  const produtividadePorMes = new Map<string, { quantidade: number; horasMinutos: number }>()
+  atividades.forEach((a) => {
+    try {
+      const date = parse(a.data_referencia, 'yyyy-MM-dd', new Date())
+      const monthKey = format(date, 'yyyy-MM')
+      const current = produtividadePorMes.get(monthKey) || { quantidade: 0, horasMinutos: 0 }
+      produtividadePorMes.set(monthKey, {
+        quantidade: current.quantidade + 1,
+        horasMinutos: current.horasMinutos + (a.tempo_gasto ? timeToMinutes(a.tempo_gasto) : 0),
+      })
+    } catch {
+      // Ignora datas inválidas
+    }
+  })
+  const graficoEvolucaoProdutividade = Array.from(produtividadePorMes.entries())
+    .map(([month, data]) => {
       try {
+        const date = parse(month + '-01', 'yyyy-MM-dd', new Date())
         return {
-          mes: format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-          quantidade: lancs.length,
+          mes: format(date, 'MMM/yyyy'),
+          mesKey: month,
+          quantidade: data.quantidade,
+          horasMinutos: data.horasMinutos,
+          horasFormatadas: minutesToTime(data.horasMinutos),
         }
       } catch {
         return null
       }
     })
-    .filter((item): item is { mes: string; quantidade: number } => item !== null)
-    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .filter((item): item is { mes: string; mesKey: string; quantidade: number; horasMinutos: number; horasFormatadas: string } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey))
 
   return {
     kpis: {
       totalAtividades,
+      totalHorasEmpenhadas,
+      totalEquipamentos,
+      mediaBombeiros,
     },
-    graficoEvolucaoMensal: monthlyData,
-    graficoPorTipo: Array.from(tiposCount.entries())
-      .map(([tipo, qtd]) => ({ tipo, qtd }))
-      .sort((a, b) => b.qtd - a.qtd),
+    graficoTempoPorTipo,
+    graficoRankingFrequencia,
+    graficoEvolucaoProdutividade,
     listaCompleta: atividades,
   }
 }
@@ -773,6 +1257,7 @@ export function processProvaTeorica(lancamentos: Lancamento[], colaboradorNome?:
     nota: number
     status: string
     data_referencia: string
+    equipe_id: string
   }> = []
 
   lancamentos.forEach((lancamento) => {
@@ -781,11 +1266,16 @@ export function processProvaTeorica(lancamentos: Lancamento[], colaboradorNome?:
       conteudo.avaliados.forEach((avaliado) => {
         const nome = (avaliado.nome as string) || ''
         if (!colaboradorNome || nome.toLowerCase().includes(colaboradorNome.toLowerCase())) {
+          const nota = Number(avaliado.nota) || 0
+          // CORREÇÃO CRÍTICA: Calcular status baseado na nota (>= 8.0 = Aprovado)
+          const status = nota >= 8.0 ? 'Aprovado' : 'Reprovado'
+          
           avaliados.push({
             nome,
-            nota: Number(avaliado.nota) || 0,
-            status: (avaliado.status as string) || '',
+            nota,
+            status,
             data_referencia: lancamento.data_referencia,
+            equipe_id: lancamento.equipe_id,
           })
         }
       })
@@ -793,44 +1283,108 @@ export function processProvaTeorica(lancamentos: Lancamento[], colaboradorNome?:
   })
 
   const total = avaliados.length
-  const aprovados = avaliados.filter((a) => a.status === 'Aprovado').length
-  const reprovados = avaliados.filter((a) => a.status === 'Reprovado').length
+  
+  // CORREÇÃO: Calcular aprovação baseado em nota >= 8.0
+  const aprovados = avaliados.filter((a) => a.nota >= 8.0).length
+  const reprovados = total - aprovados
+  
   const notaMedia = total > 0 ? avaliados.reduce((sum, a) => sum + a.nota, 0) / total : 0
+  const notaMaxima = avaliados.length > 0 ? Math.max(...avaliados.map((a) => a.nota)) : 0
 
-  // Evolução mensal
-  const mediaPorMes = new Map<string, { total: number; count: number }>()
+  // Gráfico 1: Status (Donut Chart) - Corrigido
+  const graficoStatus = [
+    { name: 'Aprovado', value: aprovados, porcentagem: total > 0 ? (aprovados / total) * 100 : 0 },
+    { name: 'Reprovado', value: reprovados, porcentagem: total > 0 ? (reprovados / total) * 100 : 0 },
+  ]
+
+  // Gráfico 2: Distribuição de Notas (Histograma - Bar Chart)
+  const distribuicaoNotas = new Map<string, number>()
   avaliados.forEach((a) => {
-    const month = format(parse(a.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
-    const current = mediaPorMes.get(month) || { total: 0, count: 0 }
-    mediaPorMes.set(month, {
+    let faixa = ''
+    if (a.nota >= 9.0) {
+      faixa = 'Excelência (9.0 - 10.0)'
+    } else if (a.nota >= 8.0) {
+      faixa = 'Na Média (8.0 - 8.9)'
+    } else {
+      faixa = 'Abaixo da Média (< 8.0)'
+    }
+    distribuicaoNotas.set(faixa, (distribuicaoNotas.get(faixa) || 0) + 1)
+  })
+  const graficoDistribuicaoNotas = Array.from(distribuicaoNotas.entries())
+    .map(([faixa, qtd]) => ({ faixa, quantidade: qtd }))
+    .sort((a, b) => {
+      // Ordenar: Excelência primeiro, depois Na Média, depois Abaixo da Média
+      const ordem: Record<string, number> = {
+        'Excelência (9.0 - 10.0)': 1,
+        'Na Média (8.0 - 8.9)': 2,
+        'Abaixo da Média (< 8.0)': 3,
+      }
+      return (ordem[a.faixa] || 99) - (ordem[b.faixa] || 99)
+    })
+
+  // Gráfico 3: Ranking de Conhecimento por Equipe (Bar Chart)
+  const mediaPorEquipe = new Map<string, { total: number; count: number }>()
+  avaliados.forEach((a) => {
+    const current = mediaPorEquipe.get(a.equipe_id) || { total: 0, count: 0 }
+    mediaPorEquipe.set(a.equipe_id, {
       total: current.total + a.nota,
       count: current.count + 1,
     })
   })
+  const graficoRankingPorEquipe = Array.from(mediaPorEquipe.entries())
+    .map(([equipeId, data]) => ({
+      equipe: equipeId,
+      notaMedia: data.count > 0 ? data.total / data.count : 0,
+    }))
+    .sort((a, b) => b.notaMedia - a.notaMedia) // Ordenar do maior para o menor
+
+  // Gráfico 4: Evolução do Conhecimento (Line Chart) - CORRIGIDO: Ordenação cronológica
+  const evolucaoConhecimentoRaw = Array.from(
+    avaliados.reduce((acc, a) => {
+      try {
+        const month = format(parse(a.data_referencia, 'yyyy-MM-dd', new Date()), 'yyyy-MM')
+        const current = acc.get(month) || { total: 0, count: 0 }
+        acc.set(month, {
+          total: current.total + a.nota,
+          count: current.count + 1,
+        })
+      } catch {
+        // Ignora datas inválidas
+      }
+      return acc
+    }, new Map<string, { total: number; count: number }>()).entries()
+  )
+    .map(([mes, data]) => {
+      try {
+        const date = parse(mes + '-01', 'yyyy-MM-dd', new Date())
+        return {
+          mes: format(date, 'MMM/yyyy'),
+          mesKey: mes, // Para ordenação cronológica correta
+          notaMedia: data.count > 0 ? data.total / data.count : 0,
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; mesKey: string; notaMedia: number } => item !== null)
+  const graficoEvolucaoConhecimento = evolucaoConhecimentoRaw.sort((a, b) => a.mesKey.localeCompare(b.mesKey))
 
   return {
     kpis: {
       totalAvaliados: total,
-      notaMedia: notaMedia.toFixed(2),
-      taxaAprovacao: total > 0 ? ((aprovados / total) * 100).toFixed(1) : '0.0',
+      notaMediaGeral: Number(notaMedia.toFixed(2)),
+      notaMediaFormatada: notaMedia.toFixed(2),
+      taxaAprovacao: total > 0 ? Number(((aprovados / total) * 100).toFixed(1)) : 0,
+      taxaAprovacaoFormatada: total > 0 ? ((aprovados / total) * 100).toFixed(1) : '0.0',
+      notaMaxima: Number(notaMaxima.toFixed(2)),
+      notaMaximaFormatada: notaMaxima.toFixed(2),
+      aprovados,
+      reprovados,
     },
-    graficoAprovadoReprovado: [
-      { name: 'Aprovado', value: aprovados, porcentagem: total > 0 ? (aprovados / total) * 100 : 0 },
-      { name: 'Reprovado', value: reprovados, porcentagem: total > 0 ? (reprovados / total) * 100 : 0 },
-    ],
-    graficoEvolucaoMediaMensal: Array.from(mediaPorMes.entries())
-      .map(([mes, data]) => {
-        try {
-          return {
-            mes: format(parse(mes + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
-            media: (data.total / data.count).toFixed(2),
-          }
-        } catch {
-          return null
-        }
-      })
-      .filter((item): item is { mes: string; media: string } => item !== null)
-      .sort((a, b) => a.mes.localeCompare(b.mes)),
+    graficoStatus,
+    graficoDistribuicaoNotas,
+    graficoRankingPorEquipe,
+    graficoEvolucaoConhecimento,
     listaCompleta: avaliados,
   }
 }
@@ -839,6 +1393,7 @@ export function processProvaTeorica(lancamentos: Lancamento[], colaboradorNome?:
  * 9. INSPEÇÃO DE VIATURAS
  */
 export function processInspecaoViaturas(lancamentos: Lancamento[]) {
+  // Flatten arrays: extrair todas as inspeções de todos os lançamentos
   const inspecoes: Array<{
     viatura: string
     qtd_inspecoes: number
@@ -860,10 +1415,17 @@ export function processInspecaoViaturas(lancamentos: Lancamento[]) {
     }
   })
 
+  // KPIs: Totais agregados
   const totalInspecoes = inspecoes.reduce((sum, i) => sum + i.qtd_inspecoes, 0)
   const totalNaoConforme = inspecoes.reduce((sum, i) => sum + i.qtd_nao_conforme, 0)
+  const totalConforme = totalInspecoes - totalNaoConforme
+  
+  // Taxa de Conformidade Global
+  const taxaConformidadeGlobal = totalInspecoes > 0 
+    ? ((totalConforme / totalInspecoes) * 100) 
+    : 100
 
-  // Por modelo de viatura
+  // Viatura Mais Crítica (maior soma de não conformidades)
   const porViatura = new Map<string, { inspecoes: number; naoConforme: number }>()
   inspecoes.forEach((i) => {
     const current = porViatura.get(i.viatura) || { inspecoes: 0, naoConforme: 0 }
@@ -872,20 +1434,69 @@ export function processInspecaoViaturas(lancamentos: Lancamento[]) {
       naoConforme: current.naoConforme + i.qtd_nao_conforme,
     })
   })
+  
+  const viaturaMaisCritica = Array.from(porViatura.entries())
+    .map(([viatura, data]) => ({ viatura, naoConforme: data.naoConforme }))
+    .sort((a, b) => b.naoConforme - a.naoConforme)[0] || null
+
+  // Gráfico 1: Saúde da Frota (Donut Chart)
+  const graficoSaudeFrota = [
+    { name: 'Conformes', value: totalConforme, porcentagem: taxaConformidadeGlobal },
+    { name: 'Não Conformes', value: totalNaoConforme, porcentagem: 100 - taxaConformidadeGlobal },
+  ]
+
+  // Gráfico 2: Ranking de Problemas (Bar Chart) - Ordenado por não conformidades (maior para menor)
+  const graficoRankingProblemas = Array.from(porViatura.entries())
+    .map(([viatura, data]) => ({
+      viatura,
+      inspecoes: data.inspecoes,
+      naoConforme: data.naoConforme,
+    }))
+    .sort((a, b) => b.naoConforme - a.naoConforme) // Ordenação: mais defeitos primeiro
+
+  // Gráfico 3: Tendência de Desgaste (Line Chart) - Não conformidades por mês
+  const naoConformePorMes = new Map<string, number>()
+  inspecoes.forEach((i) => {
+    try {
+      const date = parse(i.data_referencia, 'yyyy-MM-dd', new Date())
+      const monthKey = format(date, 'yyyy-MM')
+      const current = naoConformePorMes.get(monthKey) || 0
+      naoConformePorMes.set(monthKey, current + i.qtd_nao_conforme)
+    } catch {
+      // Ignorar datas inválidas
+    }
+  })
+  
+  const graficoTendenciaDesgaste = Array.from(naoConformePorMes.entries())
+    .map(([mesKey, qtd]) => {
+      try {
+        return {
+          mes: format(parse(mesKey + '-01', 'yyyy-MM-dd', new Date()), 'MMM/yyyy'),
+          mesKey,
+          naoConforme: qtd,
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { mes: string; mesKey: string; naoConforme: number } => item !== null)
+    .sort((a, b) => a.mesKey.localeCompare(b.mesKey)) // Ordenação cronológica correta
 
   return {
     kpis: {
       totalInspecoes,
       totalNaoConforme,
-      taxaConformidade: totalInspecoes > 0 ? (((totalInspecoes - totalNaoConforme) / totalInspecoes) * 100).toFixed(1) : '100.0',
+      taxaConformidadeGlobal: Math.round(taxaConformidadeGlobal * 100) / 100,
+      viaturaMaisCritica: viaturaMaisCritica
+        ? {
+            viatura: viaturaMaisCritica.viatura,
+            naoConforme: viaturaMaisCritica.naoConforme,
+          }
+        : null,
     },
-    graficoPorViatura: Array.from(porViatura.entries())
-      .map(([viatura, data]) => ({
-        viatura,
-        inspecoes: data.inspecoes,
-        naoConforme: data.naoConforme,
-      }))
-      .sort((a, b) => b.naoConforme - a.naoConforme),
+    graficoSaudeFrota,
+    graficoRankingProblemas,
+    graficoTendenciaDesgaste,
     listaCompleta: inspecoes,
   }
 }
@@ -893,50 +1504,174 @@ export function processInspecaoViaturas(lancamentos: Lancamento[]) {
 /**
  * 10. CONTROLE DE ESTOQUE
  */
-export function processControleEstoque(lancamentos: Lancamento[]) {
-  const itens: Array<{
-    tipo_material: string
-    qtd_atual: number
-    qtd_exigida: number
-    data_referencia: string
-  }> = []
+export function processControleEstoque(lancamentos: Lancamento[], bases?: Array<{ id: string; nome: string }>) {
+  // Suportar dois formatos:
+  // 1. Array de itens: conteudo.itens[]
+  // 2. Campos diretos: conteudo.po_quimico_atual, lge_atual, nitrogenio_atual
+  
+  // Agrupar por base (última entrada de cada base)
+  const porBase = new Map<string, {
+    po_quimico_atual: number
+    po_quimico_exigido: number
+    lge_atual: number
+    lge_exigido: number
+    nitrogenio_atual: number
+    nitrogenio_exigido: number
+  }>()
 
   lancamentos.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as { itens?: Array<Record<string, unknown>> }
+    const conteudo = lancamento.conteudo as {
+      itens?: Array<Record<string, unknown>>
+      po_quimico_atual?: number
+      po_quimico_exigido?: number
+      lge_atual?: number
+      lge_exigido?: number
+      nitrogenio_atual?: number
+      nitrogenio_exigido?: number
+    }
+
+    // Formato 1: Array de itens
     if (conteudo.itens && Array.isArray(conteudo.itens)) {
+      const baseId = lancamento.base_id
+      const baseData = porBase.get(baseId) || {
+        po_quimico_atual: 0,
+        po_quimico_exigido: 0,
+        lge_atual: 0,
+        lge_exigido: 0,
+        nitrogenio_atual: 0,
+        nitrogenio_exigido: 0,
+      }
+
       conteudo.itens.forEach((item) => {
-        itens.push({
-          tipo_material: (item.tipo_material as string) || '',
-          qtd_atual: Number(item.qtd_atual) || 0,
-          qtd_exigida: Number(item.qtd_exigida) || 0,
-          data_referencia: lancamento.data_referencia,
-        })
+        const tipo = (item.tipo_material as string) || ''
+        const atual = Number(item.qtd_atual) || 0
+        const exigido = Number(item.qtd_exigida) || 0
+
+        if (tipo.toLowerCase().includes('pó') || tipo.toLowerCase().includes('po')) {
+          baseData.po_quimico_atual = atual
+          baseData.po_quimico_exigido = exigido
+        } else if (tipo.toLowerCase().includes('lge')) {
+          baseData.lge_atual = atual
+          baseData.lge_exigido = exigido
+        } else if (tipo.toLowerCase().includes('nitrogênio') || tipo.toLowerCase().includes('nitrogenio')) {
+          baseData.nitrogenio_atual = atual
+          baseData.nitrogenio_exigido = exigido
+        }
+      })
+
+      porBase.set(baseId, baseData)
+    } else {
+      // Formato 2: Campos diretos
+      const baseId = lancamento.base_id
+      porBase.set(baseId, {
+        po_quimico_atual: Number(conteudo.po_quimico_atual) || 0,
+        po_quimico_exigido: Number(conteudo.po_quimico_exigido) || 0,
+        lge_atual: Number(conteudo.lge_atual) || 0,
+        lge_exigido: Number(conteudo.lge_exigido) || 0,
+        nitrogenio_atual: Number(conteudo.nitrogenio_atual) || 0,
+        nitrogenio_exigido: Number(conteudo.nitrogenio_exigido) || 0,
       })
     }
   })
 
-  // Agrupar por tipo de material (última entrada de cada tipo)
-  const porMaterial = new Map<string, { atual: number; exigida: number }>()
-  itens.forEach((item) => {
-    porMaterial.set(item.tipo_material, {
-      atual: item.qtd_atual,
-      exigida: item.qtd_exigida,
-    })
+  // Calcular totais globais
+  let totalPoAtual = 0
+  let totalPoExigido = 0
+  let totalLgeAtual = 0
+  let totalLgeExigido = 0
+  let totalNitrogenioAtual = 0
+  let totalNitrogenioExigido = 0
+
+  porBase.forEach((data) => {
+    totalPoAtual += data.po_quimico_atual
+    totalPoExigido += data.po_quimico_exigido
+    totalLgeAtual += data.lge_atual
+    totalLgeExigido += data.lge_exigido
+    totalNitrogenioAtual += data.nitrogenio_atual
+    totalNitrogenioExigido += data.nitrogenio_exigido
   })
+
+  // KPIs: Taxa de Cobertura
+  const coberturaPo = totalPoExigido > 0 ? (totalPoAtual / totalPoExigido) * 100 : 100
+  const coberturaLge = totalLgeExigido > 0 ? (totalLgeAtual / totalLgeExigido) * 100 : 100
+  const coberturaNitrogenio = totalNitrogenioExigido > 0 ? (totalNitrogenioAtual / totalNitrogenioExigido) * 100 : 100
+
+  // Identificar bases com déficit
+  const basesComDeficit = new Set<string>()
+  const alertasFaltaMaterial: Array<{ base: string; material: string; falta: number }> = []
+
+  porBase.forEach((data, baseId) => {
+    const baseNome = bases?.find((b) => b.id === baseId)?.nome || baseId
+    let temDeficit = false
+
+    if (data.po_quimico_atual < data.po_quimico_exigido) {
+      basesComDeficit.add(baseId)
+      temDeficit = true
+      alertasFaltaMaterial.push({
+        base: baseNome,
+        material: 'Pó Químico',
+        falta: data.po_quimico_exigido - data.po_quimico_atual,
+      })
+    }
+    if (data.lge_atual < data.lge_exigido) {
+      basesComDeficit.add(baseId)
+      temDeficit = true
+      alertasFaltaMaterial.push({
+        base: baseNome,
+        material: 'LGE',
+        falta: data.lge_exigido - data.lge_atual,
+      })
+    }
+    if (data.nitrogenio_atual < data.nitrogenio_exigido) {
+      basesComDeficit.add(baseId)
+      temDeficit = true
+      alertasFaltaMaterial.push({
+        base: baseNome,
+        material: 'Nitrogênio',
+        falta: data.nitrogenio_exigido - data.nitrogenio_atual,
+      })
+    }
+  })
+
+  // Gráfico Grouped Bar Chart (Atual vs Exigido)
+  const graficoGroupedBar = [
+    {
+      material: 'Pó Químico',
+      exigido: totalPoExigido,
+      atual: totalPoAtual,
+      corAtual: totalPoAtual < totalPoExigido ? '#ef4444' : '#3b82f6',
+    },
+    {
+      material: 'LGE',
+      exigido: totalLgeExigido,
+      atual: totalLgeAtual,
+      corAtual: totalLgeAtual < totalLgeExigido ? '#ef4444' : '#3b82f6',
+    },
+    {
+      material: 'Nitrogênio',
+      exigido: totalNitrogenioExigido,
+      atual: totalNitrogenioAtual,
+      corAtual: totalNitrogenioAtual < totalNitrogenioExigido ? '#ef4444' : '#3b82f6',
+    },
+  ]
 
   return {
     kpis: {
-      totalMateriais: porMaterial.size,
+      coberturaPo: Math.round(coberturaPo * 100) / 100,
+      coberturaLge: Math.round(coberturaLge * 100) / 100,
+      coberturaNitrogenio: Math.round(coberturaNitrogenio * 100) / 100,
+      basesComDeficit: basesComDeficit.size,
     },
-    graficoSaudeEstoque: Array.from(porMaterial.entries())
-      .map(([material, data]) => ({
-        material,
-        atual: data.atual,
-        exigida: data.exigida,
-        status: data.atual < data.exigida ? 'Crítico' : 'OK',
-      }))
-      .sort((a, b) => a.material.localeCompare(b.material)),
-    listaCompleta: itens,
+    graficoGroupedBar,
+    alertasFaltaMaterial,
+    porBase: Array.from(porBase.entries()).map(([baseId, data]) => ({
+      baseId,
+      baseNome: bases?.find((b) => b.id === baseId)?.nome || baseId,
+      ...data,
+      critica: data.po_quimico_atual < data.po_quimico_exigido ||
+               data.lge_atual < data.lge_exigido ||
+               data.nitrogenio_atual < data.nitrogenio_exigido,
+    })),
   }
 }
 
@@ -1072,11 +1807,11 @@ export function generateExecutiveSummary(
   // Separar lançamentos por tipo de indicador
   const ocorrenciasAero = lancamentos.filter((l) => {
     const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
-    return indicador?.schema_type === 'ocorrencia_aeronautica'
+    return indicador?.schema_type === 'ocorrencia_aero'
   })
   const ocorrenciasNaoAero = lancamentos.filter((l) => {
     const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
-    return indicador?.schema_type === 'ocorrencia_nao_aeronautica'
+    return indicador?.schema_type === 'ocorrencia_nao_aero'
   })
   const tempoResposta = lancamentos.filter((l) => {
     const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
@@ -1084,7 +1819,7 @@ export function generateExecutiveSummary(
   })
   const treinamento = lancamentos.filter((l) => {
     const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
-    return indicador?.schema_type === 'horas_treinamento'
+    return indicador?.schema_type === 'treinamento'
   })
   const estoque = lancamentos.filter((l) => {
     const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
@@ -1102,17 +1837,34 @@ export function generateExecutiveSummary(
   // 1. Volume Operacional (Ocorrências Aero + Não Aero)
   const totalOcorrencias = ocorrenciasAero.length + ocorrenciasNaoAero.length
 
-  // Calcular período anterior para comparação (30 dias antes)
-  const dataFim = lancamentos.length > 0 ? lancamentos[0].data_referencia : ''
-  const dataInicioAnterior = dataFim ? format(new Date(parse(dataFim, 'yyyy-MM-dd', new Date()).getTime() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd') : ''
-  const ocorrenciasPeriodoAnterior = lancamentos.filter((l) => {
-    const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
-    const isOcorrencia = indicador?.schema_type === 'ocorrencia_aeronautica' || indicador?.schema_type === 'ocorrencia_nao_aeronautica'
-    return isOcorrencia && l.data_referencia < dataFim && l.data_referencia >= dataInicioAnterior
-  }).length
+  // Calcular período anterior para comparação (30 dias antes do período atual)
+  // Se não houver filtro de data, usar a data mais recente como referência
+  const datasOcorrencias = ocorrenciasAero.concat(ocorrenciasNaoAero).map(l => l.data_referencia).sort().reverse()
+  const dataMaisRecente = datasOcorrencias.length > 0 ? datasOcorrencias[0] : ''
+  const dataMaisAntiga = datasOcorrencias.length > 0 ? datasOcorrencias[datasOcorrencias.length - 1] : ''
+  
+  // Calcular período anterior (30 dias antes da data mais antiga do período atual)
+  let ocorrenciasPeriodoAnterior = 0
+  if (dataMaisAntiga) {
+    try {
+      const dataRef = parse(dataMaisAntiga, 'yyyy-MM-dd', new Date())
+      const dataInicioAnterior = format(new Date(dataRef.getTime() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+      const dataFimAnterior = format(new Date(dataRef.getTime() - 1 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+      
+      ocorrenciasPeriodoAnterior = lancamentos.filter((l) => {
+        const indicador = indicadoresConfig.find((i) => i.id === l.indicador_id)
+        const isOcorrencia = indicador?.schema_type === 'ocorrencia_aero' || indicador?.schema_type === 'ocorrencia_nao_aero'
+        return isOcorrencia && l.data_referencia >= dataInicioAnterior && l.data_referencia <= dataFimAnterior
+      }).length
+    } catch {
+      // Se houver erro no parse, usar 0
+      ocorrenciasPeriodoAnterior = 0
+    }
+  }
+  
   const crescimentoVolume = ocorrenciasPeriodoAnterior > 0 
     ? ((totalOcorrencias - ocorrenciasPeriodoAnterior) / ocorrenciasPeriodoAnterior) * 100 
-    : 0
+    : totalOcorrencias > 0 ? 100 : 0
 
   // 2. Agilidade (Tempo Médio de Resposta)
   const temposResposta: number[] = []
@@ -1171,9 +1923,9 @@ export function generateExecutiveSummary(
 
   // Verificar viaturas não conformes
   inspecaoViaturas.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as { viaturas?: Array<Record<string, unknown>> }
-    if (conteudo.viaturas && Array.isArray(conteudo.viaturas)) {
-      const temNaoConforme = conteudo.viaturas.some((v) => {
+    const conteudo = lancamento.conteudo as { inspecoes?: Array<Record<string, unknown>> }
+    if (conteudo.inspecoes && Array.isArray(conteudo.inspecoes)) {
+      const temNaoConforme = conteudo.inspecoes.some((v) => {
         const qtdNaoConforme = Number(v.qtd_nao_conforme) || 0
         return qtdNaoConforme > 0
       })
@@ -1286,14 +2038,14 @@ export function generateExecutiveSummary(
 
   // Viaturas: Não conformes por base
   inspecaoViaturas.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as { viaturas?: Array<Record<string, unknown>> }
-    if (conteudo.viaturas && Array.isArray(conteudo.viaturas)) {
-      conteudo.viaturas.forEach((viatura) => {
-        const qtdNaoConforme = Number(viatura.qtd_nao_conforme) || 0
+    const conteudo = lancamento.conteudo as { inspecoes?: Array<Record<string, unknown>> }
+    if (conteudo.inspecoes && Array.isArray(conteudo.inspecoes)) {
+      conteudo.inspecoes.forEach((inspecao) => {
+        const qtdNaoConforme = Number(inspecao.qtd_nao_conforme) || 0
         if (qtdNaoConforme > 0) {
           const baseNome = bases.find((b) => b.id === lancamento.base_id)?.nome || lancamento.base_id
-          const modelo = (viatura.modelo as string) || 'Desconhecido'
-          pontosAtencao.push({ tipo: 'viatura', mensagem: `Viatura ${modelo} Não Conforme`, base: baseNome })
+          const viatura = (inspecao.viatura as string) || 'Desconhecida'
+          pontosAtencao.push({ tipo: 'viatura', mensagem: `Viatura ${viatura} Não Conforme`, base: baseNome })
         }
       })
     }
@@ -1302,26 +2054,26 @@ export function generateExecutiveSummary(
   return {
     kpis: {
       volumeOperacional: {
-        valor: totalOcorrencias,
-        crescimento: crescimentoVolume,
-        periodoAnterior: ocorrenciasPeriodoAnterior,
+        valor: totalOcorrencias || 0,
+        crescimento: isNaN(crescimentoVolume) ? 0 : crescimentoVolume,
+        periodoAnterior: ocorrenciasPeriodoAnterior || 0,
       },
       agilidade: {
-        tempoMedio: secondsToMMSS(tempoMedioResposta),
-        tempoMedioMinutos: tempoMedioMinutos,
-        cor: corAgilidade,
+        tempoMedio: tempoMedioResposta > 0 ? secondsToMMSS(tempoMedioResposta) : '00:00',
+        tempoMedioMinutos: isNaN(tempoMedioMinutos) ? 0 : tempoMedioMinutos,
+        cor: corAgilidade || 'yellow',
       },
       forcaTrabalho: {
-        totalHoras: minutesToTime(totalHorasTreinamento),
-        totalMinutos: totalHorasTreinamento,
+        totalHoras: totalHorasTreinamento > 0 ? minutesToTime(totalHorasTreinamento) : '00:00',
+        totalMinutos: totalHorasTreinamento || 0,
       },
       alertasCriticos: {
-        total: totalAlertas,
+        total: totalAlertas || 0,
         basesComAlerta: Array.from(basesComAlerta),
       },
     },
-    graficoComposed,
-    rankingBases,
+    graficoComposed: graficoComposed || [],
+    rankingBases: rankingBases || [],
     pontosAtencao: pontosAtencao.slice(0, 10), // Limitar a 10 alertas
   }
 }

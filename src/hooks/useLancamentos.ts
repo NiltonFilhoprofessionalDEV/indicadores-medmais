@@ -67,9 +67,10 @@ export function useLancamentos({
         dataFim?: string
       ): Promise<UseLancamentosResult> => {
         // Buscar TODOS os registros (sem paginação) para filtrar corretamente
+        // Otimização: buscar apenas colunas necessárias
         let allQuery = supabase
           .from('lancamentos')
-          .select('*')
+          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id')
           .order('data_referencia', { ascending: false })
         
         // Aplicar os mesmos filtros (exceto paginação e busca)
@@ -177,9 +178,10 @@ export function useLancamentos({
           }
 
           // Construir query com filtros + IDs da busca
+          // Otimização: buscar apenas colunas necessárias
           let filteredQuery = supabase
             .from('lancamentos')
-            .select('*', { count: 'exact' })
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id', { count: 'exact' })
             .in('id', ids)
             .order('data_referencia', { ascending: false })
 
@@ -208,9 +210,10 @@ export function useLancamentos({
           const total = countResult.count || 0
 
           // Buscar dados com paginação
+          // Otimização: buscar apenas colunas necessárias
           let dataQuery = supabase
             .from('lancamentos')
-            .select('*')
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at')
             .in('id', ids)
             .order('data_referencia', { ascending: false })
             .range(from, to)

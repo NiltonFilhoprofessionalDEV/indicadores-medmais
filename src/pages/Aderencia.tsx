@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -33,7 +33,6 @@ interface BaseComplianceStatus {
 export function Aderencia() {
   const { authUser } = useAuth()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   
   // Estado para filtro de mês/ano
   const [mesAno, setMesAno] = useState<string>(() => {
@@ -51,7 +50,6 @@ export function Aderencia() {
   }, [mesAno])
 
   const hoje = startOfDay(new Date())
-  const ontem = startOfDay(new Date(hoje.getTime() - 24 * 60 * 60 * 1000))
   const dataInicio = format(startOfMonth(mesAnoDate), 'yyyy-MM-dd')
   const dataFim = format(endOfMonth(mesAnoDate), 'yyyy-MM-dd')
   const mesAtual = format(new Date(), 'yyyy-MM')
@@ -83,22 +81,34 @@ export function Aderencia() {
   })
 
   // Buscar todos os lançamentos do período (últimos 30 dias para Grupo A, mês selecionado para Grupo C)
-  const { data: lancamentos, isLoading } = useQuery<Lancamento[]>({
-    queryKey: ['lancamentos-compliance', dataInicio, dataFim],
+  const { data: lancamentos, isLoading, error: lancamentosError } = useQuery<Lancamento[]>({
+    queryKey: ['lancamentos-compliance', mesAno, mesAnoDate],
     queryFn: async () => {
-      // Buscar do início do mês selecionado até hoje (para capturar Grupo A também)
-      const dataInicioBusca = format(startOfMonth(mesAnoDate), 'yyyy-MM-dd')
-      const dataFimBusca = format(hoje, 'yyyy-MM-dd')
-      
-      const { data, error } = await supabase
-        .from('lancamentos')
-        .select('*')
-        .gte('data_referencia', dataInicioBusca)
-        .lte('data_referencia', dataFimBusca)
-        .order('data_referencia', { ascending: false })
-      if (error) throw error
-      return (data || []) as Lancamento[]
+      try {
+        // Buscar do início do mês selecionado até hoje (para capturar Grupo A também)
+        const dataInicioBusca = format(startOfMonth(mesAnoDate), 'yyyy-MM-dd')
+        const dataFimBusca = format(hoje, 'yyyy-MM-dd')
+        
+        // Otimização: buscar apenas colunas necessárias para compliance
+        const { data, error } = await supabase
+          .from('lancamentos')
+          .select('id, data_referencia, base_id, indicador_id, user_id')
+          .gte('data_referencia', dataInicioBusca)
+          .lte('data_referencia', dataFimBusca)
+          .order('data_referencia', { ascending: false })
+        
+        if (error) {
+          console.error('Erro ao buscar lançamentos:', error)
+          throw error
+        }
+        
+        return (data || []) as Lancamento[]
+      } catch (err) {
+        console.error('Erro na query de compliance:', err)
+        return []
+      }
     },
+    enabled: !!mesAnoDate,
   })
 
   // Buscar usuários para verificar inatividade
@@ -136,10 +146,11 @@ export function Aderencia() {
       })
 
       const getStatusGrupoA = (lancamentos: Lancamento[]): 'ok' | 'pendente' | 'atrasado' => {
-        if (lancamentos.length === 0) return 'atrasado'
+        if (!lancamentos || lancamentos.length === 0) return 'atrasado'
         
         const lancamentoHoje = lancamentos.find((l) => {
           try {
+            if (!l.data_referencia) return false
             const dataLanc = parse(l.data_referencia, 'yyyy-MM-dd', new Date())
             return isToday(dataLanc)
           } catch {
@@ -151,6 +162,7 @@ export function Aderencia() {
 
         const lancamentoOntem = lancamentos.find((l) => {
           try {
+            if (!l.data_referencia) return false
             const dataLanc = parse(l.data_referencia, 'yyyy-MM-dd', new Date())
             return isYesterday(dataLanc)
           } catch {
@@ -162,7 +174,7 @@ export function Aderencia() {
 
         // Verificar quantos dias desde o último lançamento
         const ultimoLancamento = lancamentos[0]
-        if (ultimoLancamento) {
+        if (ultimoLancamento && ultimoLancamento.data_referencia) {
           try {
             const dataUltimo = parse(ultimoLancamento.data_referencia, 'yyyy-MM-dd', new Date())
             const diasDesdeUltimo = differenceInDays(hoje, dataUltimo)
@@ -225,7 +237,7 @@ export function Aderencia() {
         ultimaOcorrencia,
       }
     })
-  }, [bases, indicadores, lancamentos, mesSelecionado, hoje, ontem])
+  }, [bases, indicadores, lancamentos, mesSelecionado, hoje])
 
   // Calcular usuários inativos (sem acesso há > 30 dias)
   const usuariosInativos = useMemo(() => {
@@ -247,45 +259,6 @@ export function Aderencia() {
       return !temLancamentoRecente
     })
   }, [usuarios, lancamentos, hoje])
-
-  const handleLogout = async () => {
-    try {
-      // Limpar cache do React Query
-      queryClient.clear()
-      
-      // Limpar localStorage do Supabase antes do signOut
-      localStorage.removeItem('supabase.auth.token')
-      
-      // Fazer logout no Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('Erro ao fazer logout:', error)
-      } else {
-        console.log('✅ Logout realizado com sucesso')
-      }
-      
-      // Limpar qualquer estado restante no localStorage
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-      
-      // Aguardar um momento para o contexto ser atualizado
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      // Forçar reload completo da página para garantir limpeza total
-      window.location.href = '/login'
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      // Mesmo com erro, forçar navegação para login
-      window.location.href = '/login'
-    }
-  }
 
   // Componente de Tooltip para pendências mensais
   function PendenciasTooltip({ faltantes }: { faltantes: string[] }) {
@@ -312,11 +285,11 @@ export function Aderencia() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b">
-        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b border-border transition-colors duration-300 shadow-orange-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+            <div className="flex items-center gap-4 flex-shrink-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
@@ -332,12 +305,9 @@ export function Aderencia() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+            <div className="flex gap-2 flex-shrink-0 ml-4">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Voltar
-              </Button>
-              <Button onClick={handleLogout} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
-                Sair
               </Button>
             </div>
           </div>
@@ -403,7 +373,19 @@ export function Aderencia() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="text-center py-8">Carregando dados de compliance...</div>
+            ) : lancamentosError ? (
+              <div className="text-center py-8 text-red-600">
+                Erro ao carregar dados: {lancamentosError instanceof Error ? lancamentosError.message : 'Erro desconhecido'}
+              </div>
+            ) : !bases || !indicadores ? (
+              <div className="text-center py-8 text-gray-500">
+                Carregando configurações...
+              </div>
+            ) : compliancePorBase.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma base encontrada para análise de compliance.
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">

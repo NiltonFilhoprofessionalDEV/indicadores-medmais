@@ -10,12 +10,14 @@ const DashboardAnalytics = lazy(() => import('./pages/DashboardAnalytics').then(
 const GestaoUsuarios = lazy(() => import('./pages/GestaoUsuarios').then(m => ({ default: m.GestaoUsuarios })))
 const Colaboradores = lazy(() => import('./pages/admin/Colaboradores').then(m => ({ default: m.Colaboradores })))
 const Aderencia = lazy(() => import('./pages/Aderencia').then(m => ({ default: m.Aderencia })))
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const DataExplorer = lazy(() => import('./pages/DataExplorer').then(m => ({ default: m.DataExplorer })))
 
 // Componente de loading simples
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="text-lg text-gray-700 font-semibold">Carregando...</div>
+    <div className="flex items-center justify-center min-h-screen bg-background transition-colors duration-300">
+      <div className="text-lg text-foreground font-semibold">Carregando...</div>
     </div>
   )
 }
@@ -71,6 +73,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['geral']}>
                 <Aderencia />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute allowedRoles={['geral', 'chefe']}>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/explorer"
+            element={
+              <ProtectedRoute allowedRoles={['geral']}>
+                <DataExplorer />
               </ProtectedRoute>
             }
           />

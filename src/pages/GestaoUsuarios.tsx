@@ -769,11 +769,11 @@ export function GestaoUsuarios() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b">
-        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b border-border transition-colors duration-300 shadow-orange-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+            <div className="flex items-center gap-4 flex-shrink-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
@@ -787,14 +787,14 @@ export function GestaoUsuarios() {
                 <p className="text-sm text-white/90">Cadastre e gerencie usuários do sistema</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleNewUserClick} className="bg-white text-[#fc4d00] hover:bg-white/90 transition-all duration-200">
+            <div className="flex gap-2 flex-shrink-0 ml-4">
+              <Button onClick={handleNewUserClick} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] transition-all duration-200 shadow-orange-sm">
                 Adicionar Novo Usuário
               </Button>
-              <Button onClick={() => setShowBulkModal(true)} className="bg-white text-[#fc4d00] hover:bg-white/90 transition-all duration-200">
+              <Button onClick={() => setShowBulkModal(true)} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] transition-all duration-200 shadow-orange-sm">
                 Cadastro em Lote
               </Button>
-              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Voltar
               </Button>
             </div>
@@ -1144,7 +1144,7 @@ export function GestaoUsuarios() {
                     <Button
                       type="submit"
                       disabled={isEditMode ? updateUserMutation.isPending : createUserMutation.isPending}
-                      className="flex-1 bg-[#fc4d00] hover:bg-[#e04400] text-white"
+                      className="flex-1 bg-[#fc4d00] hover:bg-[#e04400]hover:bg-[#c93d00] text-white shadow-orange-sm"
                     >
                       {isEditMode 
                         ? (updateUserMutation.isPending ? 'Salvando...' : 'Salvar Alterações')

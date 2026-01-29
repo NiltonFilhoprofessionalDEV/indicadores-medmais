@@ -58,6 +58,12 @@ colaboradores: Tabela de efetivo (colaboradores) das bases.
 Campos: id (PK, UUID), created_at, nome (TEXT), base_id (FK bases), ativo (BOOLEAN, default true).
 RLS: Leitura permitida para autenticados da mesma base; Escrita apenas para Admin (Service Role).
 
+feedbacks: Tabela para armazenar feedbacks, sugestões e relatórios de bugs dos usuários.
+Campos: id (PK, UUID), created_at (TIMESTAMP), user_id (FK profiles), tipo ('bug' | 'sugestao' | 'outros'), mensagem (TEXT), status ('pendente' | 'em_andamento' | 'resolvido' | 'fechado', default: 'pendente').
+RLS:
+- Insert: Usuários autenticados podem criar feedbacks.
+- Select: Usuários veem seus próprios feedbacks. Gerentes Gerais (role='geral') veem todos os feedbacks.
+
 lancamentos: Tabela central (Single Source of Truth).
 Estratégia: Uso de JSONB para dados variáveis.
 Campos: id, created_at, updated_at, data_referencia (DATE), base_id (FK), equipe_id (FK), user_id (FK), indicador_id (FK), conteudo (JSONB).
@@ -207,6 +213,21 @@ Campos: qtd_higienizados_mes, qtd_total_sci (Todos números). Campos iniciam vaz
 
 6. Funcionalidades de Interface (UX)
 
+**Tema Visual:**
+- O sistema utiliza tema claro com cores padronizadas.
+- Cor primária: Laranja (#fc4d00) aplicada em headers, botões principais e elementos de destaque.
+- Sombras personalizadas: Cards e botões possuem sombra laranja sutil para consistência visual.
+- Calendários: Tema customizado em laranja para seleção de datas.
+
+**Padronização de Headers:**
+- Todos os headers seguem layout consistente: logo e título no canto esquerdo, botões de ação no canto direito.
+- Textos dos botões em laranja com sombra preta sutil.
+- Fundo laranja (#fc4d00) com textos em branco.
+
+**Histórico de Lançamentos:**
+- Divisores entre linhas em laranja.
+- Botões de paginação em laranja.
+
 Tela 1: Login
 Autenticação via Supabase Auth.
 
@@ -260,6 +281,7 @@ Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo rea
 Tela 3: Dashboard Gerencial
 Filtros Globais: Base, Equipe, Período.
 Botão "Gestão de Usuários" (Admin).
+Botão/Card de acesso rápido ao Explorador de Dados para auditoria detalhada.
 
 Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
 
@@ -394,6 +416,75 @@ Ações:
 IMPORTANTE: O Frontend NÃO deve usar supabase.auth.signUp ou métodos diretos de auth (pois isso desloga o admin).
 Todas as operações devem ser feitas via Edge Functions usando Service Role Key.
 
+Tela 6: Explorador de Dados (/dashboard/explorer) - Apenas Gerente Geral
+**Objetivo:** Fornecer acesso a relatórios avançados com filtros detalhados e capacidade de exportação para análise externa.
+
+**Acesso:**
+- Card "Explorador de Dados" no Dashboard Gerencial (Tela 3).
+- Ícone: FileSpreadsheet (Lucide-react).
+- Descrição: "Auditoria completa, filtros avançados e exportação para Excel (CSV)."
+- Rota: `/dashboard/explorer`.
+- Permissão: Apenas role='geral' (Gerente Geral).
+
+**Estrutura da Tela:**
+- Herda o Layout Padrão do sistema (mesmo cabeçalho e estrutura das outras telas).
+- Header com logo, título "Explorador de Dados" e botão "Voltar ao Dashboard".
+- Área de conteúdo principal contendo:
+  - Filtros avançados (a serem implementados).
+  - Tabela de dados detalhados (a ser implementada).
+  - Botão de exportação para CSV/Excel (a ser implementado).
+
+**Status:** Funcionalidade em desenvolvimento. Página base criada com estrutura visual e navegação funcional.
+
+Tela 7: Configurações do Usuário (/settings)
+**Objetivo:** Permitir que usuários gerenciem seu perfil, segurança e enviem feedback ao sistema.
+
+**Acesso:**
+- Rota: `/settings`
+- Permissão: Todos os usuários autenticados (`role === 'geral'` ou `role === 'chefe'`).
+- Navegação: Botão "Configurações" disponível no header de todas as páginas principais.
+
+**Estrutura da Página:**
+Interface com sistema de abas (Tabs) contendo três seções principais:
+
+**Aba A: Meu Perfil (Dados)**
+- Visual: Avatar grande (componente `Avatar` do shadcn/ui) exibindo apenas as iniciais do nome do usuário (`AvatarFallback`). Não há upload de foto.
+- Dados Exibidos (todos os campos são read-only/bloqueados):
+  - Nome Completo: Campo desabilitado com valor do perfil.
+  - Email: Campo desabilitado com email do usuário autenticado (ou "N/A" se não disponível).
+  - Perfil: Exibe "Administrador (Gerente Geral)" ou "Chefe de Equipe" conforme role.
+  - Base: Nome da base vinculada ao usuário (ou "-" se não houver).
+  - Equipe: Nome da equipe vinculada ao usuário (exibido apenas se `equipe_id` estiver preenchido).
+
+**Aba B: Segurança (Troca de Senha)**
+- Formulário de alteração de senha:
+  - Campo "Nova Senha" (obrigatório, tipo password).
+  - Campo "Confirmar Nova Senha" (obrigatório, tipo password).
+  - Validação: Senhas devem coincidir e ter no mínimo 1 caractere.
+  - Função: Usa `supabase.auth.updateUser({ password: newPassword })` para atualizar a senha.
+  - Feedback: Mensagem de sucesso ou erro após tentativa de alteração.
+  - Observação: Campo "Senha Atual" não é necessário, pois o Supabase Auth gerencia a autenticação.
+
+**Aba C: Suporte / Feedback**
+- Formulário para reportar erros ou enviar sugestões:
+  - Campo "Tipo" (Select obrigatório):
+    - Opções: "Bug", "Sugestão", "Outros".
+  - Campo "Mensagem" (Textarea obrigatório):
+    - Mínimo de 10 caracteres.
+    - Placeholder: "Descreva o problema, sugestão ou comentário..."
+  - Funcionalidade: Ao enviar, cria registro na tabela `feedbacks` com `status='pendente'`.
+  - Feedback: Mensagem de confirmação após envio bem-sucedido.
+- Lista de Feedbacks Anteriores:
+  - Exibe todos os feedbacks enviados pelo usuário logado.
+  - Informações exibidas: Tipo, Status (com badge colorido), Data de criação, Mensagem completa.
+  - Status possíveis: Pendente (amarelo), Em Andamento (azul), Resolvido (verde), Fechado (cinza).
+  - Ordenação: Mais recentes primeiro (`created_at DESC`).
+
+**Header da Página:**
+- Logo MedMais (se disponível).
+- Título: "Configurações" com subtítulo "Gerencie seu perfil e preferências".
+- Botões: "Voltar" (retorna ao dashboard conforme role), "Sair" (logout).
+
 Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Apenas Gerente Geral)
 Objetivo: Cadastrar e gerenciar o efetivo (bombeiros/colaboradores) de cada base.
 
@@ -448,14 +539,18 @@ Integração:
 - **Filtros Globais (Sempre presentes):**
   1. **Base:** Select com opção "Todas as bases" + lista de bases
   2. **Equipe:** Select com opção "Todas as equipes" + lista de equipes
-  3. **Data Início:** Input tipo date
-  4. **Data Fim:** Input tipo date
+  3. **Data Início:** Input tipo date (calendário com tema laranja)
+  4. **Data Fim:** Input tipo date (calendário com tema laranja)
 - **Filtros Condicionais:**
   - **Filtro por Colaborador:** Aparece quando a visão é TAF, Prova Teórica, Treinamento ou TP/EPR
     - Select com lista de colaboradores ativos da base selecionada
     - Lógica: Se um colaborador for selecionado, os gráficos filtram os dados JSONB para mostrar apenas o histórico dele
-  - **Filtro por Tipo de Ocorrência:** Aparece quando a visão é Ocorrência Aeronáutica ou Não Aeronáutica
-    - Select com opções: "Todos os tipos", "Incêndio", "Resgate", "Emergência Médica", "Outros"
+  - **Filtro por Tipo de Ocorrência (Não Aeronáutica):** Aparece quando a visão é Ocorrência Não Aeronáutica
+    - Select com opções: "Todos os tipos" + lista completa de tipos de ocorrência (9 opções)
+    - Filtra dados por `conteudo.tipo_ocorrencia`
+  - **Filtro por Tipo de Ocorrência (Aeronáutica):** Aparece quando a visão é Ocorrência Aeronáutica
+    - Select com opções: "Todos os tipos", "Posicionamento", "Intervenção"
+    - Filtra dados por `conteudo.acao`
 
 **Processamento de Dados:**
 - Funções utilitárias em `src/lib/analytics-utils.ts` para "achatar" (flatten) dados JSONB antes de gerar gráficos
@@ -553,15 +648,24 @@ Dividido em dois painéis lado a lado:
 *Estes indicadores possuem telas exclusivas com visualizações detalhadas.*
 
 #### 1. Ocorrência Aeronáutica
-*   **KPIs:**
-    *   Total de Ocorrências
-    *   Maior Tempo 1ª Viatura
-    *   Maior Tempo Última Viatura
-    *   Total Horas Somadas
+*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com opções: Posicionamento, Intervenção)
+    *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.acao`
+*   **KPIs (Focados em Tempos de Resposta e Tipo de Ação - Críticos para ANAC):**
+    *   **Total Ocorrências:** Contagem simples de ocorrências no período
+    *   **Tempo Médio Resposta (1º CCI):** Média do campo `tempo_chegada_1_cci`, formatado em mm:ss. Este é o KPI mais importante para monitoramento de performance operacional.
+    *   **Pior Tempo Resposta (1º CCI):** Valor máximo encontrado no período, ajuda a identificar falhas e gargalos operacionais.
+    *   **% de Intervenções:** Porcentagem das ocorrências onde `acao === 'Intervenção'`, indicador crítico para análise de perfil operacional.
 *   **Gráficos:**
-    *   [Linha] Evolução Mensal (Eixo X = Meses, Eixo Y = Quantidade)
+    *   **[Donut Chart] Perfil da Operação:** Distribuição entre "Posicionamento" vs "Intervenção" (campo `acao`). Cores: Azul para Posicionamento, Laranja para Intervenção.
+    *   **[Line Chart] Agilidade da Equipe:** Eixo X = Meses (ordenados cronologicamente: Jan, Fev, Mar...), Eixo Y = Tempo Médio de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
+    *   **[Bar Chart Horizontal] Mapa de Calor de Locais:** Agrupa ocorrências pelo campo `local`. Barras horizontais para legibilidade dos nomes dos locais (ex: "Cabeceira 29") no eixo Y. Ordenado do maior para o menor (Top 5).
+*   **Tabela Detalhada:**
+    *   Colunas críticas: Data | Base | Ação | Local | Chegada 1º CCI | Chegada Últ. CCI
+    *   Exibe todas as ocorrências do período filtrado com informações detalhadas para análise operacional.
 
 #### 2. Ocorrência Não Aeronáutica
+*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com 9 opções específicas)
+    *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.tipo_ocorrencia`
 *   **KPIs:**
     *   Total de Ocorrências
     *   Total Horas Somadas
@@ -570,82 +674,180 @@ Dividido em dois painéis lado a lado:
     *   [Barras Horizontais] Top 5 Tipos (Contagem por tipo_ocorrencia)
 
 #### 3. Atividades Acessórias
-*   **KPIs:**
-    *   Total de Atividades Realizadas
+*   **KPIs (Focados em Produtividade e Gestão de Tempo):**
+    *   **Total de Atividades:** Contagem simples de atividades realizadas no período
+    *   **Total de Horas Empenhadas:** Soma de todo o `tempo_gasto` formatado em HH:mm. Justifica o salário da equipe e mostra o esforço total investido.
+    *   **Equipamentos Inspecionados:** Soma do campo `qtd_equipamentos`. Indica o volume de trabalho realizado em inspeções.
+    *   **Média de Bombeiros:** Média do campo `qtd_bombeiros` (arredondado). Mostra o tamanho médio da equipe mobilizada para as atividades.
 *   **Gráficos:**
-    *   [Linha] Evolução Mensal
-    *   [Barras] Volume por Tipo de Atividade
+    *   **[Donut Chart] Onde gastamos nosso tempo?:** Soma de `tempo_gasto` agrupado por `tipo_atividade`. Mostra qual atividade consome mais horas do plantão (Esforço), diferente de qual acontece mais vezes (Frequência). Gráfico de Rosca com legenda clara e porcentagens escritas.
+    *   **[Bar Chart Horizontal] Ranking de Frequência:** Melhoria do gráfico "Atividades por Tipo". Barras horizontais para legibilidade dos nomes longos (ex: "Inspeção de extintores e mangueiras...") no eixo Y. Ordenado do mais frequente para o menos frequente.
+    *   **[Composed Chart] Evolução de Produtividade:** Eixo X = Meses (ordenados cronologicamente). Barra = Quantidade de Atividades. Linha = Total de Horas Gastas no mês. Permite ver se o volume de trabalho aumentou junto com as horas ou se estamos sendo mais eficientes.
+*   **Tabela de Registros:**
+    *   Colunas: Data | Tipo | Qtd Bombeiros | Tempo Gasto
+    *   Exibe todas as atividades do período filtrado com informações detalhadas para análise de produtividade.
+*   **Processamento de Dados:**
+    *   Função `processAtividadesAcessorias` suporta dois formatos de dados:
+        1. `conteudo.atividades` como array (formato legado)
+        2. Propriedades diretas em `conteudo` (formato atual do formulário)
+    *   Utiliza função `timeToMinutes` para converter `tempo_gasto` (HH:mm) em minutos para cálculos e agregações.
 
 #### 4. Teste de Aptidão Física (TAF)
 *   **Filtro Crítico:** **Buscar Colaborador** (Select com lista de colaboradores ativos)
-    *   *Comportamento:* Se um colaborador for selecionado, os gráficos mostram apenas o histórico dele
-*   **KPIs:**
-    *   Menor Tempo
-    *   Tempo Médio
-    *   Tempo Máximo
+    *   *Comportamento:* Se um colaborador for selecionado, os gráficos e KPIs mostram apenas o histórico dele, filtrando os avaliados pelo nome selecionado
+*   **KPIs (Focados em Performance e Condicionamento):**
+    *   **Total Avaliados:** Contagem total de pessoas avaliadas no período
+    *   **Taxa de Aprovação:** Porcentagem (Verde se > 90%). Subtítulo: "X Aprovados / Y Reprovados"
+    *   **Melhor Tempo (Recorde):** O menor tempo registrado no período
+    *   **Tempo Médio Geral:** A média de todos os tempos
 *   **Gráficos:**
-    *   [Rosca/Donut] Taxa de Aprovação Global (Verde = Aprovado, Vermelho = Reprovado) com % no centro
-    *   [Linha] Evolução Média Mensal (Curva de Agilidade)
+    *   **[Donut Chart] Status de Aprovação:** Distribuição "Aprovado" (Verde primary) vs "Reprovado" (Vermelho destructive). % de Aprovação no centro da rosca em destaque.
+    *   **[Line Chart] Evolução do Condicionamento:** Eixo X = Meses (ordenados cronologicamente - CORRIGIDO). Eixo Y = Tempo Médio em minutos. Insight: Se a linha estiver descendo, o time está ficando mais rápido/forte.
+    *   **[Bar Chart] Performance por Faixa Etária:** Agrupa avaliados em faixas: "Até 30 anos", "31-40 anos", "Acima de 40". Mostra o Tempo Médio de cada grupo. Identifica se o envelhecimento da tropa está impactando o tempo de resposta.
+    *   **[Bar Chart] Distribuição de Notas:** Mostra quantos bombeiros tiraram Nota 10, Nota 9, Nota 8, etc. Indica a "Qualidade" da aprovação (passaram raspando ou sobraram?).
+*   **Tabela de Resultados:**
+    *   Colunas: Data | Nome | Idade | Tempo | Nota/Status
+    *   Permite ordenar por Tempo (para ver o ranking dos mais rápidos). Botão de ordenação com ícone de setas.
+*   **Processamento de Dados:**
+    *   Função `processTAF` extrai todos os participantes de todos os lançamentos filtrados para um único array plano (flattening de `conteudo.avaliados`).
+    *   Utiliza função `parseTimeMMSS` para converter tempo (mm:ss -> segundos) para cálculos de média.
+*   **Lógica de Cálculo:**
+    *   Status é recalculado se estiver vazio ou como '-' usando `calculateTAFStatus`.
+    *   Comparação de status usa normalização (trim + toLowerCase) para maior robustez.
 
 #### 5. Prova Teórica (PTR-BA)
-*   **Filtro Crítico:** **Buscar Colaborador**
-*   **KPIs:**
-    *   Total Avaliados
-    *   Nota Média
-    *   Taxa de Aprovação (%)
+*   **Filtro Crítico:** **Buscar Colaborador** (Select com lista de colaboradores ativos)
+    *   *Comportamento:* Se um colaborador for selecionado, os gráficos e KPIs mostram apenas o histórico dele
+*   **KPIs (Focados em Análise de Conhecimento):**
+    *   **Total Avaliados:** Contagem total de pessoas avaliadas no período
+    *   **Nota Média Geral:** Média de todas as notas (1 ou 2 casas decimais)
+    *   **Taxa de Aprovação:** % de pessoas com nota >= 8.0 (Verde se > 80%). Subtítulo: "X Aprovados / Y Reprovados"
+    *   **Nota Máxima:** A maior nota tirada no período (ex: 10.0)
 *   **Gráficos:**
-    *   [Rosca/Donut] Taxa de Aprovação (Verde = Aprovado, Vermelho = Reprovado)
-    *   [Linha] Evolução Nota Média Mensal
+    *   **[Donut Chart] Status de Aprovação (Corrigido):** Aprovado (Verde) vs Reprovado (Vermelho). Reflete a realidade baseada na regra >= 8.0. % de Aprovação no centro.
+    *   **[Bar Chart] Distribuição de Notas (Histograma - NOVO):** Agrupa notas em faixas qualitativas: "Excelência (9.0 - 10.0)", "Na Média (8.0 - 8.9)", "Abaixo da Média (< 8.0)". Mostra se a média alta é porque todos são bons ou se tem gente tirando 10 e gente tirando 5.
+    *   **[Bar Chart] Ranking de Conhecimento por Equipe (NOVO):** Eixo Y = Equipes (Alfa, Bravo, etc). Eixo X = Nota Média da Equipe. Descobre qual equipe está estudando mais.
+    *   **[Line Chart] Evolução do Conhecimento (CORRIGIDO):** Eixo X = Meses (ordenados cronologicamente). Eixo Y = Nota Média Mensal.
+*   **Tabela de Resultados:**
+    *   Colunas: Data | Nome | Equipe | Nota | Status (Badge Verde/Vermelho)
+    *   Permite ordenar por Nota (Descrescente) para ver os "01" (melhores alunos). Botão de ordenação com ícone de setas.
+    *   Paginação: 10 itens por página com controles Anterior/Próximo.
+*   **Processamento de Dados:**
+    *   Função `processProvaTeorica` utiliza mesma lógica de "flattening" (extrair avaliados dos arrays JSON) usada no TAF para ter uma lista única de todas as notas do período.
+    *   **CORREÇÃO CRÍTICA:** Status calculado baseado em nota >= 8.0 (não depende do campo status do JSON). Regra de Negócio: Se nota >= 8.0: Status APROVADO. Se nota < 8.0: Status REPROVADO.
 
-#### 6. Horas de Treinamento
-*   **Filtro Crítico:** **Buscar Colaborador**
+#### 6. Horas de Treinamento Mensal (Foco em Compliance ANAC)
+*   **Regra de Negócio:** Meta obrigatória de 16 horas mensais por bombeiro (Regra ANAC)
+*   **Processamento de Dados:**
+    *   Agrupa registros pelo nome do colaborador
+    *   Soma as horas de treinamento de cada um dentro do período selecionado
+    *   Classifica cada colaborador: Conforme (>=16h) ou Não Conforme (<16h)
+*   **KPIs de Conformidade (Cards de Topo):**
+    *   **Efetivo Total Analisado:** Quantidade de bombeiros únicos no período
+    *   **Efetivo Apto (>=16h):** Quantidade e % (Cor Verde). Indica bombeiros que cumpriram a meta.
+    *   **Efetivo Irregular (<16h):** Quantidade e % (Cor Vermelha). Este é o KPI crítico para identificar não conformidades.
+    *   **Média de Horas Geral:** Média global para ver se a corporação como um todo está acima de 16h.
 *   **Gráficos:**
-    *   [Barras] Total de Horas por Equipe
-    *   [Linha] Evolução Mensal (Total Absoluto)
+    *   **[Donut Chart] Situação da Tropa:** Mostra a proporção de Conforme (Verde) vs Não Conforme (Vermelho). No centro ou legenda, destaca a % de Conformidade.
+    *   **[Bar Chart] Distribuição de Carga Horária (Histograma):** Agrupa colaboradores em faixas: "0-8h", "8-15h", "16-24h", "25h+". Eixo X = Faixas, Eixo Y = Quantidade de Bombeiros. Insight: Mostra se a maioria dos irregulares está "quase lá" (8-15h) ou "críticos" (0-8h).
+    *   **[Bar Chart] Desempenho por Equipe (com Reference Line):** Eixo X = Equipes (Alfa, Bravo, etc). Eixo Y = Média de Horas da Equipe. IMPORTANTE: Linha de referência vermelha tracejada em 16h. As barras que ficarem abaixo da linha indicam equipes que não bateram a meta coletiva.
+*   **Remoção:** Todas as menções a Ranking foram removidas. O dashboard agora foca exclusivamente no Compliance da Meta de 16h/mês.
 
 #### 7. Inspeção de Viaturas
-*   **KPIs:**
-    *   Total Inspeções
-    *   Total Não Conforme
-    *   Taxa de Conformidade (%)
+*   **Objetivo:** Identificar tendências de desgaste e viaturas críticas para gestão de manutenção preventiva. Foco em identificar a "Viatura Crítica" e a "Tendência de Desgaste" da frota.
+*   **Processamento de Dados:**
+    *   Os dados estão em arrays: `conteudo.inspecoes` (viatura, qtd_inspecoes, qtd_nao_conforme).
+    *   Função "achata" (flatten) esses arrays para somar os totais por Viatura e por Mês.
+*   **KPIs (Cards de Topo):**
+    *   **Total de Itens Inspecionados:** Soma de `qtd_inspecoes`. (Volume de trabalho).
+    *   **Total de Não Conformidades:** Soma de `qtd_nao_conforme`. (Defeitos encontrados).
+    *   **Taxa de Conformidade Global:** Cálculo: `(Total Conforme / Total Inspecionado) × 100`. Visual: Se < 90%, texto em Vermelho (Crítico). Se >= 90%, Verde.
+    *   **Viatura Mais Crítica:** O nome da viatura que possui a maior soma de não conformidades no período. (Ex: "CCI 01 - 24 defeitos").
 *   **Gráficos:**
-    *   [Barras] Manutenção de Viaturas (Soma de qtd_nao_conforme agrupado por Modelo de Viatura: CCI 01, CCI 02, etc)
+    *   **[Donut Chart] Saúde da Frota:** Mostra a proporção de Itens Conformes (Verde) vs Itens Não Conformes (Vermelho). Coloca a % de Conformidade em destaque no centro.
+    *   **[Bar Chart] Ranking de Problemas:** Mantém o gráfico de barras por viatura, mas com melhorias: Ordenação da viatura com MAIS defeitos para a com MENOS. Label exibe o número absoluto no topo da barra. Insight: Identifica imediatamente quais carros precisam de oficina.
+    *   **[Line Chart] Tendência de Desgaste:** Eixo X: Meses (Ordenados cronologicamente). Eixo Y: Quantidade de Não Conformidades. Insight: Se a linha estiver subindo, significa que a frota está quebrando mais a cada mês (envelhecimento ou falta de manutenção preventiva).
 
 #### 8. Tempo TP/EPR
+*   **Objetivo:** Medir a agilidade de paramentação, vital para emergências. Meta: tempo ≤ 00:59.
 *   **Filtro Crítico:** **Buscar Colaborador**
-*   **KPIs:**
-    *   Menor Tempo
-    *   Tempo Médio
-    *   Tempo Máximo
+*   **KPIs (Cards de Topo):**
+    *   **Total de Avaliações:** Contagem de pessoas avaliadas no período.
+    *   **Taxa de Prontidão (%):** Porcentagem de bombeiros que fizeram abaixo de 59s (Verde se ≥ 90%).
+    *   **Tempo Médio Geral:** Média de todos os tempos registrados (formato mm:ss).
+    *   **Recorde (Menor Tempo):** Mostra o tempo mais rápido E o nome do colaborador + Equipe (Ex: "00:34 - Sd. Silva (Alfa)").
 *   **Gráficos:**
-    *   [Linha] Evolução Média Mensal
+    *   **[Donut Chart] Aderência à Meta:** Mostra a proporção de "Dentro da Meta (≤59s)" vs "Acima da Meta (>59s)". Cores: Verde (Dentro) e Vermelho (Acima). Exibe a % de Prontidão no centro.
+    *   **[Bar Chart] Performance por Equipe com Linha de Corte:** Eixo X: Equipes (nomes, não UUIDs). Eixo Y: Tempo Médio (em segundos, formatado como mm:ss). **Destaque:** Linha de Referência vermelha tracejada em 60 segundos (meta de 59s). Equipes que passam dessa linha precisam treinar mais.
+    *   **[Bar Chart] Distribuição de Tempos (Histograma):** Agrupa os tempos em faixas de 10 segundos: "30-40s", "41-50s", "51-59s" (Faixa Segura), "1m-1m10s", "1m10s+" (Faixa de Risco). Eixo Y: Quantidade de Bombeiros. Insight: Mostra a consistência da tropa.
+    *   **[Line Chart] Evolução Mensal:** Tempo Médio Mensal ao longo do tempo. **Correção:** Ordenação cronológica correta (Janeiro antes de Fevereiro). Eixo Y formatado como mm:ss.
+*   **Lógica de Cálculo:**
+    *   Para cada registro individual (dentro do array `avaliados`), o status é calculado dinamicamente:
+        *   Tempo ≤ 59 segundos (00:59) → **Aprovado**
+        *   Tempo > 59 segundos → **Reprovado**
+    *   A Taxa de Prontidão é calculada como: (Quantidade de Aprovados / Total de Avaliações) × 100
 
 #### 9. Tempo Resposta
-*   **KPIs:**
-    *   Menor Tempo (com Motorista e Viatura)
+*   **Objetivo:** Medir a eficiência das viaturas e a consistência dos tempos de resposta. Foco em identificar problemas mecânicos e garantir agilidade operacional. **Não há ranking de motoristas** - a análise é focada na performance das viaturas.
+*   **KPIs (Cards de Topo):**
+    *   **Menor Tempo (Recorde):** Exibe o Tempo e a Viatura (ex: "01:50 - CCI 01").
+    *   **Tempo Médio Geral:** Média de todas as aferições registradas.
+    *   **Maior Tempo (Alerta):** O tempo mais lento registrado com a viatura correspondente. Indica falha grave ou problema mecânico.
+    *   **Total de Exercícios:** Quantidade total de aferições realizadas no período.
 *   **Gráficos:**
-    *   [Linha] Curva de Agilidade (Tempo Médio Mensal) - Inclui "Linha de Referência" (Meta) se possível
-*   **Tabela Destaque:** "Top 3 Melhores Tempos de Resposta" (Mostrar Motorista, Viatura e Tempo)
+    *   **[Bar Chart] Performance por Viatura:** Substitui qualquer ranking de motoristas. Eixo X: Viaturas (CCI 01, CCI 02, etc). Eixo Y: Tempo Médio de cada viatura. Insight: Identifica se algum caminhão está mecanicamente mais lento que os outros, independente de quem dirige.
+    *   **[Line Chart] Curva de Agilidade:** Eixo X: Meses (Ordenados Corretamente - ordenação cronológica corrigida). Eixo Y: Tempo Médio Mensal. **Linha de Referência:** Adicionada linha vermelha tracejada em 3:00 (meta padrão de segurança).
+    *   **[Donut Chart] Consistência:** Classifica os tempos em três faixas: "Excelente (< 2min)" (Verde), "Bom (2min - 3min)" (Amarelo), "Crítico (> 3min)" (Vermelho). Mostra a proporção dessas faixas para avaliar a consistência da frota.
+*   **Lógica de Processamento:**
+    *   Todos os tempos são convertidos de mm:ss para segundos para realizar os cálculos.
+    *   Ordenação cronológica corrigida no gráfico de evolução (datas em ordem ascendente).
+    *   Análise focada em viaturas, não em motoristas individuais.
 
 ---
 
-### GRUPO B: LOGÍSTICA & MATERIAIS (Visão Agrupada)
-*Estes indicadores são analisados em conjunto em uma única tela chamada "Logística".*
+### GRUPO B: LOGÍSTICA & MATERIAIS (Visão Agrupada - Ênfase em Estoque)
+*Estes indicadores são analisados em conjunto em uma única tela chamada "Logística". O Controle de Estoque é o indicador mais crítico, com EPI e Trocas como secundários.*
 
-**Indicadores Agrupados:** Estoque, EPI, Trocas
+**Layout Hierárquico:**
+- **Área de Destaque (Topo - "Stock Command Center"):** Seção superior larga e dedicada exclusivamente ao Estoque
+- **Área Secundária (Rodapé):** EPI e Trocas em tamanho menor (metade da largura cada) apenas para constar
 
-*   **Gráfico 1 (Saúde do Estoque):** [Barras Compostas]
-    *   Para Pó Químico, LGE e Nitrogênio
-    *   Barra 1: Quantidade Atual
-    *   Barra 2: Quantidade Exigida
-    *   Regra de Cor: Se Atual < Exigido, a barra Atual deve ser Vermelha (#ef4444). Se ok, Azul/Verde
-*   **Gráfico 2 (Entrega de EPI/Uniformes):** [Área/Linha]
-    *   Média da % de atingimento (total_epi_pct e total_unif_pct)
-*   **KPIs de Movimentação:** Total de Trocas no período
+**Indicadores Agrupados:** Estoque (Primário), EPI e Trocas (Secundários)
+
+#### Área de Destaque: Stock Command Center
+
+**KPIs de Estoque (Cards Grandes):**
+*   **Cobertura de Pó Químico:** % (Atual vs Exigido). Cor: Verde se > 95%, Vermelho se menor.
+*   **Cobertura de LGE:** % (Atual vs Exigido). Cor: Verde se > 95%, Vermelho se menor.
+*   **Cobertura de Nitrogênio:** % (Atual vs Exigido). Cor: Verde se > 95%, Vermelho se menor.
+*   **Bases com Déficit:** Número absoluto de bases com estoque abaixo do mínimo.
+
+**Gráfico Principal (Grouped Bar Chart):**
+*   Mostra os 3 materiais lado a lado (Pó Químico, LGE, Nitrogênio).
+*   Para cada material, duas barras:
+    *   Barra 1 (Cinza/Outline): Meta Exigida.
+    *   Barra 2 (Azul Sólido ou Vermelho/Laranja): Estoque Atual.
+    *   Visual: Se a barra Atual for menor que a Exigida, mude a cor dela para Vermelho/Laranja.
+
+**Widget de Alerta "Falta de Material" (Tabela Compacta):**
+*   Lista apenas as bases que estão com déficit.
+*   Exemplo: "Goiânia: Faltam 20kg de Pó".
+*   Objetivo: Ação rápida do gestor.
+
+**Processamento de Dados (Stock Intelligence):**
+*   Função analisa Base por Base.
+*   Identifica Déficits: Se atual < exigido para Pó, LGE ou Nitrogênio, marca a base como "Crítica".
+*   Calcula a Taxa de Cobertura Global: (Soma Atual / Soma Exigido) × 100.
+
+#### Área Secundária (Rodapé)
+
+*   **Gráfico de EPI/Uniformes:** [Linha] Média da % de atingimento (total_epi_pct e total_unif_pct) - Tamanho reduzido (metade da largura).
+*   **Gráfico de Trocas:** [Barras] Total de Trocas no período - Tamanho reduzido (metade da largura).
 
 **Detalhes Técnicos:**
 - Todos os gráficos usam Recharts
 - Gráficos de pizza são sempre Donut (Roscas) com a % no centro ou legenda clara
+- Layout responsivo: Área de estoque ocupa largura total, EPI e Trocas dividem a linha inferior
 - Cores do tema shadcn (primary, destructive, muted) para consistência visual
 - Data Parsing: Funções em `analytics-utils.ts` suportam filtragem por nome dentro dos arrays JSON (ex: encontrar todas as provas do 'João' dentro dos lançamentos)
 
@@ -693,7 +895,151 @@ INTEGRAÇÃO COM TABELA COLABORADORES:
 - Cálculos em tempo real: Controle de EPI calcula percentuais automaticamente; TAF e Prova Teórica calculam status automaticamente enquanto o usuário digita.
 Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group) os dados JSONB antes de jogar nos gráficos Recharts.
 
-## 9. Módulo de Monitoramento de Aderência (Compliance)
+## 9. Requisitos Não-Funcionais (Performance e Escalabilidade)
+
+**Objetivo:** Preparar o sistema para escalar para 100k+ registros sem degradação de performance. Implementar otimizações de banco de dados e frontend para evitar travamentos e sobrecarga de memória.
+
+### 9.1. Índices de Banco de Dados (PostgreSQL)
+
+**OBRIGATÓRIO:** O sistema utiliza índices estratégicos para evitar "Full Table Scan" e garantir performance mesmo com grandes volumes de dados.
+
+#### Índices B-Tree (Padrão)
+Índices criados nas colunas de filtro frequente para acelerar queries:
+- `idx_lancamentos_base_id`: Acelera filtros por base (filtro mais comum)
+- `idx_lancamentos_equipe_id`: Acelera filtros por equipe
+- `idx_lancamentos_indicador_id`: Acelera filtros por tipo de indicador
+- `idx_lancamentos_data_referencia`: **CRÍTICO** - Acelera filtros de período (essencial para Analytics)
+- `idx_lancamentos_base_data`: Índice composto para queries base + data (otimização comum)
+- `idx_lancamentos_indicador_data`: Índice composto para queries indicador + data (otimização Analytics)
+
+#### Índice GIN (JSONB) - CRÍTICO
+**OBRIGATÓRIO:** Índice GIN criado na coluna `conteudo` (JSONB):
+- `idx_lancamentos_conteudo_gin`: Permite busca instantânea dentro de campos JSONB
+- Permite queries como: `WHERE conteudo->>'nota' > '8'` ou `WHERE conteudo ? 'tipo_ocorrencia'`
+- Essencial para Analytics que processam dados dentro do JSONB
+
+**Arquivo:** `supabase/migrations/007_performance_indexes.sql`
+
+### 9.2. Travas de Segurança no Frontend (Analytics)
+
+**OBRIGATÓRIO:** Relatórios analíticos devem ter limitação de intervalo de datas (Date Range) para evitar sobrecarga de memória no cliente.
+
+#### Regra de Data Default
+- **Se o usuário não selecionar data:** O sistema carrega automaticamente apenas o **Mês Atual** (Start: 1º dia do mês, End: Hoje).
+- Implementado em `src/lib/date-utils.ts` com função `getDefaultDateRange()`.
+
+#### Bloqueio de "All Time"
+- **Impedido:** Usuário deixar datas em branco para buscar "Tudo desde o início".
+- **Intervalo Máximo:** 12 meses para consultas pesadas.
+- **Validação Automática:** Se o usuário selecionar intervalo > 12 meses, o sistema ajusta automaticamente para 12 meses antes da data fim.
+- Implementado em `src/lib/date-utils.ts` com funções `validateDateRange()` e `enforceMaxDateRange()`.
+
+**Arquivos modificados:**
+- `src/pages/DashboardAnalytics.tsx` (validação e aplicação de datas padrão)
+- `src/components/AnalyticsFilterBar.tsx` (validação em tempo real)
+- `src/lib/date-utils.ts` (funções utilitárias de data)
+
+### 9.3. Otimização de Queries (Select Parcial)
+
+**OBRIGATÓRIO:** Queries devem buscar apenas as colunas necessárias para reduzir transferência de dados e uso de memória.
+
+#### Implementação
+- **Hook `useLancamentos`:** Otimizado para buscar apenas: `id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at`.
+- **Dashboard Analytics:** Query otimizada busca apenas colunas necessárias para processamento de Analytics.
+- **Benefício:** Reduz transferência de dados em ~30-40% e uso de memória no cliente.
+
+**Arquivos modificados:**
+- `src/hooks/useLancamentos.ts` (queries otimizadas com `.select()`)
+- `src/pages/DashboardAnalytics.tsx` (query de Analytics otimizada)
+
+### 9.4. Métricas de Performance Esperadas
+
+Com as otimizações implementadas, o sistema deve suportar:
+- **100k+ registros:** Queries de Analytics devem completar em < 2 segundos com índices adequados.
+- **Intervalo de 12 meses:** Processamento de Analytics deve ser responsivo (< 3 segundos).
+- **Memória do Cliente:** Uso de memória reduzido em ~40% com select parcial e limitação de intervalo.
+
+### 9.5. Manutenção de Índices
+
+**IMPORTANTE:** Após criar os índices, o PostgreSQL atualiza automaticamente as estatísticas. Em caso de degradação de performance:
+1. Verificar se os índices estão sendo utilizados: `EXPLAIN ANALYZE` nas queries lentas.
+2. Manter estatísticas atualizadas: `ANALYZE lancamentos;` (executado automaticamente pelo PostgreSQL periodicamente).
+3. Monitorar crescimento de índices: Índices GIN podem crescer significativamente com grandes volumes de JSONB.
+
+---
+
+## 10. Módulo de Relatórios e Exportação (Explorador de Dados)
+
+**Objetivo:** Fornecer ao Gerente Geral uma ferramenta de auditoria completa com capacidade de exportação para análise externa em Excel/CSV.
+
+**Acesso:**
+- Rota: `/dashboard/explorer`
+- Permissão: Apenas `role='geral'` (Gerente Geral)
+- Acesso via card "Explorador de Dados" no Dashboard Gerencial
+
+**Estrutura da Tela:**
+
+1. **Filtros Globais (Topo):**
+   - Base: Select com todas as bases (opção "Todas as Bases")
+   - Equipe: Select com todas as equipes (opção "Todas as Equipes")
+   - Indicador: Select com todos os 14 indicadores (opção "Todos os Indicadores")
+   - Data Início: Input tipo `date` (formato YYYY-MM-DD)
+   - Data Fim: Input tipo `date` (formato YYYY-MM-DD)
+   - Validação: Intervalo máximo de 12 meses (mesma regra do Analytics)
+   - Botão "Limpar Filtros": Reseta todos os filtros para valores padrão
+
+2. **Botão de Exportação (Meio):**
+   - Botão primário: "Exportar Resultados (.csv)"
+   - Ícone: Download (Lucide-react)
+   - Funcionalidade:
+     - Busca todos os lançamentos filtrados (sem paginação)
+     - Limite: Máximo 1000 linhas por exportação (para evitar sobrecarga)
+     - Aplana (flatten) dados JSONB para formato tabular
+     - Gera arquivo CSV com BOM UTF-8 (compatível com Excel)
+     - Dispara download automático: `relatorio_indicadores_[DDMMAAAA].csv`
+   - Estado: Desabilitado durante exportação e quando não há dados
+
+3. **Tabela de Auditoria (Baixo):**
+   - Paginação Server-side: 20 registros por página
+   - Colunas:
+     - **ID**: Primeiros 8 caracteres do UUID (para referência)
+     - **Data/Hora Registro**: `created_at` formatado (DD/MM/YYYY HH:mm:ss) - mostra quando foi lançado
+     - **Data Referência**: `data_referencia` formatada (DD/MM/YYYY) - data do fato
+     - **Usuário**: Nome do usuário que fez o lançamento (busca na tabela `profiles`)
+     - **Base**: Nome da base (busca na tabela `bases`)
+     - **Equipe**: Nome da equipe (busca na tabela `equipes`)
+     - **Indicador**: Nome do indicador (busca na tabela `indicadores_config`)
+     - **Ações**: Botão "Ver Detalhes" que abre modal com formulário em modo read-only
+   - Paginação: Controles "Anterior" e "Próximo" com informação "Página X de Y (Z lançamentos)"
+
+**Funcionalidade de Exportação CSV:**
+
+- **Utilitário:** `src/lib/export-utils.ts`
+- **Flattening de Dados:**
+  - Indicadores Simples (ex: Estoque): Uma linha por lançamento com colunas específicas do tipo
+  - Indicadores com Arrays (ex: TAF, Prova Teórica): Uma linha por item do array, repetindo dados do cabeçalho
+  - Campos Comuns: ID, Data/Hora Registro, Data Referência, Usuário, Base, Equipe, Indicador
+  - Campos Específicos: Adicionados conforme o tipo de indicador (ex: `po_quimico_atual`, `nome`, `nota`, etc.)
+- **Formato CSV:**
+  - Encoding: UTF-8 com BOM (para Excel reconhecer acentos)
+  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente
+  - Headers: Primeira linha contém nomes das colunas
+- **Limitações:**
+  - Máximo 1000 registros por exportação (para evitar timeout)
+  - Aviso exibido se total de registros exceder o limite
+
+**Modal de Visualização:**
+
+- Ao clicar em "Ver Detalhes", abre modal com:
+  - Formulário do indicador em modo `readOnly={true}`
+  - Mesma estrutura visual dos formulários de lançamento
+  - Botão "Fechar" para retornar à tabela
+
+**Arquivos Implementados:**
+- `src/pages/DataExplorer.tsx` - Página principal do Explorador
+- `src/lib/export-utils.ts` - Utilitários de exportação CSV com flattening
+
+## 10. Módulo de Monitoramento de Aderência (Compliance)
 
 **Conceito:** Ferramenta de auditoria para identificar quais bases estão cumprindo a rotina de lançamentos e engajamento no uso do sistema.
 
@@ -730,7 +1076,7 @@ Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group
 - Regra: Verifica se existe pelo menos 1 lançamento no Mês Atual.
 - Visual: ✅ (Verde) se tem no mês | 🟡 (Amarelo) se não tem e mês aberto | 🔴 (Vermelho) se virou o mês e não teve.
 
-## 10. Correções e Melhorias Implementadas
+## 11. Correções e Melhorias Implementadas
 
 ### 9.1. Nova Tabela: colaboradores
 - Criada tabela para armazenar o efetivo das bases.
@@ -815,3 +1161,275 @@ Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group
 - Arquivos modificados:
   - src/pages/GestaoUsuarios.tsx (adicionado useEffect para seleção automática, lógica de exibição condicional de campos, handleEditClick atualizado)
   - docs/PRD.md (Seção 4 atualizada com base ADMINISTRATIVO, Seção 6 atualizada com regra de preenchimento automático)
+
+### 9.9. Correção: Taxa de Aprovação TAF Não Exibida
+- PROBLEMA: O card de "Taxa de Aprovação" no Dashboard Analytics para o indicador TAF não mostrava a taxa de aprovação, nem no card nem no gráfico de rosca.
+- CAUSA: 
+  1. O status do avaliado poderia estar vazio ou como '-' quando calculado pela função `calculateTAFStatus`.
+  2. A comparação de status usava comparação exata sem normalização (case-sensitive, sem trim).
+  3. O TAF usava dados paginados (máximo 20 registros) em vez de todos os dados do período filtrado.
+- SOLUÇÃO IMPLEMENTADA:
+  - Função `processTAF` em `analytics-utils.ts` atualizada para:
+    - Recalcular o status usando `calculateTAFStatus` se o status estiver vazio ou for '-'.
+    - Normalizar strings de status para comparação (trim + toLowerCase).
+    - Retornar novos KPIs: `totalAvaliados`, `aprovados`, `reprovados`, `taxaAprovacao`.
+  - Array `viewsComTodosLancamentos` em `DashboardAnalytics.tsx` atualizado para incluir 'taf', garantindo que todos os lançamentos sejam buscados para cálculos de TAF.
+  - Componente `DonutChart` atualizado para exibir um placeholder cinza com "0.0%" quando não há dados.
+- Arquivos modificados:
+  - src/lib/analytics-utils.ts (processTAF atualizado)
+  - src/pages/DashboardAnalytics.tsx (viewsComTodosLancamentos atualizado)
+  - src/components/charts/DonutChart.tsx (placeholder para zero dados)
+
+### 9.10. Correção: Filtro de Colaborador TAF Não Funcionando
+- PROBLEMA: Ao selecionar um colaborador no filtro da view TAF, os dados individuais do colaborador não eram exibidos.
+- CAUSA: A função `processTAF` não recebia o parâmetro `colaboradorNome` e não filtrava os avaliados pelo nome selecionado.
+- SOLUÇÃO IMPLEMENTADA:
+  - Função `processTAF` em `analytics-utils.ts` atualizada para aceitar parâmetro opcional `colaboradorNome`.
+  - Quando `colaboradorNome` é fornecido, a função filtra os avaliados para incluir apenas aqueles cujo nome contém a string de busca (case-insensitive).
+  - Chamada de `processTAF` em `DashboardAnalytics.tsx` atualizada para passar `colaboradorNome || undefined`.
+- Arquivos modificados:
+  - src/lib/analytics-utils.ts (processTAF com parâmetro colaboradorNome)
+  - src/pages/DashboardAnalytics.tsx (passagem de colaboradorNome para processTAF)
+
+### 9.11. Correção: IDs de Equipes nos Gráficos
+- PROBLEMA: Os gráficos que exibiam dados por equipe mostravam UUIDs em vez dos nomes das equipes.
+- SOLUÇÃO IMPLEMENTADA:
+  - Adicionada query para buscar lista de equipes (id, nome) em `DashboardAnalytics.tsx`.
+  - Criada função helper `getEquipeName(id)` que retorna o nome da equipe dado seu ID.
+  - Gráficos de "Total Horas por Equipe" (Treinamento) e "Desempenho por Equipe" (Tempo TP/EPR) atualizados para usar `getEquipeName()` no mapeamento de dados.
+- Arquivos modificados:
+  - src/pages/DashboardAnalytics.tsx (query equipes, getEquipeName, mapeamento de dados nos gráficos)
+
+### 9.12. Melhoria: Alinhamento de Headers
+- IMPLEMENTAÇÃO: Todos os headers do sistema foram padronizados para ter o logo e título no canto esquerdo e botões no canto direito.
+- Mudanças:
+  - Container interno do header alterado de `max-w-7xl mx-auto ...` para `w-full px-4 sm:px-6 lg:px-8 py-4`.
+  - Bloco esquerdo (logo + título) com `flex-shrink-0` sem padding adicional.
+  - Bloco direito (botões) com `flex-shrink-0 ml-4`.
+- Arquivos modificados:
+  - src/pages/DashboardAnalytics.tsx
+  - src/pages/DashboardGerente.tsx
+  - src/pages/DashboardChefe.tsx
+  - src/pages/Settings.tsx
+  - src/pages/GestaoUsuarios.tsx
+  - src/pages/Colaboradores.tsx
+  - src/pages/Aderencia.tsx
+
+### 9.13. Correção: Filtro de Tipo de Ocorrência Não Aeronáutica
+- PROBLEMA: O filtro de "Tipo de Ocorrência" na view de Ocorrência Não Aeronáutica não estava filtrando os dados corretamente.
+- SOLUÇÃO IMPLEMENTADA:
+  - Adicionada lógica de filtro em `DashboardAnalytics.tsx` que filtra `lancamentos` por `conteudo.tipo_ocorrencia` quando a view é 'ocorrencia_nao_aero' e um tipo é selecionado.
+- Arquivos modificados:
+  - src/pages/DashboardAnalytics.tsx (filtro para ocorrencia_nao_aero)
+
+### 9.14. Nova Funcionalidade: Filtro de Tipo de Ocorrência Aeronáutica
+- IMPLEMENTAÇÃO: Adicionado filtro "Tipo de Ocorrência" na view de Ocorrência Aeronáutica para filtrar entre Posicionamento e Intervenção.
+- Funcionalidades:
+  - Novo estado `tipoOcorrenciaAero` em `DashboardAnalytics.tsx`.
+  - Novo Select no `AnalyticsFilterBar` com opções: "Todos os tipos", "Posicionamento", "Intervenção".
+  - Filtro aplicado baseado no campo `conteudo.acao`.
+- Arquivos modificados:
+  - src/pages/DashboardAnalytics.tsx (estado tipoOcorrenciaAero, lógica de filtro)
+  - src/components/AnalyticsFilterBar.tsx (novas props e Select para tipo de ocorrência aero)
+
+### 9.15. Correção: Atividades Acessórias Sem Dados
+- PROBLEMA: O Dashboard Analytics de Atividades Acessórias não mostrava dados.
+- CAUSA: A função `processAtividadesAcessorias` esperava dados no formato `conteudo.atividades` (array), mas o formulário salva os dados diretamente em `conteudo` (tipo_atividade, qtd_equipamentos, etc.).
+- SOLUÇÃO IMPLEMENTADA:
+  - Função `processAtividadesAcessorias` em `analytics-utils.ts` atualizada para suportar dois formatos:
+    1. `conteudo.atividades` como array (formato legado/hipotético).
+    2. Propriedades diretas em `conteudo` (formato atual do formulário).
+- Arquivos modificados:
+  - src/lib/analytics-utils.ts (processAtividadesAcessorias com suporte a dois formatos)
+
+### 9.16. Remoção: Modo Escuro (Dark Mode)
+- IMPLEMENTAÇÃO: O modo escuro foi completamente removido do sistema conforme solicitação do usuário.
+- Remoções:
+  - Removido `ThemeContext` e `ThemeProvider`.
+  - Removido componente `ModeToggle`.
+  - Removidas todas as classes `.dark` do CSS.
+  - Removido botão de alternância de tema dos headers.
+- Arquivos modificados:
+  - src/contexts/ThemeContext.tsx (removido)
+  - src/components/ModeToggle.tsx (removido)
+  - src/App.tsx (removido ThemeProvider)
+  - src/index.css (removidas classes dark)
+  - Todos os headers (removido ModeToggle)
+
+### 9.17. Melhorias Visuais: Padronização de Interface
+- IMPLEMENTAÇÃO: Diversas melhorias visuais aplicadas ao sistema para padronizar a interface.
+- Mudanças:
+  1. **Sidebar (Dashboard Analytics):**
+     - Textos em branco para melhor contraste.
+     - Divisores entre grupos de menu.
+  2. **Headers:**
+     - Textos em branco.
+     - Textos dos botões em laranja (#fc4d00).
+     - Sombra preta sutil nos botões.
+  3. **Cards:**
+     - Sombra laranja sutil (`shadow-orange-sm` e `shadow-orange-md`).
+  4. **Histórico de Lançamentos:**
+     - Divisores entre linhas em laranja.
+     - Botões de paginação em laranja.
+  5. **Calendários:**
+     - Tema personalizado em laranja usando CSS customizado.
+     - Dias selecionados com fundo laranja.
+     - Hover em laranja claro.
+- Arquivos modificados:
+  - src/index.css (classes de sombra laranja, estilos de calendário)
+  - src/pages/DashboardAnalytics.tsx (estilos de sidebar e header)
+  - src/pages/DashboardChefe.tsx (estilos de tabela e paginação)
+  - Componentes de calendário (DatePicker)
+
+### 9.18. Atualização: Lista de Tipos de Ocorrência Não Aeronáutica
+- IMPLEMENTAÇÃO: O campo `tipo_ocorrencia` no formulário de Ocorrência Não Aeronáutica foi atualizado com a lista completa de opções.
+- Opções:
+  1. Incêndios ou Vazamentos de Combustíveis no PAA
+  2. Condições de Baixa Visibilidade
+  3. Atendimento a Aeronave Presidencial
+  4. Incêndio em Instalações Aeroportuárias
+  5. Ocorrências com Artigos Perigosos
+  6. Remoção de Animais e Dispersão de Avifauna
+  7. Incêndios Florestais
+  8. Emergências Médicas em Geral
+  9. Iluminação de Emergência em Pista
+- Arquivos modificados:
+  - src/components/forms/OcorrenciaNaoAeroForm.tsx (lista de opções atualizada)
+  - src/components/AnalyticsFilterBar.tsx (lista de opções no filtro)
+
+### 9.19. Refinamento Visual: Dashboard de Ocorrência Aeronáutica
+- **OBJETIVO:** Refatorar o dashboard de Ocorrência Aeronáutica para focar em Tempos de Resposta e Tipo de Ação, críticos para a ANAC.
+- **IMPLEMENTAÇÃO:**
+  - **Função Utilitária:**
+    - Criada função `parseMmSsToSeconds(timeString)` em `analytics-utils.ts` para converter strings "mm:ss" em segundos, permitindo calcular médias e máximos.
+  - **KPIs Refatorados:**
+    - Substituídos cards genéricos por KPIs focados em performance operacional:
+      - Total Ocorrências (contagem simples)
+      - Tempo Médio Resposta (1º CCI): Média do campo `tempo_chegada_1_cci`, formatado em mm:ss (KPI mais importante)
+      - Pior Tempo Resposta (1º CCI): Valor máximo encontrado no período (identifica falhas)
+      - % de Intervenções: Porcentagem onde `acao === 'Intervenção'`
+  - **Gráficos Implementados:**
+    1. **Perfil da Operação (Donut Chart):** Distribuição entre "Posicionamento" vs "Intervenção" (campo `acao`). Cores: Azul (#3b82f6) para Posicionamento, Laranja (#fc4d00) para Intervenção.
+    2. **Agilidade da Equipe (Line Chart):** Eixo X = Meses (ordenados cronologicamente), Eixo Y = Tempo Médio de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
+    3. **Mapa de Calor de Locais (Bar Chart Horizontal):** Agrupa ocorrências pelo campo `local`. Barras horizontais para legibilidade dos nomes dos locais no eixo Y. Ordenado do maior para o menor (Top 5).
+  - **Tabela Detalhada:**
+    - Adicionada tabela com colunas críticas: Data | Base | Ação | Local | Chegada 1º CCI | Chegada Últ. CCI
+    - Exibe todas as ocorrências do período filtrado com informações detalhadas para análise operacional.
+- **Arquivos modificados:**
+  - src/lib/analytics-utils.ts (função `parseMmSsToSeconds`, refatoração completa de `processOcorrenciaAeronautica`)
+  - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Ocorrência Aeronáutica com novos KPIs, gráficos e tabela)
+
+### 9.20. Refinamento Visual: Dashboard de Atividades Acessórias
+- **OBJETIVO:** Refatorar o dashboard de Atividades Acessórias para focar em produtividade e gestão de tempo, subutilizando melhor os dados de Tempo e Recursos Humanos.
+- **IMPLEMENTAÇÃO:**
+  - **KPIs Refatorados:**
+    - Substituídos cards genéricos por 4 indicadores de produtividade:
+      - Total de Atividades (contagem simples)
+      - Total de Horas Empenhadas: Soma de todo o `tempo_gasto` formatado em HH:mm. Justifica o salário da equipe.
+      - Equipamentos Inspecionados: Soma do campo `qtd_equipamentos`.
+      - Média de Bombeiros: Média do campo `qtd_bombeiros` (arredondado). Mostra o tamanho médio da equipe mobilizada.
+  - **Gráficos Implementados:**
+    1. **Onde gastamos nosso tempo? (Donut Chart):** Soma de `tempo_gasto` agrupado por `tipo_atividade`. Mostra qual atividade consome mais horas do plantão (Esforço), diferente de qual acontece mais vezes (Frequência). Gráfico de Rosca com legenda clara e porcentagens escritas.
+    2. **Ranking de Frequência (Bar Chart Horizontal):** Melhoria do gráfico "Atividades por Tipo". Barras horizontais para legibilidade dos nomes longos no eixo Y. Ordenado do mais frequente para o menos frequente.
+    3. **Evolução de Produtividade (Composed Chart):** Eixo X = Meses (ordenados cronologicamente). Barra = Quantidade de Atividades. Linha = Total de Horas Gastas no mês. Permite ver se o volume de trabalho aumentou junto com as horas ou se estamos sendo mais eficientes.
+  - **Tabela de Registros:**
+    - Adicionadas colunas: Data | Tipo | Qtd Bombeiros | Tempo Gasto
+    - Exibe todas as atividades do período filtrado com informações detalhadas para análise de produtividade.
+  - **Processamento de Dados:**
+    - Função `processAtividadesAcessorias` refatorada para calcular novos KPIs usando `timeToMinutes` para converter `tempo_gasto` (HH:mm) em minutos.
+    - Agregações por tipo de atividade para tempo gasto e frequência.
+    - Agregações mensais para evolução de produtividade (quantidade e horas).
+- **Arquivos modificados:**
+  - src/lib/analytics-utils.ts (refatoração completa de `processAtividadesAcessorias` com novos KPIs e gráficos)
+  - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Atividades Acessórias com novos KPIs, gráficos e tabela)
+  - src/components/charts/ComposedChart.tsx (melhorias no tooltip para formatação de horas)
+
+### 9.21. Refinamento Visual: Dashboard de TAF (Aptidão Física)
+- **OBJETIVO:** Corrigir ordenação cronológica e adicionar análises demográficas (Idade x Performance), vitais para este indicador.
+- **IMPLEMENTAÇÃO:**
+  - **Processamento de Dados:**
+    - Função `processTAF` refatorada para extrair todos os participantes de todos os lançamentos filtrados para um único array plano (flattening de `conteudo.avaliados`).
+    - Utiliza função `parseTimeMMSS` (exportada) para converter tempo (mm:ss -> segundos) para cálculos de média.
+  - **KPIs Refatorados:**
+    - Total Avaliados (contagem total)
+    - Taxa de Aprovação: Porcentagem (Verde se > 90%). Subtítulo: "X Aprovados / Y Reprovados"
+    - Melhor Tempo (Recorde): O menor tempo registrado no período
+    - Tempo Médio Geral: A média de todos os tempos
+  - **Gráficos Implementados:**
+    1. **Status de Aprovação (Donut Chart - Melhorado):** Distribuição "Aprovado" (Verde) vs "Reprovado" (Vermelho). % de Aprovação no centro da rosca em destaque.
+    2. **Evolução do Condicionamento (Line Chart - CORRIGIDO):** Eixo X = Meses ordenados cronologicamente (corrigido erro de Fev antes de Jan). Eixo Y = Tempo Médio em minutos. Insight: Linha descendo = time mais rápido/forte.
+    3. **Performance por Faixa Etária (Bar Chart - NOVO):** Agrupa avaliados em faixas: "Até 30 anos", "31-40 anos", "Acima de 40". Mostra Tempo Médio de cada grupo. Identifica se o envelhecimento da tropa está impactando o tempo de resposta.
+    4. **Distribuição de Notas (Bar Chart - NOVO):** Mostra quantos bombeiros tiraram Nota 10, Nota 9, Nota 8, etc. Indica a "Qualidade" da aprovação (passaram raspando ou sobraram?).
+  - **Tabela de Resultados:**
+    - Colunas: Data | Nome | Idade | Tempo | Nota/Status
+    - Permite ordenar por Tempo (botão clicável com ícone de setas) para ver o ranking dos mais rápidos
+    - Componente `TafResultsTable` criado com estado de ordenação
+  - **Correções:**
+    - Ordenação cronológica corrigida no gráfico de evolução usando `mesKey` para ordenação antes de formatar para exibição
+- **Arquivos modificados:**
+  - src/lib/analytics-utils.ts (refatoração completa de `processTAF` com novos KPIs, gráficos e exportação de `parseTimeMMSS`)
+  - src/pages/DashboardAnalytics.tsx (atualização completa da seção de TAF com novos KPIs, gráficos, tabela ordenável e componente `TafResultsTable`)
+
+### 9.22. Refinamento e Correção: Dashboard de Prova Teórica
+- **OBJETIVO:** Corrigir inconsistência grave onde Nota Média aparecia alta mas Taxa de Aprovação aparecia como 0%, e melhorar gráficos para análise de conhecimento.
+- **PROBLEMA IDENTIFICADO:**
+  - A função `processProvaTeorica` estava verificando apenas o campo `status` do JSON, mas deveria calcular o status baseado na nota (>= 8.0).
+  - Isso causava inconsistência: média alta mas taxa de aprovação baixa.
+- **IMPLEMENTAÇÃO:**
+  - **CORREÇÃO CRÍTICA DE LÓGICA:**
+    - Função `processProvaTeorica` refatorada para calcular status baseado em nota >= 8.0.
+    - Regra de Negócio: Se nota >= 8.0: Status APROVADO. Se nota < 8.0: Status REPROVADO.
+    - Conversão numérica correta (Number(avaliado.nota)) antes de comparar.
+  - **Processamento de Dados:**
+    - Utiliza mesma lógica de "flattening" (extrair avaliados dos arrays JSON) usada no TAF.
+    - Adicionado `equipe_id` aos avaliados para gráfico de ranking por equipe.
+  - **KPIs Refatorados:**
+    - Total Avaliados (contagem)
+    - Nota Média Geral: Média de todas as notas (1 ou 2 casas decimais)
+    - Taxa de Aprovação: % de pessoas com nota >= 8.0 (Verde se > 80%). Subtítulo: "X Aprovados / Y Reprovados"
+    - Nota Máxima: A maior nota tirada no período
+  - **Gráficos Implementados:**
+    1. **Status de Aprovação (Donut Chart - Corrigido):** Aprovado (Verde) vs Reprovado (Vermelho). Reflete a realidade baseada na regra >= 8.0. % de Aprovação no centro.
+    2. **Distribuição de Notas (Histograma - Bar Chart - NOVO):** Agrupa notas em faixas: "Excelência (9.0 - 10.0)", "Na Média (8.0 - 8.9)", "Abaixo da Média (< 8.0)". Mostra se a média alta é porque todos são bons ou se tem gente tirando 10 e gente tirando 5.
+    3. **Ranking de Conhecimento por Equipe (Bar Chart - NOVO):** Eixo Y = Equipes (Alfa, Bravo, etc). Eixo X = Nota Média da Equipe. Descobre qual equipe está estudando mais.
+    4. **Evolução do Conhecimento (Line Chart - CORRIGIDO):** Eixo X = Meses (ordenados cronologicamente usando `mesKey`). Eixo Y = Nota Média Mensal.
+  - **Tabela de Resultados:**
+    - Colunas: Data | Nome | Equipe | Nota | Status (Badge Verde/Vermelho)
+    - Permite ordenar por Nota (Descrescente) para ver os "01" (melhores alunos). Botão de ordenação com ícone de setas.
+    - Paginação: 10 itens por página com controles Anterior/Próximo.
+    - Componente `ProvaTeoricaResultsTable` criado com estado de ordenação e paginação.
+- **Arquivos modificados:**
+  - src/lib/analytics-utils.ts (refatoração completa de `processProvaTeorica` com correção crítica de lógica de aprovação, novos KPIs e gráficos)
+  - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Prova Teórica com novos KPIs, gráficos, tabela ordenável e componente `ProvaTeoricaResultsTable`)
+
+### 9.23. Refatoração Total: Dashboard de Treinamento (Foco em Compliance ANAC)
+- **OBJETIVO:** Refatorar completamente o dashboard de Treinamento para focar no cumprimento da meta obrigatória de 16 horas mensais por bombeiro (Regra ANAC), removendo rankings e focando em compliance.
+- **MUDANÇA DE REGRA DE NEGÓCIO:**
+  - Não queremos mais ranking
+  - Objetivo agora é monitorar o cumprimento da meta obrigatória de 16 horas mensais por bombeiro (Regra ANAC)
+- **IMPLEMENTAÇÃO:**
+  - **Processamento de Dados (Aggregation):**
+    - Agrupa registros pelo nome do colaborador
+    - Soma as horas de treinamento de cada um dentro do período selecionado
+    - Classifica cada colaborador: Conforme (>=16h) ou Não Conforme (<16h)
+  - **KPIs de Conformidade:**
+    - Efetivo Total Analisado: Quantidade de bombeiros únicos no período
+    - Efetivo Apto (>=16h): Quantidade e % (Cor Verde)
+    - Efetivo Irregular (<16h): Quantidade e % (Cor Vermelha). Este é o KPI crítico.
+    - Média de Horas Geral: Média global para ver se a corporação como um todo está acima de 16h
+  - **Gráficos Implementados:**
+    1. **Situação da Tropa (Donut Chart):** Mostra a proporção de Conforme (Verde) vs Não Conforme (Vermelho). No centro, destaca a % de Conformidade.
+    2. **Distribuição de Carga Horária (Bar Chart - Histograma):** Agrupa colaboradores em faixas: "0-8h", "8-15h", "16-24h", "25h+". Eixo X = Faixas, Eixo Y = Quantidade de Bombeiros. Insight: Mostra se a maioria dos irregulares está "quase lá" (8-15h) ou "críticos" (0-8h).
+    3. **Desempenho por Equipe (Bar Chart com Reference Line):** Eixo X = Equipes (Alfa, Bravo, etc). Eixo Y = Média de Horas da Equipe. IMPORTANTE: Linha de referência vermelha tracejada em 16h. As barras que ficarem abaixo da linha indicam equipes que não bateram a meta coletiva.
+  - **Remoções:**
+    - Removidas todas as menções a Ranking
+    - Removidos gráficos de ranking e comparação competitiva
+    - Dashboard agora foca exclusivamente no Compliance da Meta de 16h/mês
+  - **Melhorias Técnicas:**
+    - Componente `BarChart` atualizado para suportar `ReferenceLine` (linha de referência)
+    - Agregação por colaborador com soma de horas no período
+    - Classificação automática de conformidade baseada em meta de 16h
+- **Arquivos modificados:**
+  - src/lib/analytics-utils.ts (refatoração completa de `processHorasTreinamento` com agregação por colaborador, classificação de conformidade e novos gráficos)
+  - src/components/charts/BarChart.tsx (adicionado suporte para `ReferenceLine` para exibir linha de referência em gráficos)
+  - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Treinamento com novos KPIs de conformidade e gráficos focados em compliance)

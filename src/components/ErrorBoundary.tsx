@@ -26,18 +26,18 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Erro ao carregar a aplicação</h1>
-            <p className="text-gray-700 mb-4">
+        <div className="min-h-screen flex items-center justify-center bg-background transition-colors duration-300">
+          <div className="max-w-md w-full bg-card shadow-lg rounded-lg p-6 border border-border">
+            <h1 className="text-2xl font-bold text-destructive mb-4">Erro ao carregar a aplicação</h1>
+            <p className="text-foreground mb-4">
               Ocorreu um erro inesperado. Por favor, recarregue a página.
             </p>
             {this.state.error && (
               <details className="mb-4">
-                <summary className="cursor-pointer text-sm text-gray-600 mb-2">
+                <summary className="cursor-pointer text-sm text-muted-foreground mb-2">
                   Detalhes do erro
                 </summary>
-                <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto">
+                <pre className="text-xs bg-muted p-2 rounded overflow-auto text-foreground">
                   {this.state.error.toString()}
                   {this.state.error.stack}
                 </pre>
@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
             <button
               onClick={() => window.location.reload()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+              className="w-full bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 transition-colors"
             >
               Recarregar Página
             </button>

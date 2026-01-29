@@ -1,0 +1,21 @@
+Use o TestSprite MCP para criar testes E2E completos para este projeto React/Vite.
+
+Informações do projeto:
+- projectPath: C:/Users/sussa/Desktop/indicadores_medmais/Projeto indicadores
+- localPort: 5173
+- type: frontend
+- testScope: codebase
+- prdPath: docs/PRD.md
+
+Funcionalidades principais para testar:
+1. Login e autenticação (validação, redirecionamento por role)
+2. Dashboard Gerente (navegação, cards, menu)
+3. Dashboard Chefe (navegação, cards, menu)
+4. Dashboard Analytics (filtros, views, gráficos, validação de 12 meses)
+5. Monitoramento de Aderência (tabela, filtros, indicadores)
+6. Gestão de Usuários (criar, editar, listar)
+7. Gestão de Efetivo/Colaboradores
+
+Credenciais de teste:
+- Gerente: gerente@test.com / password123
+- Chefe: chefe@test.com / password123

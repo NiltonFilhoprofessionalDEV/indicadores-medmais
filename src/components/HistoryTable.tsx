@@ -297,7 +297,7 @@ export function HistoryTable({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b bg-gray-50">
+                  <tr className="border-b border-[#fc4d00] bg-muted/50">
                     <th className="text-left p-3 font-semibold text-sm">Data</th>
                     <th className="text-left p-3 font-semibold text-sm">
                       Indicador
@@ -316,7 +316,7 @@ export function HistoryTable({
                     return (
                       <tr
                         key={lancamento.id}
-                        className="border-b hover:bg-gray-50 transition-colors"
+                        className="border-b border-[#fc4d00] hover:bg-muted/50 transition-colors"
                       >
                         <td className="p-3">
                           {formatDateForDisplay(lancamento.data_referencia)}
@@ -391,6 +391,7 @@ export function HistoryTable({
                       size="sm"
                       onClick={() => handlePageChange(page - 1)}
                       disabled={page === 1}
+                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Anterior
                     </Button>
@@ -399,6 +400,7 @@ export function HistoryTable({
                       size="sm"
                       onClick={() => handlePageChange(page + 1)}
                       disabled={page >= data.totalPages}
+                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Próximo
                     </Button>

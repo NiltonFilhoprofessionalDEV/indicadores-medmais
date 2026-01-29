@@ -1,0 +1,19 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5174",
+  "backendBaseUrl": "https://SEU_PROJETO.supabase.co/functions/v1",
+  "backendAuthType": "bearer_and_apikey",
+  "executionArgs": {
+    "projectName": "Projeto indicadores",
+    "projectPath": "C:/caminho/para/Projeto indicadores",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "defina_via_ambiente_ou_testsprite_dashboard",
+      "SUPABASE_SERVICE_ROLE_KEY": "defina_via_ambiente_nunca_commite"
+    }
+  },
+  "proxy": "http://usuario:senha@tun.testsprite.com:8080"
+}

@@ -1,13 +1,26 @@
-import { parse } from 'date-fns'
+/**
+ * Utilitários de Data para Analytics
+ * Implementa travas de segurança para evitar sobrecarga de memória
+ */
 
 /**
- * CORREÇÃO CRÍTICA DE TIMEZONE
- * Formata Date para armazenamento no banco (YYYY-MM-DD)
- * IMPORTANTE: Usa data LOCAL do usuário, ignorando timezones
- * NÃO usa .toISOString() pois isso converte para UTC e causa bug de D-1
+ * Calcula a data padrão (mês atual: 1º dia até hoje)
+ * @returns Objeto com dataInicio e dataFim no formato YYYY-MM-DD
+ */
+export function getDefaultDateRange(): { dataInicio: string; dataFim: string } {
+  const hoje = new Date()
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  
+  return {
+    dataInicio: formatDateForStorage(primeiroDiaMes),
+    dataFim: formatDateForStorage(hoje),
+  }
+}
+
+/**
+ * Formata Date para string YYYY-MM-DD (sem conversão de timezone)
  */
 export function formatDateForStorage(date: Date): string {
-  // Usa métodos locais para garantir o dia exato selecionado
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -15,106 +28,138 @@ export function formatDateForStorage(date: Date): string {
 }
 
 /**
- * CORREÇÃO CRÍTICA DE TIMEZONE
- * Formata string do banco (YYYY-MM-DD) para exibição (DD/MM/YYYY)
- * IMPORTANTE: Usa .split('-') para evitar instanciar Date e aplicar timezone
- * Não usa new Date(string) pois o navegador pode aplicar timezone novamente
+ * Valida se o intervalo de datas não excede 12 meses
+ * @param dataInicio Data início no formato YYYY-MM-DD
+ * @param dataFim Data fim no formato YYYY-MM-DD
+ * @returns Objeto com isValid (boolean) e errorMessage (string se inválido)
+ */
+export function validateDateRange(dataInicio: string, dataFim: string): {
+  isValid: boolean
+  errorMessage?: string
+} {
+  if (!dataInicio || !dataFim) {
+    return {
+      isValid: false,
+      errorMessage: 'Por favor, selecione ambas as datas (início e fim).',
+    }
+  }
+
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim)
+
+  if (inicio > fim) {
+    return {
+      isValid: false,
+      errorMessage: 'A data de início deve ser anterior à data de fim.',
+    }
+  }
+
+  // Calcular diferença em meses
+  const diffMonths = (fim.getFullYear() - inicio.getFullYear()) * 12 + (fim.getMonth() - inicio.getMonth())
+  
+  if (diffMonths > 12) {
+    return {
+      isValid: false,
+      errorMessage: 'O intervalo máximo permitido é de 12 meses. Por favor, selecione um período menor.',
+    }
+  }
+
+  return { isValid: true }
+}
+
+/**
+ * Ajusta as datas para garantir que não excedam 12 meses
+ * Se exceder, ajusta a data de início para 12 meses antes da data fim
+ * @param dataInicio Data início no formato YYYY-MM-DD
+ * @param dataFim Data fim no formato YYYY-MM-DD
+ * @returns Objeto com dataInicio e dataFim ajustadas
+ */
+export function enforceMaxDateRange(dataInicio: string, dataFim: string): {
+  dataInicio: string
+  dataFim: string
+} {
+  if (!dataInicio || !dataFim) {
+    const defaultRange = getDefaultDateRange()
+    return defaultRange
+  }
+
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim)
+
+  if (inicio > fim) {
+    // Se início > fim, usar mês atual como padrão
+    return getDefaultDateRange()
+  }
+
+  // Calcular diferença em meses
+  const diffMonths = (fim.getFullYear() - inicio.getFullYear()) * 12 + (fim.getMonth() - inicio.getMonth())
+  
+  if (diffMonths > 12) {
+    // Ajustar data início para 12 meses antes da data fim
+    const novoInicio = new Date(fim)
+    novoInicio.setMonth(novoInicio.getMonth() - 12)
+    novoInicio.setDate(1) // Primeiro dia do mês
+    
+    return {
+      dataInicio: formatDateForStorage(novoInicio),
+      dataFim: formatDateForStorage(fim),
+    }
+  }
+
+  return { dataInicio, dataFim }
+}
+
+/**
+ * Formata string YYYY-MM-DD para DD/MM/YYYY (sem conversão de timezone)
+ * @param dateString Data no formato YYYY-MM-DD
+ * @returns Data formatada como DD/MM/YYYY
  */
 export function formatDateForDisplay(dateString: string): string {
-  // Se já está no formato correto do banco (YYYY-MM-DD)
+  if (!dateString) return ''
+  const parts = dateString.split('-')
+  if (parts.length !== 3) return dateString
+  return `${parts[2]}/${parts[1]}/${parts[0]}`
+}
+
+/**
+ * Retorna a data atual no formato YYYY-MM-DD usando métodos locais (sem conversão de timezone)
+ * @returns Data atual formatada como YYYY-MM-DD
+ */
+export function getCurrentDateLocal(): string {
+  const hoje = new Date()
+  return formatDateForStorage(hoje)
+}
+
+/**
+ * Normaliza uma string de data para o formato YYYY-MM-DD local
+ * Aceita formatos como YYYY-MM-DD, DD/MM/YYYY, ou Date ISO string
+ * @param dateString String de data em qualquer formato válido
+ * @returns Data normalizada no formato YYYY-MM-DD
+ */
+export function normalizeDateToLocal(dateString: string): string {
+  if (!dateString) return getCurrentDateLocal()
+  
+  // Se já está no formato YYYY-MM-DD, retorna direto
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    const [year, month, day] = dateString.split('-')
-    return `${day}/${month}/${year}`
-  }
-  
-  // Se vier com timezone (ISO), extrai apenas a parte da data
-  if (dateString.includes('T')) {
-    const datePart = dateString.split('T')[0]
-    const [year, month, day] = datePart.split('-')
-    return `${day}/${month}/${year}`
-  }
-  
-  // Se já está em formato brasileiro, retorna como está
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
     return dateString
   }
   
-  // Fallback: retorna como está
-  return dateString
-}
-
-/**
- * Converte data de formato brasileiro (dd/MM/yyyy) para ISO (yyyy-MM-DD)
- */
-export function brDateToISO(dateStr: string): string {
-  try {
-    const date = parse(dateStr, 'dd/MM/yyyy', new Date())
-    return formatDateForStorage(date)
-  } catch {
-    throw new Error('Data inválida')
-  }
-}
-
-/**
- * Converte data de ISO (yyyy-MM-DD) para formato brasileiro (dd/MM/yyyy)
- * DEPRECATED: Use formatDateForDisplay() em vez disso
- */
-export function isoToBrDate(dateStr: string): string {
-  return formatDateForDisplay(dateStr)
-}
-
-/**
- * Formata data para input type="date" (yyyy-MM-dd)
- */
-export function formatDateForInput(date: Date): string {
-  return formatDateForStorage(date)
-}
-
-/**
- * Obtém data atual no formato YYYY-MM-DD (data local, não UTC)
- * CORREÇÃO: Garante que a data seja enviada como string local, não ISO UTC
- * Isso evita o problema de datas com um dia a menos (D-1)
- */
-export function getCurrentDateLocal(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-/**
- * Converte Date para string YYYY-MM-DD (data local, não UTC)
- * CORREÇÃO: Usa getFullYear(), getMonth(), getDate() para garantir data local
- */
-export function dateToLocalString(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-/**
- * Converte string de data (qualquer formato) para YYYY-MM-DD local
- * Se receber uma string ISO (com timezone), extrai apenas a parte da data
- */
-export function normalizeDateToLocal(dateStr: string): string {
-  // Se já está no formato YYYY-MM-DD, retorna direto
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return dateStr
+  // Se está no formato DD/MM/YYYY, converte
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const parts = dateString.split('/')
+    return `${parts[2]}-${parts[1]}-${parts[0]}`
   }
   
-  // Se for ISO com timezone (YYYY-MM-DDTHH:mm:ss.sssZ), extrai apenas a data
-  if (dateStr.includes('T')) {
-    return dateStr.split('T')[0]
+  // Tenta parsear como Date e converter
+  try {
+    const date = new Date(dateString)
+    if (!isNaN(date.getTime())) {
+      return formatDateForStorage(date)
+    }
+  } catch {
+    // Se falhar, retorna data atual
   }
   
-  // Tenta parsear e converter
-  try {
-    const date = new Date(dateStr)
-    return dateToLocalString(date)
-  } catch {
-    // Se falhar, retorna como está (deixa o banco validar)
-    return dateStr
-  }
+  // Fallback: retorna data atual
+  return getCurrentDateLocal()
 }

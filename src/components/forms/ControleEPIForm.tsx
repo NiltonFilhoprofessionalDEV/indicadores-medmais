@@ -15,21 +15,53 @@ import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
 const colaboradorSchema = z.object({
-  nome: z.string().min(1, 'Nome é obrigatório'),
-  epi_entregue: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  epi_previsto: z.number().min(1, 'Quantidade prevista deve ser maior que 0'),
-  unif_entregue: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  unif_previsto: z.number().min(1, 'Quantidade prevista deve ser maior que 0'),
+  nome: z.string(),
+  epi_entregue: z.number().optional(),
+  epi_previsto: z.number().optional(),
+  unif_entregue: z.number().optional(),
+  unif_previsto: z.number().optional(),
   total_epi_pct: z.number().optional(),
   total_unif_pct: z.number().optional(),
-})
+}).refine(
+  (data) => {
+    // Se nome está vazio, não validar os outros campos
+    if (!data.nome || data.nome.trim() === '') {
+      return true
+    }
+    // Se nome está preenchido, validar todos os campos obrigatórios
+    return (
+      data.epi_entregue !== undefined &&
+      data.epi_previsto !== undefined &&
+      data.unif_entregue !== undefined &&
+      data.unif_previsto !== undefined &&
+      data.epi_entregue >= 0 &&
+      data.epi_previsto >= 1 &&
+      data.unif_entregue >= 0 &&
+      data.unif_previsto >= 1
+    )
+  },
+  {
+    message: 'Preencha todos os campos obrigatórios',
+    path: ['nome'],
+  }
+)
 
 const controleEPISchema = z.object({
   colaboradores: z.array(colaboradorSchema).min(1, 'Adicione pelo menos um colaborador'),
   data_referencia: z.string().min(1, 'Data é obrigatória'),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
-})
+}).refine(
+  (data) => {
+    // Filtrar colaboradores com nome preenchido
+    const colaboradoresComNome = data.colaboradores.filter((c) => c.nome.trim() !== '')
+    return colaboradoresComNome.length > 0
+  },
+  {
+    message: 'Adicione pelo menos um colaborador com nome preenchido',
+    path: ['colaboradores'],
+  }
+)
 
 type ControleEPIFormData = z.infer<typeof controleEPISchema>
 
@@ -120,7 +152,42 @@ export function ControleEPIForm({
 
   const onSubmit = async (data: ControleEPIFormData) => {
     try {
-      const colaboradoresFiltrados = data.colaboradores.filter((c) => c.nome.trim() !== '')
+      // Filtrar apenas colaboradores com nome preenchido
+      const colaboradoresFiltrados = data.colaboradores
+        .filter((c) => c.nome && c.nome.trim() !== '')
+        .map((c) => ({
+          nome: c.nome.trim(),
+          epi_entregue: c.epi_entregue ?? 0,
+          epi_previsto: c.epi_previsto ?? 1,
+          unif_entregue: c.unif_entregue ?? 0,
+          unif_previsto: c.unif_previsto ?? 1,
+          total_epi_pct: c.total_epi_pct ?? 0,
+          total_unif_pct: c.total_unif_pct ?? 0,
+        }))
+
+      // Validar se há pelo menos um colaborador válido
+      if (colaboradoresFiltrados.length === 0) {
+        alert('Adicione pelo menos um colaborador com nome preenchido')
+        return
+      }
+
+      // Validar se todos os colaboradores filtrados têm todos os campos obrigatórios válidos
+      const colaboradoresInvalidos = colaboradoresFiltrados.filter(
+        (c) =>
+          isNaN(c.epi_entregue) ||
+          isNaN(c.epi_previsto) ||
+          isNaN(c.unif_entregue) ||
+          isNaN(c.unif_previsto) ||
+          c.epi_entregue < 0 ||
+          c.epi_previsto < 1 ||
+          c.unif_entregue < 0 ||
+          c.unif_previsto < 1
+      )
+
+      if (colaboradoresInvalidos.length > 0) {
+        alert('Preencha todos os campos obrigatórios corretamente para cada colaborador')
+        return
+      }
 
       const conteudo = {
         colaboradores: colaboradoresFiltrados,
@@ -139,10 +206,12 @@ export function ControleEPIForm({
         equipeId: data.equipe_id,
       })
 
+      // Sucesso - chamar callback
       onSuccess?.()
     } catch (error) {
-      console.error('Erro ao salvar:', error)
-      alert('Erro ao salvar Controle de EPI. Tente novamente.')
+      console.error('Erro ao salvar Controle de EPI:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar'
+      alert(`Erro ao salvar Controle de EPI: ${errorMessage}`)
     }
   }
 
@@ -230,7 +299,14 @@ export function ControleEPIForm({
                       <Input
                         type="number"
                         min="0"
-                        {...register(`colaboradores.${index}.epi_entregue`, { valueAsNumber: true })}
+                        {...register(`colaboradores.${index}.epi_entregue`, { 
+                          valueAsNumber: true,
+                          validate: (value) => {
+                            if (!colaboradores[index]?.nome?.trim()) return true // Ignorar validação se nome estiver vazio
+                            if (value === undefined || value === null || isNaN(value)) return 'Campo obrigatório'
+                            return value >= 0 || 'Quantidade deve ser maior ou igual a 0'
+                          }
+                        })}
                         disabled={readOnly}
                         className={readOnly ? 'bg-muted' : ''}
                       />
@@ -244,7 +320,14 @@ export function ControleEPIForm({
                       <Input
                         type="number"
                         min="1"
-                        {...register(`colaboradores.${index}.epi_previsto`, { valueAsNumber: true })}
+                        {...register(`colaboradores.${index}.epi_previsto`, { 
+                          valueAsNumber: true,
+                          validate: (value) => {
+                            if (!colaboradores[index]?.nome?.trim()) return true // Ignorar validação se nome estiver vazio
+                            if (value === undefined || value === null || isNaN(value)) return 'Campo obrigatório'
+                            return value >= 1 || 'Quantidade prevista deve ser maior que 0'
+                          }
+                        })}
                         disabled={readOnly}
                         className={readOnly ? 'bg-muted' : ''}
                       />
@@ -267,7 +350,14 @@ export function ControleEPIForm({
                       <Input
                         type="number"
                         min="0"
-                        {...register(`colaboradores.${index}.unif_entregue`, { valueAsNumber: true })}
+                        {...register(`colaboradores.${index}.unif_entregue`, { 
+                          valueAsNumber: true,
+                          validate: (value) => {
+                            if (!colaboradores[index]?.nome?.trim()) return true // Ignorar validação se nome estiver vazio
+                            if (value === undefined || value === null || isNaN(value)) return 'Campo obrigatório'
+                            return value >= 0 || 'Quantidade deve ser maior ou igual a 0'
+                          }
+                        })}
                         disabled={readOnly}
                         className={readOnly ? 'bg-muted' : ''}
                       />
@@ -281,7 +371,14 @@ export function ControleEPIForm({
                       <Input
                         type="number"
                         min="1"
-                        {...register(`colaboradores.${index}.unif_previsto`, { valueAsNumber: true })}
+                        {...register(`colaboradores.${index}.unif_previsto`, { 
+                          valueAsNumber: true,
+                          validate: (value) => {
+                            if (!colaboradores[index]?.nome?.trim()) return true // Ignorar validação se nome estiver vazio
+                            if (value === undefined || value === null || isNaN(value)) return 'Campo obrigatório'
+                            return value >= 1 || 'Quantidade prevista deve ser maior que 0'
+                          }
+                        })}
                         disabled={readOnly}
                         className={readOnly ? 'bg-muted' : ''}
                       />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,7 +24,6 @@ type Colaborador = Database['public']['Tables']['colaboradores']['Row']
 export function Colaboradores() {
   const navigate = useNavigate()
   const { authUser } = useAuth()
-  const queryClient = useQueryClient()
   const [selectedBaseId, setSelectedBaseId] = useState<string>('')
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'individual' | 'batch'>('individual')
@@ -165,51 +164,12 @@ export function Colaboradores() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      // Limpar cache do React Query
-      queryClient.clear()
-      
-      // Limpar localStorage do Supabase antes do signOut
-      localStorage.removeItem('supabase.auth.token')
-      
-      // Fazer logout no Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('Erro ao fazer logout:', error)
-      } else {
-        console.log('✅ Logout realizado com sucesso')
-      }
-      
-      // Limpar qualquer estado restante no localStorage
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-      
-      // Aguardar um momento para o contexto ser atualizado
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      // Forçar reload completo da página para garantir limpeza total
-      window.location.href = '/login'
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      // Mesmo com erro, forçar navegação para login
-      window.location.href = '/login'
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b">
-        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b border-border transition-colors duration-300 shadow-orange-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+            <div className="flex items-center gap-4 flex-shrink-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
@@ -225,12 +185,9 @@ export function Colaboradores() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+            <div className="flex gap-2 flex-shrink-0 ml-4">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Voltar ao Dashboard
-              </Button>
-              <Button onClick={handleLogout} className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
-                Sair
               </Button>
             </div>
           </div>
@@ -425,7 +382,7 @@ export function Colaboradores() {
                       <Button
                         onClick={handleSalvarIndividual}
                         disabled={createColaborador.isPending || updateColaborador.isPending}
-                        className="bg-[#fc4d00] hover:bg-[#e04400] text-white"
+                        className="bg-[#fc4d00] hover:bg-[#e04400]hover:bg-[#c93d00] text-white shadow-orange-sm"
                       >
                         {createColaborador.isPending || updateColaborador.isPending
                           ? 'Salvando...'
@@ -468,7 +425,7 @@ export function Colaboradores() {
                       <Button
                         onClick={handleSalvarBatch}
                         disabled={createColaboradoresBatch.isPending}
-                        className="bg-[#fc4d00] hover:bg-[#e04400] text-white"
+                        className="bg-[#fc4d00] hover:bg-[#e04400]hover:bg-[#c93d00] text-white shadow-orange-sm"
                       >
                         {createColaboradoresBatch.isPending
                           ? 'Salvando...'

@@ -115,6 +115,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      feedbacks: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string
+          tipo: 'bug' | 'sugestao' | 'outros'
+          mensagem: string
+          status: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id: string
+          tipo: 'bug' | 'sugestao' | 'outros'
+          mensagem: string
+          status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string
+          tipo?: 'bug' | 'sugestao' | 'outros'
+          mensagem?: string
+          status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
+        }
+      }
       lancamentos: {
         Row: {
           id: string

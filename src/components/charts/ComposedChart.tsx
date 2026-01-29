@@ -32,7 +32,21 @@ export function ComposedChart({
         <XAxis dataKey={xKey} />
         <YAxis yAxisId="left" tickFormatter={barYAxisFormatter} />
         <YAxis yAxisId="right" orientation="right" tickFormatter={lineYAxisFormatter} />
-        <Tooltip />
+        <Tooltip
+          formatter={(value: any, name: string) => {
+            if (name === lineName || name === lineDataKey) {
+              // Para a linha (horas), formatar usando o formatter se disponível
+              if (lineYAxisFormatter) {
+                return [lineYAxisFormatter(value), name]
+              }
+              // Se não houver formatter, tentar formatar como horas
+              const hours = Math.floor(value / 60)
+              const minutes = value % 60
+              return [`${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`, name]
+            }
+            return [value, name]
+          }}
+        />
         <Legend />
         <Bar yAxisId="left" dataKey={barDataKey} fill={barColor} name={barName || barDataKey} />
         <Line yAxisId="right" type="monotone" dataKey={lineDataKey} stroke={lineColor} name={lineName || lineDataKey} />

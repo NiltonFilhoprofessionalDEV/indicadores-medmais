@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { HistoryTable } from '@/components/HistoryTable'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Settings, LogOut } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 import {
   OcorrenciaAeronauticaForm,
@@ -197,11 +199,11 @@ export function DashboardChefe() {
     : null
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b">
-        <div className="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-0 py-4">
+    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
+      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 pl-4 sm:pl-6 lg:pl-8">
+            <div className="flex items-center gap-4 flex-shrink-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
@@ -222,13 +224,41 @@ export function DashboardChefe() {
                 )}
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate('/dashboard-analytics')} variant="outline" className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
+            <div className="flex gap-2 flex-shrink-0 ml-4">
+              <Button onClick={() => navigate('/dashboard-analytics')} variant="outline" className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Painel de Indicadores
               </Button>
-              <Button onClick={handleLogout} variant="outline" className="bg-white text-[#fc4d00] hover:bg-white/90 border-white transition-all duration-200">
-                Sair
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-white hover:bg-white/20 transition-all duration-200"
+                  >
+                    <Settings className="h-6 w-6" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-2">
+                  <div className="flex flex-col gap-1">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => navigate('/settings')} 
+                      className="w-full justify-start gap-2 text-gray-700 hover:text-[#fc4d00] hover:bg-orange-50"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Configurações
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={handleLogout} 
+                      className="w-full justify-start gap-2 text-gray-700 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -250,7 +280,7 @@ export function DashboardChefe() {
                   key={indicador.id}
                   onClick={() => handleNovoLancamento(indicador)}
                   variant="outline"
-                  className="h-auto py-4 flex flex-col items-start hover:bg-[#fc4d00] hover:text-white hover:border-[#fc4d00] transition-colors"
+                  className="h-auto py-4 flex flex-col items-start hover:bg-[#fc4d00] hover:text-white hover:border-[#fc4d00] transition-colors shadow-orange-sm"
                 >
                   <span className="font-semibold">{indicador.nome}</span>
                 </Button>

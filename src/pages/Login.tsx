@@ -172,17 +172,17 @@ export function Login() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-lg text-gray-700 font-semibold">Carregando...</div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-lg text-foreground font-semibold">Carregando...</div>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-background">
       {/* Conteúdo */}
       <div className="w-full max-w-md px-6">
-        <Card className="bg-white border border-gray-200" style={{ boxShadow: '0 0 30px 10px rgba(252, 77, 0, 0.3), 0 0 60px 20px rgba(252, 77, 0, 0.15)' }}>
+        <Card className="bg-card border-border" style={{ boxShadow: '0 0 30px 10px rgba(252, 77, 0, 0.3), 0 0 60px 20px rgba(252, 77, 0, 0.15)' }}>
           <CardHeader className="space-y-4 pb-6">
             <div className="flex justify-center mb-4">
               <img 
@@ -195,10 +195,10 @@ export function Login() {
                 }}
               />
             </div>
-            <CardTitle className="text-3xl font-bold text-center text-gray-900">
+            <CardTitle className="text-3xl font-bold text-center text-card-foreground">
               Indicadores MedMais
             </CardTitle>
-            <CardDescription className="text-center text-gray-600 text-base">
+            <CardDescription className="text-center text-muted-foreground text-base">
               Faça login para acessar o sistema
             </CardDescription>
           </CardHeader>
@@ -211,7 +211,7 @@ export function Login() {
               className="space-y-5"
             >
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 font-medium">
+                <Label htmlFor="email" className="text-foreground font-medium">
                   Email
                 </Label>
                 <Input
@@ -220,10 +220,10 @@ export function Login() {
                   placeholder="seu@email.com"
                   {...register('email')}
                   disabled={loading}
-                  className="h-12 border-gray-300 focus:border-[#fc4d00] focus:ring-[#fc4d00] transition-all"
+                  className="h-12 transition-all"
                 />
                 {errors.email && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                  <p className="text-sm text-destructive mt-1 flex items-center gap-1">
                     <span>•</span>
                     {errors.email.message}
                   </p>
@@ -231,7 +231,7 @@ export function Login() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700 font-medium">
+                <Label htmlFor="password" className="text-foreground font-medium">
                   Senha
                 </Label>
                 <div className="relative">
@@ -241,13 +241,13 @@ export function Login() {
                     placeholder="••••••••"
                     {...register('password')}
                     disabled={loading}
-                    className="pr-12 h-12 border-gray-300 focus:border-[#fc4d00] focus:ring-[#fc4d00] transition-all"
+                    className="pr-12 h-12 transition-all"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-500 hover:text-gray-700"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={loading}
                     title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
@@ -260,7 +260,7 @@ export function Login() {
                   </Button>
                 </div>
                 {errors.password && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                  <p className="text-sm text-destructive mt-1 flex items-center gap-1">
                     <span>•</span>
                     {errors.password.message}
                   </p>
@@ -268,15 +268,15 @@ export function Login() {
               </div>
 
               {error && (
-                <div className="p-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <span className="text-red-500 mt-0.5">⚠</span>
+                <div className="p-4 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2">
+                  <span className="text-destructive mt-0.5">⚠</span>
                   <span>{error}</span>
                 </div>
               )}
 
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-[#fc4d00] hover:bg-[#e04400] text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                className="w-full h-12 bg-[#fc4d00] hover:bg-[#e04400] text-white font-semibold text-base shadow-orange transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
                 disabled={loading}
               >
                 {loading ? 'Entrando...' : 'Entrar'}

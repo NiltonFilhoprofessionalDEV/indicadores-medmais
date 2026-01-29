@@ -70,8 +70,9 @@ export function useLancamentos({
         // Otimização: buscar apenas colunas necessárias
         let allQuery = supabase
           .from('lancamentos')
-          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id')
+          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at')
           .order('data_referencia', { ascending: false })
+          .order('created_at', { ascending: true })
         
         // Aplicar os mesmos filtros (exceto paginação e busca)
         if (baseId) allQuery = allQuery.eq('base_id', baseId)
@@ -129,11 +130,12 @@ export function useLancamentos({
         .from('lancamentos')
         .select('*', { count: 'exact', head: true })
 
-      // Query para buscar dados (com paginação)
+      // Query para buscar dados (com paginação): data (mais recente primeiro), depois ordem de salvamento (created_at)
       let dataQuery = supabase
         .from('lancamentos')
         .select('*')
         .order('data_referencia', { ascending: false })
+        .order('created_at', { ascending: true })
         .range(from, to)
 
       // Se há busca por texto, tentar usar função RPC para busca otimizada no servidor
@@ -181,9 +183,10 @@ export function useLancamentos({
           // Otimização: buscar apenas colunas necessárias
           let filteredQuery = supabase
             .from('lancamentos')
-            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id', { count: 'exact' })
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at', { count: 'exact' })
             .in('id', ids)
             .order('data_referencia', { ascending: false })
+            .order('created_at', { ascending: true })
 
           // Aplicar outros filtros
           if (baseId) {
@@ -216,6 +219,7 @@ export function useLancamentos({
             .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at')
             .in('id', ids)
             .order('data_referencia', { ascending: false })
+            .order('created_at', { ascending: true })
             .range(from, to)
 
           // Aplicar mesmos filtros

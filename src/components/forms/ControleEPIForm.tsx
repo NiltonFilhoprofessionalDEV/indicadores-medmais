@@ -14,12 +14,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
+// Converte NaN (campo numérico vazio) em undefined para validação
+const optionalNumber = z
+  .union([
+    z.nan().transform(() => undefined),
+    z.number(),
+    z.undefined(),
+  ])
+  .optional()
+
 const colaboradorSchema = z.object({
   nome: z.string(),
-  epi_entregue: z.number().optional(),
-  epi_previsto: z.number().optional(),
-  unif_entregue: z.number().optional(),
-  unif_previsto: z.number().optional(),
+  epi_entregue: optionalNumber,
+  epi_previsto: optionalNumber,
+  unif_entregue: optionalNumber,
+  unif_previsto: optionalNumber,
   total_epi_pct: z.number().optional(),
   total_unif_pct: z.number().optional(),
 }).refine(
@@ -28,20 +37,28 @@ const colaboradorSchema = z.object({
     if (!data.nome || data.nome.trim() === '') {
       return true
     }
-    // Se nome está preenchido, validar todos os campos obrigatórios
+    // Se nome está preenchido, validar todos os campos obrigatórios (não undefined, não NaN)
+    const epiEnt = data.epi_entregue
+    const epiPrev = data.epi_previsto
+    const unifEnt = data.unif_entregue
+    const unifPrev = data.unif_previsto
     return (
-      data.epi_entregue !== undefined &&
-      data.epi_previsto !== undefined &&
-      data.unif_entregue !== undefined &&
-      data.unif_previsto !== undefined &&
-      data.epi_entregue >= 0 &&
-      data.epi_previsto >= 1 &&
-      data.unif_entregue >= 0 &&
-      data.unif_previsto >= 1
+      epiEnt !== undefined &&
+      epiPrev !== undefined &&
+      unifEnt !== undefined &&
+      unifPrev !== undefined &&
+      !Number.isNaN(epiEnt) &&
+      !Number.isNaN(epiPrev) &&
+      !Number.isNaN(unifEnt) &&
+      !Number.isNaN(unifPrev) &&
+      epiEnt >= 0 &&
+      epiPrev >= 1 &&
+      unifEnt >= 0 &&
+      unifPrev >= 1
     )
   },
   {
-    message: 'Preencha todos os campos obrigatórios',
+    message: 'Preencha todos os campos obrigatórios (EPI e Unif. entregues/previstos) para cada colaborador',
     path: ['nome'],
   }
 )
@@ -136,16 +153,18 @@ export function ControleEPIForm({
   // Buscar colaboradores da base para o Select
   const { data: colaboradoresLista } = useColaboradores(finalBaseId || null)
 
-  // Calcular percentuais automaticamente
+  // Sincronizar percentuais no form state (para o submit) quando os valores mudam
   useEffect(() => {
     colaboradores.forEach((colaborador, index) => {
-      if (colaborador.epi_entregue !== undefined && colaborador.epi_previsto !== undefined) {
-        const pctEPI = calculatePercentage(colaborador.epi_entregue, colaborador.epi_previsto)
-        setValue(`colaboradores.${index}.total_epi_pct`, pctEPI)
+      const epiEnt = colaborador.epi_entregue
+      const epiPrev = colaborador.epi_previsto
+      const unifEnt = colaborador.unif_entregue
+      const unifPrev = colaborador.unif_previsto
+      if (epiEnt != null && epiPrev != null && !Number.isNaN(epiEnt) && !Number.isNaN(epiPrev) && epiPrev > 0) {
+        setValue(`colaboradores.${index}.total_epi_pct`, calculatePercentage(Number(epiEnt), Number(epiPrev)))
       }
-      if (colaborador.unif_entregue !== undefined && colaborador.unif_previsto !== undefined) {
-        const pctUnif = calculatePercentage(colaborador.unif_entregue, colaborador.unif_previsto)
-        setValue(`colaboradores.${index}.total_unif_pct`, pctUnif)
+      if (unifEnt != null && unifPrev != null && !Number.isNaN(unifEnt) && !Number.isNaN(unifPrev) && unifPrev > 0) {
+        setValue(`colaboradores.${index}.total_unif_pct`, calculatePercentage(Number(unifEnt), Number(unifPrev)))
       }
     })
   }, [colaboradores, setValue])
@@ -202,8 +221,8 @@ export function ControleEPIForm({
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
-        baseId: data.base_id,
-        equipeId: data.equipe_id,
+        baseId: (data.base_id || authUser?.profile?.base_id) ?? undefined,
+        equipeId: (data.equipe_id || authUser?.profile?.equipe_id) ?? undefined,
       })
 
       // Sucesso - chamar callback
@@ -224,7 +243,18 @@ export function ControleEPIForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form
+          onSubmit={handleSubmit(onSubmit, (err) => {
+            const msg =
+              err.colaboradores?.message ||
+              (Array.isArray(err.colaboradores)
+                ? err.colaboradores.find((r: { nome?: { message?: string } }) => r?.nome?.message)?.nome?.message
+                : null) ||
+              err.data_referencia?.message
+            if (msg) alert(`Verifique o formulário: ${msg}`)
+          })}
+          className="space-y-6"
+        >
           <BaseFormFields
             dataReferencia={dataReferencia}
             onDataChange={(date) => {
@@ -264,7 +294,21 @@ export function ControleEPIForm({
             </div>
 
             <div className="space-y-3">
-              {fields.map((field, index) => (
+              {fields.map((field, index) => {
+                const col = colaboradores[index]
+                const epiEnt = col?.epi_entregue
+                const epiPrev = col?.epi_previsto
+                const unifEnt = col?.unif_entregue
+                const unifPrev = col?.unif_previsto
+                const pctEPI =
+                  epiEnt != null && epiPrev != null && !Number.isNaN(epiEnt) && !Number.isNaN(epiPrev) && epiPrev > 0
+                    ? calculatePercentage(Number(epiEnt), Number(epiPrev))
+                    : 0
+                const pctUnif =
+                  unifEnt != null && unifPrev != null && !Number.isNaN(unifEnt) && !Number.isNaN(unifPrev) && unifPrev > 0
+                    ? calculatePercentage(Number(unifEnt), Number(unifPrev))
+                    : 0
+                return (
                 <div key={field.id} className="p-3 border rounded-md space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
                     <div className="space-y-1">
@@ -338,11 +382,7 @@ export function ControleEPIForm({
 
                     <div className="space-y-1">
                       <Label className="text-xs">% EPI</Label>
-                      <Input
-                        value={`${colaboradores[index]?.total_epi_pct || 0}%`}
-                        readOnly
-                        className="bg-muted"
-                      />
+                      <Input value={`${pctEPI}%`} readOnly className="bg-muted" />
                     </div>
 
                     <div className="space-y-1">
@@ -389,11 +429,7 @@ export function ControleEPIForm({
 
                     <div className="space-y-1">
                       <Label className="text-xs">% Unif.</Label>
-                      <Input
-                        value={`${colaboradores[index]?.total_unif_pct || 0}%`}
-                        readOnly
-                        className="bg-muted"
-                      />
+                      <Input value={`${pctUnif}%`} readOnly className="bg-muted" />
                       {!readOnly && (
                         <Button
                           type="button"
@@ -408,7 +444,8 @@ export function ControleEPIForm({
                     </div>
                   </div>
                 </div>
-              ))}
+              )
+              })}
             </div>
 
             {errors.colaboradores && (

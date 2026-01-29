@@ -202,31 +202,31 @@ export function DashboardChefe() {
     <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
       <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex justify-between items-center min-h-[80px] gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
+                className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}
               />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard - Chefe de Equipe</h1>
-                <p className="text-sm text-white/90">
-                  {authUser?.profile?.nome} - {authUser?.profile?.role}
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Dashboard - Chefe</h1>
+                <p className="text-xs sm:text-sm text-white/90 truncate">
+                  {authUser?.profile?.nome}
                 </p>
                 {baseId && equipeId && (
-                  <p className="text-xs text-white/80 mt-1">
-                    Base: {getBaseName(baseId)} | Equipe: {getEquipeName(equipeId)}
+                  <p className="text-xs text-white/80 mt-1 truncate">
+                    {getBaseName(baseId)} | {getEquipeName(equipeId)}
                   </p>
                 )}
               </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button onClick={() => navigate('/dashboard-analytics')} variant="outline" className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
-                Painel de Indicadores
+            <div className="flex gap-1 sm:gap-2 flex-shrink-0 ml-auto sm:ml-4">
+              <Button onClick={() => navigate('/dashboard-analytics')} variant="outline" size="sm" className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm text-xs sm:text-sm whitespace-nowrap">
+                Painel
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
@@ -264,7 +264,7 @@ export function DashboardChefe() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
         {/* Seção: Novo Lançamento */}
         <Card className="mb-8">
           <CardHeader>

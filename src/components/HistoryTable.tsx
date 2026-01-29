@@ -389,13 +389,13 @@ export function HistoryTable({
 
             {/* Paginação - Sempre mostrar quando houver dados */}
             {data && data.total > 0 && (
-              <div className="mt-6 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
+              <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="text-sm text-gray-600 order-2 sm:order-1">
                   Página {data.page} de {data.totalPages} ({data.total}{' '}
                   {data.total === 1 ? 'lançamento' : 'lançamentos'})
                 </div>
                 {data.totalPages > 1 && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 order-1 sm:order-2">
                     <Button
                       variant="outline"
                       size="sm"

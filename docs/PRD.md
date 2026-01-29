@@ -22,8 +22,8 @@ A. Tabelas de Catálogo (Dados Estáticos)
 
 O script SQL de inicialização deve criar e popular estas tabelas automaticamente:
 bases: Tabela contendo as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
-Bases Aeroportuárias: "ALTAMIRA", "ARACAJU", "BACACHERI", "BELEM", "BRASILIA", "CAMPO DE MARTE", "CARAJAS", "CONFINS", "CONGONHAS", "CUIABA", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIANIA", "IMPERATRIZ", "JACAREPAGUA", "JOINVILE", "LONDRINA", "MACAE", "MACAPA", "MACEIO", "MARABA", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTAREM", "SÃO LUIZ", "SINOP", "TERESINA", "VITORIA".
-Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral).
+Bases Aeroportuárias (grafia com acentuação correta em português): "ALTAMIRA", "ARACAJU", "BACACHERI", "BELÉM", "BRASÍLIA", "CAMPO DE MARTE", "CARAJÁS", "CONFINS", "CONGONHAS", "CUIABÁ", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIÂNIA", "IMPERATRIZ", "JACAREPAGUÁ", "JOINVILLE", "LONDRINA", "MACAÉ", "MACAPÁ", "MACEIÓ", "MARABÁ", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTARÉM", "SÃO LUÍS", "SINOP", "TERESINA", "VITÓRIA".
+Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
 
 equipes: Tabela contendo as 5 equipes padrão:
 
@@ -1503,3 +1503,38 @@ Com as otimizações implementadas, o sistema deve suportar:
   - src/pages/DashboardGerente.tsx (card Suporte/Feedback, query de feedbacks pendentes, ícone MessageSquare)
   - src/lib/database.types.ts (tratativa_tipo em feedbacks)
   - docs/PRD.md (seção 4 feedbacks com tratativa_tipo e UPDATE; Tela 3 com header e card Suporte; nova Tela Suporte/Feedback; item 9.24)
+
+### 9.25. Acentuação dos Nomes das Bases (Banco e Frontend)
+- **OBJETIVO:** Exibir os nomes das bases com grafia correta em português (acentuação) em todos os modais e listas do sistema.
+- **IMPLEMENTAÇÃO:**
+  1. **Banco de dados:** Migration `010_fix_bases_acentuacao.sql` atualiza os nomes na tabela `bases`: BELEM → BELÉM, BRASILIA → BRASÍLIA, CARAJAS → CARAJÁS, CUIABA → CUIABÁ, GOIANIA → GOIÂNIA, JACAREPAGUA → JACAREPAGUÁ, JOINVILE → JOINVILLE, MACAE → MACAÉ, MACAPA → MACAPÁ, MACEIO → MACEIÓ, MARABA → MARABÁ, SANTAREM → SANTARÉM, SÃO LUIZ → SÃO LUÍS, VITORIA → VITÓRIA. A base ADMINISTRATIVO permanece sem alteração.
+  2. **Schema:** O arquivo `supabase/schema.sql` foi atualizado para que o INSERT inicial das 34 bases utilize a grafia com acentuação correta (para novos ambientes).
+- **Arquivos criados:** supabase/migrations/010_fix_bases_acentuacao.sql
+- **Arquivos modificados:** supabase/schema.sql
+
+### 9.26. Botão Limpar Filtros no Dashboard Analytics
+- **OBJETIVO:** Permitir que o usuário resete todos os filtros da barra de Analytics (Base, Equipe, Data Início/Fim, Colaborador, Tipo de Ocorrência) em um único clique.
+- **IMPLEMENTAÇÃO:**
+  1. **AnalyticsFilterBar:** Nova prop opcional `onClearFilters?: () => void`. Botão "Limpar filtros" (ícone RotateCcw) exibido abaixo da grade de filtros, alinhado à direita, quando a prop é passada.
+  2. **DashboardAnalytics:** Função `handleClearFilters` que redefine: Data Início/Fim para o intervalo padrão (mês atual via `getDefaultDateRange()`), Equipe e Colaborador para vazio, Tipo de Ocorrência (aero e não aero) para vazio; Base para vazio apenas para Gerente (Chefe mantém a base fixa).
+- **Arquivos modificados:** src/components/AnalyticsFilterBar.tsx, src/pages/DashboardAnalytics.tsx
+
+### 9.27. Ordenação do Histórico de Lançamentos (Último Lançado no Topo)
+- **OBJETIVO:** Exibir no Histórico de Lançamentos sempre o último indicador lançado (mais recente por `created_at`) no topo da lista.
+- **IMPLEMENTAÇÃO:**
+  1. **useLancamentos:** Todas as queries (principal, busca por texto e fallback RPC) passaram a ordenar por `data_referencia` descendente e `created_at` descendente (antes era ascendente), garantindo que o lançamento mais recente apareça primeiro dentro da mesma data.
+  2. **HistoryTable:** O `useMemo` de ordenação no cliente foi ajustado para, na mesma data, ordenar por `created_at` descendente (`(b.created_at).localeCompare(a.created_at)`).
+- **Arquivos modificados:** src/hooks/useLancamentos.ts, src/components/HistoryTable.tsx
+
+### 9.28. Responsividade Mobile (Layout e Headers)
+- **OBJETIVO:** Melhorar a experiência em telas pequenas (celulares e tablets) em todas as dashboards e telas principais.
+- **IMPLEMENTAÇÃO:**
+  1. **Dashboard Analytics:**
+     - Sidebar em drawer no mobile: Em telas &lt; 1024px (lg), a sidebar fica oculta e é aberta por um botão de menu (ícone Menu) no header. Backdrop escuro fecha o drawer ao clicar fora. Botão X dentro do drawer para fechar. Ao selecionar uma opção do menu, o drawer fecha automaticamente (`setViewAndCloseSidebar`).
+     - Sidebar: Em mobile é fixa (`fixed inset-y-0 left-0 z-50`), com transição de entrada/saída (`translate-x`). Em desktop (lg+) permanece no fluxo (`lg:relative`, `lg:translate-x-0`).
+     - Header: Botão hambúrguer visível apenas em mobile (`lg:hidden`), logo e título com tamanhos responsivos (`text-lg sm:text-2xl`, `h-8 sm:h-10`), padding do conteúdo `p-4 sm:p-6`, `min-w-0` no main para evitar overflow.
+  2. **Dashboard Chefe:** Header com título "Dashboard - Chefe" em mobile, logo e texto responsivos (`text-lg sm:text-2xl`, `h-8 sm:h-10`), botão "Painel de Indicadores" abreviado para "Painel" no mobile com `size="sm"`. Main com `py-6 sm:py-8` e `min-w-0`.
+  3. **Dashboard Gerente:** Header com título "Dashboard - Admin", logo e texto responsivos (mesmo padrão do Chefe).
+  4. **Histórico de Lançamentos (HistoryTable):** Paginação em coluna no mobile (`flex-col sm:flex-row`) com botões acima do texto; toolbar de filtros já em grid responsivo (`grid-cols-1 md:grid-cols-4`).
+  5. **Login:** Container com `p-4` na página e `px-4 sm:px-6` no card para evitar conteúdo colado nas bordas em mobile.
+- **Arquivos modificados:** src/pages/DashboardAnalytics.tsx, src/pages/DashboardChefe.tsx, src/pages/DashboardGerente.tsx, src/components/HistoryTable.tsx, src/pages/Login.tsx

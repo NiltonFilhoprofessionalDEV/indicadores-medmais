@@ -68,19 +68,19 @@ export function DashboardGerente() {
     <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
       <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex justify-between items-center min-h-[80px] gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
+                className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}
               />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard - Administrador</h1>
-                <p className="text-sm text-white/90">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Dashboard - Admin</h1>
+                <p className="text-xs sm:text-sm text-white/90 truncate">
                   {authUser?.profile?.nome}
                 </p>
               </div>

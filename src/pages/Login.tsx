@@ -179,9 +179,9 @@ export function Login() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
       {/* Conteúdo */}
-      <div className="w-full max-w-md px-6">
+      <div className="w-full max-w-md px-4 sm:px-6">
         <Card className="bg-card border-border" style={{ boxShadow: '0 0 30px 10px rgba(252, 77, 0, 0.3), 0 0 60px 20px rgba(252, 77, 0, 0.15)' }}>
           <CardHeader className="space-y-4 pb-6">
             <div className="flex justify-center mb-4">

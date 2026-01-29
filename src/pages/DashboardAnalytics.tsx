@@ -30,7 +30,7 @@ import { DonutChart } from '@/components/charts/DonutChart'
 import { ComposedChart } from '@/components/charts/ComposedChart'
 import { GroupedBarChart } from '@/components/charts/GroupedBarChart'
 import { AnalyticsFilterBar } from '@/components/AnalyticsFilterBar'
-import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown, Menu, X } from 'lucide-react'
 import { parseTimeMMSS } from '@/lib/analytics-utils'
 
 type IndicadorConfig = Database['public']['Tables']['indicadores_config']['Row']
@@ -288,6 +288,7 @@ export function DashboardAnalytics() {
   const { authUser } = useAuth()
   const navigate = useNavigate()
   const [view, setView] = useState<ViewType>('visao_geral')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [baseId, setBaseId] = useState<string>('')
   const [equipeId, setEquipeId] = useState<string>('')
   
@@ -376,6 +377,19 @@ export function DashboardAnalytics() {
       setBaseId(authUser.profile.base_id)
     }
   }, [isChefe, authUser?.profile?.base_id, baseId])
+
+  const handleClearFilters = () => {
+    const defaultRange = getDefaultDateRange()
+    setDataInicio(defaultRange.dataInicio)
+    setDataFim(defaultRange.dataFim)
+    setEquipeId('')
+    setColaboradorNome('')
+    setTipoOcorrencia('')
+    setTipoOcorrenciaAero('')
+    if (!isChefe) {
+      setBaseId('')
+    }
+  }
 
   // Buscar bases (usado no AnalyticsFilterBar)
 
@@ -582,27 +596,42 @@ export function DashboardAnalytics() {
   const showTipoOcorrenciaFilter = view === 'ocorrencia_nao_aero'
   const showTipoOcorrenciaAeroFilter = view === 'ocorrencia_aero'
 
+  const setViewAndCloseSidebar = (v: ViewType) => {
+    setView(v)
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col transition-all duration-300 ease-in-out page-transition">
       {/* Header */}
       <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex justify-between items-center min-h-[80px] gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="lg:hidden text-white hover:bg-white/20 shrink-0"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Abrir menu"
+              >
+                <Menu className="h-6 w-6" />
+              </Button>
               <img 
                 src="/logo-medmais.png" 
                 alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
+                className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}
               />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-                <p className="text-sm text-white/90">Analytics e Indicadores</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Dashboard</h1>
+                <p className="text-xs sm:text-sm text-white/90 truncate">Analytics e Indicadores</p>
               </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
+            <div className="flex gap-1 sm:gap-2 flex-shrink-0 ml-2 sm:ml-4">
               {isChefe && (
               <Button 
                 onClick={() => navigate('/dashboard-chefe')} 
@@ -628,13 +657,41 @@ export function DashboardAnalytics() {
         </div>
       </header>
 
+      {/* Backdrop do drawer (apenas mobile) */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-64 bg-[#fc4d00] border-r border-[#fc4d00] p-4 overflow-y-auto shadow-orange-sm">
-          <h2 className="text-lg font-semibold mb-4 text-white">Analytics</h2>
+        {/* Sidebar: drawer no mobile, fixa no desktop */}
+        <aside
+          className={`
+            w-64 bg-[#fc4d00] border-r border-[#fc4d00] p-4 overflow-y-auto shadow-orange-sm
+            fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
+            transform transition-transform duration-200 ease-out
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Analytics</h2>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="lg:hidden text-white hover:bg-white/20"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Fechar menu"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         <nav className="space-y-1">
           <button
-            onClick={() => setView('visao_geral')}
+            onClick={() => setViewAndCloseSidebar('visao_geral')}
             className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
               view === 'visao_geral' 
                 ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -647,7 +704,7 @@ export function DashboardAnalytics() {
           <div className="mt-4 pt-4 border-t border-white/20">
             <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Ocorrências</p>
             <button
-              onClick={() => setView('ocorrencia_aero')}
+              onClick={() => setViewAndCloseSidebar('ocorrencia_aero')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'ocorrencia_aero' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -657,7 +714,7 @@ export function DashboardAnalytics() {
               Ocorr. Aeronáutica
             </button>
             <button
-              onClick={() => setView('ocorrencia_nao_aero')}
+              onClick={() => setViewAndCloseSidebar('ocorrencia_nao_aero')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'ocorrencia_nao_aero' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -667,7 +724,7 @@ export function DashboardAnalytics() {
               Ocorr. Não Aeronáutica
             </button>
             <button
-              onClick={() => setView('atividades_acessorias')}
+              onClick={() => setViewAndCloseSidebar('atividades_acessorias')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'atividades_acessorias' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -681,7 +738,7 @@ export function DashboardAnalytics() {
           <div className="mt-4 pt-4 border-t border-white/20">
             <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Pessoal & Treino</p>
             <button
-              onClick={() => setView('taf')}
+              onClick={() => setViewAndCloseSidebar('taf')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'taf' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -691,7 +748,7 @@ export function DashboardAnalytics() {
               Teste de Aptidão (TAF)
             </button>
             <button
-              onClick={() => setView('prova_teorica')}
+              onClick={() => setViewAndCloseSidebar('prova_teorica')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'prova_teorica' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -701,7 +758,7 @@ export function DashboardAnalytics() {
               Prova Teórica
             </button>
             <button
-              onClick={() => setView('treinamento')}
+              onClick={() => setViewAndCloseSidebar('treinamento')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'treinamento' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -711,7 +768,7 @@ export function DashboardAnalytics() {
               Horas de Treinamento
             </button>
             <button
-              onClick={() => setView('tempo_tp_epr')}
+              onClick={() => setViewAndCloseSidebar('tempo_tp_epr')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'tempo_tp_epr' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -725,7 +782,7 @@ export function DashboardAnalytics() {
           <div className="mt-4 pt-4 border-t border-white/20">
             <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Frota</p>
             <button
-              onClick={() => setView('tempo_resposta')}
+              onClick={() => setViewAndCloseSidebar('tempo_resposta')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'tempo_resposta' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -735,7 +792,7 @@ export function DashboardAnalytics() {
               Tempo Resposta
             </button>
             <button
-              onClick={() => setView('inspecao_viaturas')}
+              onClick={() => setViewAndCloseSidebar('inspecao_viaturas')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'inspecao_viaturas' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -749,7 +806,7 @@ export function DashboardAnalytics() {
           <div className="mt-4 pt-4 border-t border-white/20">
             <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Logística</p>
             <button
-              onClick={() => setView('logistica')}
+              onClick={() => setViewAndCloseSidebar('logistica')}
               className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                 view === 'logistica' 
                   ? 'bg-white text-[#fc4d00] font-semibold' 
@@ -763,7 +820,7 @@ export function DashboardAnalytics() {
       </aside>
 
         {/* Conteúdo Principal */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0">
         <div className="max-w-7xl mx-auto space-y-6">
           <Card>
             <CardHeader>
@@ -792,6 +849,7 @@ export function DashboardAnalytics() {
                 showTipoOcorrenciaFilter={showTipoOcorrenciaFilter}
                 showTipoOcorrenciaAeroFilter={showTipoOcorrenciaAeroFilter}
                 disableBaseFilter={isChefe}
+                onClearFilters={handleClearFilters}
               />
 
               {/* Conteúdo Dinâmico */}

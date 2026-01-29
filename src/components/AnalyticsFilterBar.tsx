@@ -3,9 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
+import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 import { validateDateRange, enforceMaxDateRange } from '@/lib/date-utils'
 import { useState, useEffect } from 'react'
+import { RotateCcw } from 'lucide-react'
 
 type Colaborador = Database['public']['Tables']['colaboradores']['Row']
 type Base = Database['public']['Tables']['bases']['Row']
@@ -30,6 +32,7 @@ interface AnalyticsFilterBarProps {
   showTipoOcorrenciaFilter?: boolean
   showTipoOcorrenciaAeroFilter?: boolean
   disableBaseFilter?: boolean
+  onClearFilters?: () => void
 }
 
 export function AnalyticsFilterBar({
@@ -51,6 +54,7 @@ export function AnalyticsFilterBar({
   showTipoOcorrenciaFilter = false,
   showTipoOcorrenciaAeroFilter = false,
   disableBaseFilter = false,
+  onClearFilters,
 }: AnalyticsFilterBarProps) {
   const [localDataInicio, setLocalDataInicio] = useState<string>(dataInicio)
   const [localDataFim, setLocalDataFim] = useState<string>(dataFim)
@@ -139,7 +143,8 @@ export function AnalyticsFilterBar({
   const gridCols = visibleFilters <= 4 ? 'lg:grid-cols-4' : visibleFilters <= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-4 p-4 bg-muted/50 rounded-lg`}>
+    <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+    <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-4`}>
       <div className="space-y-2">
         <Label htmlFor="filter-base">Base</Label>
         <Select 
@@ -246,6 +251,22 @@ export function AnalyticsFilterBar({
             <option value="Posicionamento">Posicionamento</option>
             <option value="Intervenção">Intervenção</option>
           </Select>
+        </div>
+      )}
+
+    </div>
+      {onClearFilters && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClearFilters}
+            className="gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Limpar filtros
+          </Button>
         </div>
       )}
     </div>

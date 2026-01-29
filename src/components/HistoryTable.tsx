@@ -106,6 +106,16 @@ export function HistoryTable({
     enabled: !!baseId,
   })
 
+  // Ordenar lançamentos: 1) por data (mais recente primeiro), 2) último lançado no topo (created_at mais recente primeiro)
+  const lancamentosOrdenados = useMemo(() => {
+    const list = data?.data ?? []
+    return [...list].sort((a, b) => {
+      const cmpData = b.data_referencia.localeCompare(a.data_referencia)
+      if (cmpData !== 0) return cmpData
+      return (b.created_at || '').localeCompare(a.created_at || '')
+    })
+  }, [data?.data])
+
   // Criar mapa de indicadores por ID
   const indicadoresMap = useMemo(() => {
     const map = new Map<string, Indicador>()
@@ -309,7 +319,7 @@ export function HistoryTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.data.map((lancamento) => {
+                  {lancamentosOrdenados.map((lancamento) => {
                     const indicador = indicadoresMap.get(lancamento.indicador_id)
                     if (!indicador) return null
 
@@ -379,13 +389,13 @@ export function HistoryTable({
 
             {/* Paginação - Sempre mostrar quando houver dados */}
             {data && data.total > 0 && (
-              <div className="mt-6 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
+              <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="text-sm text-gray-600 order-2 sm:order-1">
                   Página {data.page} de {data.totalPages} ({data.total}{' '}
                   {data.total === 1 ? 'lançamento' : 'lançamentos'})
                 </div>
                 {data.totalPages > 1 && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 order-1 sm:order-2">
                     <Button
                       variant="outline"
                       size="sm"

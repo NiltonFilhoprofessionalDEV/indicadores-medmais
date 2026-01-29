@@ -578,6 +578,10 @@ Integração:
 - **Conteúdo Principal (Centro):** Área dinâmica que muda conforme a visão selecionada
 - **Barra de Filtros (Topo do Conteúdo):** Filtros específicos para cada visão usando componente `AnalyticsFilterBar`
 
+**Monitoramento em Tempo Real e Modo Monitor (características nativas de todos os módulos analíticos):**
+- **Realtime:** A página Analytics inscreve-se nas mudanças da tabela `lancamentos` (INSERT, UPDATE, DELETE). Qualquer alteração dispara a revalidação das queries (TanStack Query), atualizando automaticamente todos os sub-dashboards (Ocorrências, TAF, Treinamento, Estoque, etc.) sem necessidade de recarregar a página. A inscrição é limpa ao sair da página para evitar vazamento de memória. As queries usam `placeholderData` para evitar "piscar" em branco durante a atualização.
+- **Modo Monitor (Modo TV):** Botão no header ativa tela cheia (Full Screen API). Em modo tela cheia, header e sidebar são ocultados, a barra de filtros é oculta, e o conteúdo exibe um badge "📡 MONITORAMENTO EM TEMPO REAL — [NOME DA BASE]" e layout em coluna única para gráficos grandes e legíveis à distância. Botão "Sair do Modo Monitor" ou tecla ESC restaura o layout normal.
+
 **Filtros Dinâmicos (AnalyticsFilterBar):**
 - **Filtros Globais (Sempre presentes):**
   1. **Base:** Select com opção "Todas as bases" + lista de bases
@@ -1538,3 +1542,29 @@ Com as otimizações implementadas, o sistema deve suportar:
   4. **Histórico de Lançamentos (HistoryTable):** Paginação em coluna no mobile (`flex-col sm:flex-row`) com botões acima do texto; toolbar de filtros já em grid responsivo (`grid-cols-1 md:grid-cols-4`).
   5. **Login:** Container com `p-4` na página e `px-4 sm:px-6` no card para evitar conteúdo colado nas bordas em mobile.
 - **Arquivos modificados:** src/pages/DashboardAnalytics.tsx, src/pages/DashboardChefe.tsx, src/pages/DashboardGerente.tsx, src/components/HistoryTable.tsx, src/pages/Login.tsx
+
+### 9.29. Realtime e Modo Monitor (Monitoramento em Tempo Real — Todos os Módulos Analíticos)
+- **OBJETIVO:** Disponibilizar monitoramento em tempo real e "Modo TV" em todas as visualizações analíticas do sistema, com atualização automática dos dados e layout otimizado para exibição em tela cheia (monitores/salas).
+- **IMPLEMENTAÇÃO:**
+  1. **Realtime (Banco de Dados):**
+     - A tabela `lancamentos` foi adicionada à publicação `supabase_realtime` para permitir inscrição em mudanças (INSERT, UPDATE, DELETE). Migration: `supabase/migrations/011_enable_realtime_lancamentos.sql`.
+  2. **Hook useRealtimeSync:**
+     - Novo hook `src/hooks/useRealtimeSync.ts` que se inscreve no canal de mudanças da tabela `lancamentos` (postgres_changes). Ao detectar qualquer evento (INSERT, UPDATE, DELETE), dispara `queryClient.invalidateQueries` para as chaves `lancamentos` e `lancamentos-todos`, garantindo que todos os sub-dashboards (Ocorrências, TAF, Treinamento, Estoque, etc.) sejam atualizados automaticamente.
+     - A inscrição é removida no unmount (cleanup) para evitar vazamento de memória quando o usuário sai da página Analytics.
+  3. **Prevenção de "piscar" (placeholderData):**
+     - Nas queries de lançamentos usadas no Analytics foi aplicado `placeholderData: (prev) => prev` (TanStack Query): no hook `useLancamentos` e na query `lancamentos-todos` em DashboardAnalytics. Assim, durante a revalidação após um evento Realtime, os gráficos mantêm os dados anteriores até os novos carregarem, sem tela em branco.
+  4. **Modo Monitor (Modo TV):**
+     - Botão "Modo Monitor" no header do Dashboard Analytics (ícone Monitor + texto em telas maiores). Ao clicar, ativa a Full Screen API do navegador (`document.documentElement.requestFullscreen()`).
+     - Quando em modo tela cheia: Header e Sidebar são ocultados (`display: none` via condicional); barra de filtros oculta; área de conteúdo com padding reduzido (`p-2 sm:p-4`), largura total (`max-w-none`).
+     - Badge fixo no topo do conteúdo: "📡 MONITORAMENTO EM TEMPO REAL — [NOME DA BASE]" (nome da base atual ou "Todas as bases"), com botão "Sair do Modo Monitor" para sair da tela cheia.
+     - Classe CSS `.monitor-mode` aplicada ao container de conteúdo: grids internos forçados a uma coluna (`grid-template-columns: repeat(1, minmax(0, 1fr))`) para que os gráficos fiquem grandes e legíveis à distância.
+     - Sincronização com o evento `fullscreenchange`: se o usuário sair da tela cheia (ex.: tecla ESC), o estado `isMonitorMode` é atualizado e header/sidebar voltam a ser exibidos.
+  5. **Escopo:** O hook `useRealtimeSync` é chamado na página pai do Analytics (`DashboardAnalytics.tsx`), portanto todos os sub-dashboards (Visão Geral, Ocorrência Aeronáutica, Ocorrência Não Aeronáutica, Atividades Acessórias, TAF, Prova Teórica, Treinamento, Tempo TP/EPR, Tempo Resposta, Inspeção Viaturas, Logística) se beneficiam da atualização automática e do Modo Monitor.
+- **Arquivos criados:**
+  - supabase/migrations/011_enable_realtime_lancamentos.sql
+  - src/hooks/useRealtimeSync.ts
+- **Arquivos modificados:**
+  - src/pages/DashboardAnalytics.tsx (useRealtimeSync, estado isMonitorMode, toggleMonitorMode, fullscreenchange, botão Modo Monitor, layout condicional, placeholderData na query lancamentos-todos)
+  - src/hooks/useLancamentos.ts (placeholderData)
+  - src/index.css (classe .monitor-mode para grid em coluna única)
+  - docs/PRD.md (item 9.29)

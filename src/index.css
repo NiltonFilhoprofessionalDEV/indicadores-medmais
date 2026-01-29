@@ -61,4 +61,26 @@
   .shadow-orange-sm {
     box-shadow: 0 0 15px 5px rgba(252, 77, 0, 0.1), 0 0 30px 10px rgba(252, 77, 0, 0.05);
   }
+
+  /* Modo Monitor: conteúdo ocupa toda a tela (largura e altura) */
+  .monitor-mode {
+    width: 100%;
+    min-width: 0;
+  }
+  .monitor-mode [class*="space-y"],
+  .monitor-mode .grid {
+    width: 100%;
+    min-width: 0;
+  }
+  /* KPIs em linha cheia no modo monitor */
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* Gráficos em 2 colunas para preencher a linha */
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

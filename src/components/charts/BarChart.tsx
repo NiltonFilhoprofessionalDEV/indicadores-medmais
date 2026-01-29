@@ -56,8 +56,6 @@ export function BarChart({ data, dataKey, xKey, name, color = '#8884d8', yAxisFo
               width={yWidth}
               tick={{ fontSize: 10 }}
               interval={0}
-              angle={0}
-              textAnchor="end"
             />
           </>
         ) : (

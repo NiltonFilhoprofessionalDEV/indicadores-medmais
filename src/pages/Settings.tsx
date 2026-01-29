@@ -134,17 +134,19 @@ export function Settings() {
   // Mutation para criar feedback
   const createFeedbackMutation = useMutation({
     mutationFn: async (data: FeedbackFormData) => {
-      if (!authUser?.user.id) throw new Error('Usuário não autenticado')
-      
+      const userId = authUser?.user?.id
+      if (!userId) throw new Error('Usuário não autenticado')
+
+      const payload: Database['public']['Tables']['feedbacks']['Insert'] = {
+        user_id: userId,
+        tipo: data.tipo,
+        mensagem: data.mensagem,
+        status: 'pendente',
+      }
+
       const { error } = await supabase
         .from('feedbacks')
-        .insert({
-          user_id: authUser.user.id,
-          tipo: data.tipo,
-          mensagem: data.mensagem,
-          status: 'pendente',
-        })
-      
+        .insert(payload as Database['public']['Tables']['feedbacks']['Insert'])
       if (error) throw error
     },
     onSuccess: () => {

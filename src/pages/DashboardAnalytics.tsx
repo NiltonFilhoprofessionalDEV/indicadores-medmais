@@ -295,7 +295,7 @@ export function DashboardAnalytics() {
   const defaultDateRange = getDefaultDateRange()
   const [dataInicio, setDataInicio] = useState<string>(defaultDateRange.dataInicio)
   const [dataFim, setDataFim] = useState<string>(defaultDateRange.dataFim)
-  const [dateRangeError, setDateRangeError] = useState<string>('')
+  const [_dateRangeError, setDateRangeError] = useState<string>('')
   const [colaboradorNome, setColaboradorNome] = useState<string>('')
   const [tipoOcorrencia, setTipoOcorrencia] = useState<string>('')
   const [tipoOcorrenciaAero, setTipoOcorrenciaAero] = useState<string>('')

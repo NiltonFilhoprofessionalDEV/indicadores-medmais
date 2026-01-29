@@ -50,8 +50,6 @@ export function Aderencia() {
   }, [mesAno])
 
   const hoje = startOfDay(new Date())
-  const dataInicio = format(startOfMonth(mesAnoDate), 'yyyy-MM-dd')
-  const dataFim = format(endOfMonth(mesAnoDate), 'yyyy-MM-dd')
   const mesAtual = format(new Date(), 'yyyy-MM')
   const mesSelecionado = format(mesAnoDate, 'yyyy-MM')
   const mesFechado = mesSelecionado < mesAtual

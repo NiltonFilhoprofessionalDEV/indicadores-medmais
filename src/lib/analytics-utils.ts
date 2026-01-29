@@ -476,7 +476,7 @@ export function processTAF(lancamentos: Lancamento[], colaboradorNome?: string) 
   // KPIs
   const menorTempo = tempos.length > 0 ? Math.min(...tempos) : 0
   const tempoMedio = tempos.length > 0 ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0
-  const tempoMaximo = tempos.length > 0 ? Math.max(...tempos) : 0
+  void (tempos.length > 0 ? Math.max(...tempos) : 0) // tempoMaximo disponível para uso futuro
 
   // Distribuição por minutos
   const distribuicaoMinutos = new Map<number, number>()
@@ -1012,7 +1012,7 @@ export function processHorasTreinamento(lancamentos: Lancamento[]) {
 
   // Gráfico 3: Desempenho por Equipe (Bar Chart com Reference Line em 16h)
   const mediaPorEquipe = new Map<string, { totalHoras: number; count: number }>()
-  horasPorColaborador.forEach((data, nome) => {
+  horasPorColaborador.forEach((data, _nome) => {
     const horasTotais = data.totalHorasMinutos / 60
     const current = mediaPorEquipe.get(data.equipe_id) || { totalHoras: 0, count: 0 }
     mediaPorEquipe.set(data.equipe_id, {
@@ -1176,7 +1176,7 @@ export function processAtividadesAcessorias(lancamentos: Lancamento[]) {
   })
   const graficoTempoPorTipo = Array.from(tempoPorTipo.entries())
     .map(([tipo, minutos]) => {
-      const totalTempo = atividades.reduce((sum, a) => {
+      void atividades.reduce((sum, a) => {
         if (a.tipo_atividade === tipo && a.tempo_gasto) {
           return sum + timeToMinutes(a.tempo_gasto)
         }
@@ -1840,7 +1840,6 @@ export function generateExecutiveSummary(
   // Calcular período anterior para comparação (30 dias antes do período atual)
   // Se não houver filtro de data, usar a data mais recente como referência
   const datasOcorrencias = ocorrenciasAero.concat(ocorrenciasNaoAero).map(l => l.data_referencia).sort().reverse()
-  const dataMaisRecente = datasOcorrencias.length > 0 ? datasOcorrencias[0] : ''
   const dataMaisAntiga = datasOcorrencias.length > 0 ? datasOcorrencias[datasOcorrencias.length - 1] : ''
   
   // Calcular período anterior (30 dias antes da data mais antiga do período atual)

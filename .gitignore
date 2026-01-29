@@ -44,5 +44,8 @@ testsprite/downloads/
 
 # TestSprite / testes backend – config com chaves e proxy (não versionar)
 testsprite_tests/tmp/config.json
+# Relatórios gerados a cada execução (regerados pelo MCP)
+testsprite_tests/tmp/raw_report.md
+testsprite_tests/tmp/test_results.json
 # Opcional: se usar arquivo local com Service Role Key
 testsprite_tests/backend_config.local.py

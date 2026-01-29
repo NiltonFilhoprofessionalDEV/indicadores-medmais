@@ -72,7 +72,7 @@ export function useLancamentos({
           .from('lancamentos')
           .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at')
           .order('data_referencia', { ascending: false })
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
         
         // Aplicar os mesmos filtros (exceto paginação e busca)
         if (baseId) allQuery = allQuery.eq('base_id', baseId)
@@ -135,7 +135,7 @@ export function useLancamentos({
         .from('lancamentos')
         .select('*')
         .order('data_referencia', { ascending: false })
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .range(from, to)
 
       // Se há busca por texto, tentar usar função RPC para busca otimizada no servidor
@@ -186,7 +186,7 @@ export function useLancamentos({
             .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at', { count: 'exact' })
             .in('id', ids)
             .order('data_referencia', { ascending: false })
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: false })
 
           // Aplicar outros filtros
           if (baseId) {
@@ -219,7 +219,7 @@ export function useLancamentos({
             .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at')
             .in('id', ids)
             .order('data_referencia', { ascending: false })
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: false })
             .range(from, to)
 
           // Aplicar mesmos filtros

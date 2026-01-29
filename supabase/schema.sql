@@ -243,30 +243,30 @@ CREATE TRIGGER set_updated_at_lancamentos
 -- INSERÇÕES INICIAIS DE DADOS
 -- ============================================
 
--- Inserir 34 bases aeroportuárias
+-- Inserir 34 bases aeroportuárias (grafia com acentuação correta)
 INSERT INTO public.bases (nome) VALUES
     ('ALTAMIRA'),
     ('ARACAJU'),
     ('BACACHERI'),
-    ('BELEM'),
-    ('BRASILIA'),
+    ('BELÉM'),
+    ('BRASÍLIA'),
     ('CAMPO DE MARTE'),
-    ('CARAJAS'),
+    ('CARAJÁS'),
     ('CONFINS'),
     ('CONGONHAS'),
-    ('CUIABA'),
+    ('CUIABÁ'),
     ('CURITIBA'),
     ('FLORIANÓPOLIS'),
     ('FOZ do IGUAÇU'),
-    ('GOIANIA'),
+    ('GOIÂNIA'),
     ('IMPERATRIZ'),
-    ('JACAREPAGUA'),
-    ('JOINVILE'),
+    ('JACAREPAGUÁ'),
+    ('JOINVILLE'),
     ('LONDRINA'),
-    ('MACAE'),
-    ('MACAPA'),
-    ('MACEIO'),
-    ('MARABA'),
+    ('MACAÉ'),
+    ('MACAPÁ'),
+    ('MACEIÓ'),
+    ('MARABÁ'),
     ('NAVEGANTES'),
     ('PALMAS'),
     ('PAMPULHA'),
@@ -274,11 +274,11 @@ INSERT INTO public.bases (nome) VALUES
     ('PETROLINA'),
     ('PORTO ALEGRE'),
     ('SALVADOR'),
-    ('SANTAREM'),
-    ('SÃO LUIZ'),
+    ('SANTARÉM'),
+    ('SÃO LUÍS'),
     ('SINOP'),
     ('TERESINA'),
-    ('VITORIA')
+    ('VITÓRIA')
 ON CONFLICT (nome) DO NOTHING;
 
 -- Inserir 5 equipes padrão

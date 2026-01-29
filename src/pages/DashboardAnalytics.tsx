@@ -377,6 +377,19 @@ export function DashboardAnalytics() {
     }
   }, [isChefe, authUser?.profile?.base_id, baseId])
 
+  const handleClearFilters = () => {
+    const defaultRange = getDefaultDateRange()
+    setDataInicio(defaultRange.dataInicio)
+    setDataFim(defaultRange.dataFim)
+    setEquipeId('')
+    setColaboradorNome('')
+    setTipoOcorrencia('')
+    setTipoOcorrenciaAero('')
+    if (!isChefe) {
+      setBaseId('')
+    }
+  }
+
   // Buscar bases (usado no AnalyticsFilterBar)
 
   // Buscar indicadores config
@@ -792,6 +805,7 @@ export function DashboardAnalytics() {
                 showTipoOcorrenciaFilter={showTipoOcorrenciaFilter}
                 showTipoOcorrenciaAeroFilter={showTipoOcorrenciaAeroFilter}
                 disableBaseFilter={isChefe}
+                onClearFilters={handleClearFilters}
               />
 
               {/* Conteúdo Dinâmico */}

@@ -30,28 +30,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(userId: string, retryCount = 0) {
     const maxRetries = 2
     try {
-      const { data: profile, error } = await supabase
+      let profile: Profile | null = null
+
+      const { data: directProfile, error: directError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
 
-      if (error) {
-        console.warn('Erro ao buscar perfil:', error, { code: error.code, retryCount })
-        if (retryCount < maxRetries) {
-          await new Promise(r => setTimeout(r, 500))
-          return loadProfile(userId, retryCount + 1)
+      if (!directError && directProfile) {
+        profile = directProfile as Profile
+      } else {
+        const { data: rpcProfile, error: rpcError } = await supabase.rpc('get_my_profile')
+        if (!rpcError && rpcProfile && typeof rpcProfile === 'object') {
+          profile = rpcProfile as Profile
         }
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setAuthUser({ user, profile: null })
-          return
-        }
+      }
+
+      if (!profile && retryCount < maxRetries) {
+        await new Promise(r => setTimeout(r, 500))
+        return loadProfile(userId, retryCount + 1)
       }
 
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setAuthUser({ user, profile: profile || null })
+        setAuthUser({ user, profile })
       } else {
         setAuthUser(null)
       }

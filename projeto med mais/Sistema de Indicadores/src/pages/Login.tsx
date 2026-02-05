@@ -132,10 +132,12 @@ export function Login() {
           console.warn('⚠️ Erro ao atualizar contexto:', refreshError)
         }
         
-        // Aguardar contexto atualizar e buscar perfil (com retry para gerente_sci)
+        await new Promise(resolve => setTimeout(resolve, 400))
+        await refreshAuth()
+
         let role: string | null = null
         for (let attempt = 0; attempt < 3; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 300 : 500))
+          await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 200 : 400))
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('role')
@@ -144,10 +146,14 @@ export function Login() {
           const p = profile as { role?: string } | null
           if (!profileError && p && typeof p.role === 'string') {
             role = p.role
-            console.log('✅ Perfil encontrado:', profile)
             break
           }
-          console.warn(`⚠️ Tentativa ${attempt + 1}/3 de buscar perfil:`, profileError?.message || 'sem role')
+          const { data: rpcProfile } = await supabase.rpc('get_my_profile')
+          const rpc = rpcProfile as { role?: string } | null
+          if (rpc && typeof rpc.role === 'string') {
+            role = rpc.role
+            break
+          }
           await refreshAuth()
         }
 

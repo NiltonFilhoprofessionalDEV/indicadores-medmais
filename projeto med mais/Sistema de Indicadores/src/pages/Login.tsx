@@ -41,13 +41,15 @@ export function Login() {
       roleType: typeof r,
     })
     if (!authLoading && authUser?.user && r) {
-      const roleNorm = String(r).trim().toLowerCase()
-      console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, destino: roleNorm === 'geral' || roleNorm === 'gerente_sci' ? '/dashboard-gerente' : '/dashboard-chefe' })
-      if (roleNorm === 'geral' || roleNorm === 'gerente_sci') {
-        navigate('/dashboard-gerente', { replace: true })
-      } else {
-        navigate('/dashboard-chefe', { replace: true })
-      }
+      const roleNorm = String(r)
+        .trim()
+        .toLowerCase()
+        .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+      const isGerenteOuAdmin =
+        roleNorm === 'geral' || roleNorm === 'gerente_sci' || roleNorm.includes('gerente_sci')
+      const dest = isGerenteOuAdmin ? '/dashboard-gerente' : '/dashboard-chefe'
+      console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, isGerenteOuAdmin, destino: dest })
+      navigate(dest, { replace: true })
     }
   }, [authUser, authLoading, navigate, loading])
 
@@ -161,10 +163,11 @@ export function Login() {
             break
           }
           const { data: rpcProfile, error: rpcError } = await supabase.rpc('get_my_profile')
-          const rpc = rpcProfile as { role?: string } | null
-          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'get_my_profile:', { rpcError: rpcError?.message, rpcProfile: rpc, role: rpc?.role })
-          if (rpc && typeof rpc.role === 'string') {
-            role = rpc.role
+          const rpc = rpcProfile as { role?: string; Role?: string } | null
+          const rpcRole = (rpc?.role ?? rpc?.Role) as string | undefined
+          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'get_my_profile:', { rpcError: rpcError?.message, rpcProfile: rpc, role: rpcRole })
+          if (rpc && typeof rpcRole === 'string') {
+            role = rpcRole
             console.log('[LOGIN_DEBUG] Role obtido via RPC:', role)
             break
           }
@@ -178,11 +181,19 @@ export function Login() {
           return
         }
 
-        const roleNormalized = String(role).trim().toLowerCase()
-        const destino = roleNormalized === 'geral' || roleNormalized === 'gerente_sci' ? '/dashboard-gerente' : '/dashboard-chefe'
+        const roleNormalized = String(role ?? '')
+          .trim()
+          .toLowerCase()
+          .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+        const isGerenteOuAdmin =
+          roleNormalized === 'geral' ||
+          roleNormalized === 'gerente_sci' ||
+          roleNormalized.includes('gerente_sci')
+        const destino = isGerenteOuAdmin ? '/dashboard-gerente' : '/dashboard-chefe'
         console.log('[LOGIN_DEBUG] ANTES DO REDIRECT:', {
           roleOriginal: role,
           roleNormalized,
+          isGerenteOuAdmin,
           destino,
           host: window.location.host,
         })

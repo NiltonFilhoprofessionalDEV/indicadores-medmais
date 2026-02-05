@@ -5,10 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Settings, LogOut, FileSpreadsheet, MessageSquare } from 'lucide-react'
+import { Settings, LogOut, FileSpreadsheet, MessageSquare, ClipboardList } from 'lucide-react'
 
 export function DashboardGerente() {
   const { authUser } = useAuth()
+  const isGerenteSCI = authUser?.profile?.role === 'gerente_sci'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -22,7 +23,7 @@ export function DashboardGerente() {
       if (error) throw error
       return count ?? 0
     },
-    enabled: !!authUser?.user?.id,
+    enabled: !!authUser?.user?.id && authUser?.profile?.role === 'geral',
   })
 
   const handleLogout = async () => {
@@ -80,7 +81,7 @@ export function DashboardGerente() {
               />
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-2xl font-bold text-white truncate">
-                  Dashboard - Admin
+                  {isGerenteSCI ? 'Dashboard - Gerente de SCI' : 'Dashboard - Admin'}
                 </h1>
                 <p className="text-xs sm:text-sm text-white/90 truncate">
                   {authUser?.profile?.nome}
@@ -126,8 +127,32 @@ export function DashboardGerente() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Card Dashboard Analytics */}
-          <Card className="flex flex-col h-full">
+          {/* Card Lançamentos - visível apenas para Gerente de SCI */}
+          {isGerenteSCI && (
+            <Card className="flex flex-col h-full">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-[#fc4d00]" />
+                  <CardTitle className="text-lg">Lançamentos</CardTitle>
+                </div>
+                <CardDescription className="text-sm">
+                  Visualize os lançamentos da sua base para conferência
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
+                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
+                  Acesse o histórico de lançamentos da sua base em modo somente leitura.
+                </p>
+                <Button onClick={() => navigate('/lancamentos-base')} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white mt-auto shadow-orange-sm">
+                  Ver Lançamentos
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card Dashboard Analytics - apenas Gerente Geral */}
+          {!isGerenteSCI && (
+            <Card className="flex flex-col h-full">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">Dashboard Analytics</CardTitle>
                 <CardDescription className="text-sm">
@@ -144,9 +169,11 @@ export function DashboardGerente() {
                 </Button>
               </CardContent>
             </Card>
+          )}
 
-          {/* Card Explorador de Dados */}
-          <Card className="flex flex-col h-full">
+          {/* Card Explorador de Dados - apenas Gerente Geral */}
+          {!isGerenteSCI && (
+            <Card className="flex flex-col h-full">
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet className="h-5 w-5 text-[#fc4d00]" />
@@ -166,6 +193,7 @@ export function DashboardGerente() {
                 </Button>
               </CardContent>
             </Card>
+          )}
 
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
@@ -204,6 +232,7 @@ export function DashboardGerente() {
           </Card>
 
           {/* Card Aderência - apenas Gerente Geral */}
+          {!isGerenteSCI && (
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Monitoramento de Aderência</CardTitle>
@@ -221,8 +250,10 @@ export function DashboardGerente() {
               </Button>
             </CardContent>
           </Card>
+          )}
 
           {/* Card Suporte - apenas Gerente Geral */}
+          {!isGerenteSCI && (
           <Card className="flex flex-col h-full">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
@@ -248,6 +279,7 @@ export function DashboardGerente() {
               </Button>
             </CardContent>
           </Card>
+          )}
         </div>
       </main>
     </div>

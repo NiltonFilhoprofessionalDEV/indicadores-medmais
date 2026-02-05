@@ -241,10 +241,8 @@ export function Settings() {
             <div className="flex gap-2 flex-shrink-0 ml-4">
               <Button 
                 onClick={() => {
-                  if (authUser.profile?.role === 'geral') {
+                  if (authUser.profile?.role === 'geral' || authUser.profile?.role === 'gerente_sci') {
                     navigate('/dashboard-gerente')
-                  } else if (authUser.profile?.role === 'gerente_sci') {
-                    navigate('/dashboard-gerente-sci')
                   } else {
                     navigate('/dashboard-chefe')
                   }

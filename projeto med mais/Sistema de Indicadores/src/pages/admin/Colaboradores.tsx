@@ -194,7 +194,7 @@ export function Colaboradores() {
               </div>
             </div>
             <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button onClick={() => navigate(authUser?.profile?.role === 'gerente_sci' ? '/dashboard-gerente-sci' : '/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
+              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Voltar ao Dashboard
               </Button>
             </div>

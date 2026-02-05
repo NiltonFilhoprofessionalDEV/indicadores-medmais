@@ -80,16 +80,28 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   // Verificar se o usuário tem permissão
   if (allowedRoles && authUser.profile) {
-    const role = String(authUser.profile.role || '').trim().toLowerCase()
-    if (!role || !allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')) {
+    const role = String(authUser.profile.role ?? '').trim().toLowerCase()
+    const validRoles = ['geral', 'chefe', 'gerente_sci']
+    const hasValidRole = role && validRoles.includes(role)
+    const hasPermission = hasValidRole && allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')
+
+    if (!hasPermission) {
       console.warn('Usuário sem permissão para acessar esta rota', { role, allowedRoles })
+      // Role vazio ou inválido: forçar logout para evitar loop de redirect
+      if (!hasValidRole) {
+        console.warn('Role inválido ou vazio, redirecionando para logout')
+        return <Navigate to="/logout" replace />
+      }
       if (role === 'geral') {
         return <Navigate to="/dashboard-gerente" replace />
       }
       if (role === 'gerente_sci') {
         return <Navigate to="/dashboard-gerente-sci" replace />
       }
-      return <Navigate to="/dashboard-chefe" replace />
+      if (role === 'chefe') {
+        return <Navigate to="/dashboard-chefe" replace />
+      }
+      return <Navigate to="/logout" replace />
     }
   }
 

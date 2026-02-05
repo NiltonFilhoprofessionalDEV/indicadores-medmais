@@ -167,6 +167,13 @@ export function Login() {
         }
 
         const roleNormalized = String(role).trim().toLowerCase()
+        const validRoles = ['geral', 'chefe', 'gerente_sci']
+        if (!validRoles.includes(roleNormalized)) {
+          console.warn('⚠️ Role inválido no perfil:', roleNormalized)
+          setError(`Perfil com role inválido (${roleNormalized}). Entre em contato com o administrador.`)
+          setLoading(false)
+          return
+        }
         if (roleNormalized === 'geral') {
           console.log('🔄 Redirecionando para Dashboard Gerente (admin)')
           navigate('/dashboard-gerente', { replace: true })

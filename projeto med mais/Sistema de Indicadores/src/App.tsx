@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 // Lazy loading das páginas para reduzir bundle inicial
 const DashboardChefe = lazy(() => import('./pages/DashboardChefe').then(m => ({ default: m.DashboardChefe })))
 const DashboardGerente = lazy(() => import('./pages/DashboardGerente').then(m => ({ default: m.DashboardGerente })))
+const DashboardGerenteSCI = lazy(() => import('./pages/DashboardGerenteSCI').then(m => ({ default: m.DashboardGerenteSCI })))
 const DashboardAnalytics = lazy(() => import('./pages/DashboardAnalytics').then(m => ({ default: m.DashboardAnalytics })))
 const GestaoUsuarios = lazy(() => import('./pages/GestaoUsuarios').then(m => ({ default: m.GestaoUsuarios })))
 const Colaboradores = lazy(() => import('./pages/admin/Colaboradores').then(m => ({ default: m.Colaboradores })))
@@ -49,8 +50,16 @@ function App() {
           <Route
             path="/dashboard-gerente"
             element={
-              <ProtectedRoute allowedRoles={['geral', 'gerente_sci']}>
+              <ProtectedRoute allowedRoles={['geral']}>
                 <DashboardGerente />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard-gerente-sci"
+            element={
+              <ProtectedRoute allowedRoles={['gerente_sci']}>
+                <DashboardGerenteSCI />
               </ProtectedRoute>
             }
           />

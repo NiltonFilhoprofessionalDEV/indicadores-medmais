@@ -811,7 +811,7 @@ export function GestaoUsuarios() {
               <Button onClick={() => setShowBulkModal(true)} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] transition-all duration-200 shadow-orange-sm">
                 Cadastro em Lote
               </Button>
-              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
+              <Button onClick={() => navigate(authUser?.profile?.role === 'gerente_sci' ? '/dashboard-gerente-sci' : '/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
                 Voltar
               </Button>
             </div>

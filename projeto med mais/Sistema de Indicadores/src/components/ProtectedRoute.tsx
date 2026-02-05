@@ -83,11 +83,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const role = String(authUser.profile.role || '').trim().toLowerCase()
     if (!role || !allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')) {
       console.warn('Usuário sem permissão para acessar esta rota', { role, allowedRoles })
-      if (role === 'geral' || role === 'gerente_sci') {
+      if (role === 'geral') {
         return <Navigate to="/dashboard-gerente" replace />
-      } else {
-        return <Navigate to="/dashboard-chefe" replace />
       }
+      if (role === 'gerente_sci') {
+        return <Navigate to="/dashboard-gerente-sci" replace />
+      }
+      return <Navigate to="/dashboard-chefe" replace />
     }
   }
 

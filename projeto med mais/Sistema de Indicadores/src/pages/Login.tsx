@@ -33,8 +33,10 @@ export function Login() {
     if (!authLoading && authUser?.user && r) {
       const roleNorm = String(r).trim().toLowerCase()
       console.log('🔄 Usuário já autenticado, redirecionando...', { role: roleNorm })
-      if (roleNorm === 'geral' || roleNorm === 'gerente_sci') {
+      if (roleNorm === 'geral') {
         navigate('/dashboard-gerente', { replace: true })
+      } else if (roleNorm === 'gerente_sci') {
+        navigate('/dashboard-gerente-sci', { replace: true })
       } else {
         navigate('/dashboard-chefe', { replace: true })
       }
@@ -165,9 +167,12 @@ export function Login() {
         }
 
         const roleNormalized = String(role).trim().toLowerCase()
-        if (roleNormalized === 'geral' || roleNormalized === 'gerente_sci') {
-          console.log('🔄 Redirecionando para Dashboard Gerente (role:', roleNormalized, ')')
+        if (roleNormalized === 'geral') {
+          console.log('🔄 Redirecionando para Dashboard Gerente (admin)')
           navigate('/dashboard-gerente', { replace: true })
+        } else if (roleNormalized === 'gerente_sci') {
+          console.log('🔄 Redirecionando para Dashboard Gerente SCI')
+          navigate('/dashboard-gerente-sci', { replace: true })
         } else {
           console.log('🔄 Redirecionando para Dashboard Chefe')
           navigate('/dashboard-chefe', { replace: true })

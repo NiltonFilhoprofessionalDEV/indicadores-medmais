@@ -129,7 +129,7 @@ export function LancamentosBase() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground">Perfil sem base configurada.</p>
-          <Button onClick={() => navigate('/dashboard-gerente')} className="mt-4">
+          <Button onClick={() => navigate('/dashboard-gerente-sci')} className="mt-4">
             Voltar ao Dashboard
           </Button>
         </div>
@@ -160,7 +160,7 @@ export function LancamentosBase() {
             </div>
             <div className="flex gap-2 flex-shrink-0 ml-auto sm:ml-4">
               <Button
-                onClick={() => navigate('/dashboard-gerente')}
+                onClick={() => navigate('/dashboard-gerente-sci')}
                 variant="outline"
                 size="sm"
                 className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm"

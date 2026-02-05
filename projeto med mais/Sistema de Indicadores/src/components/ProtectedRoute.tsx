@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -8,8 +9,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { authUser, loading } = useAuth()
+  const { authUser, loading, refreshAuth } = useAuth()
   const [showTimeout, setShowTimeout] = useState(false)
+  const [retrying, setRetrying] = useState(false)
 
   // Timeout de segurança - se carregar por mais de 15 segundos, redireciona para login
   useEffect(() => {
@@ -31,10 +33,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-          <div className="text-lg">Carregando...</div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#fc4d00] mb-4"></div>
+          <div className="text-lg text-foreground">Carregando...</div>
         </div>
       </div>
     )
@@ -44,12 +46,41 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />
   }
 
+  // Perfil não carregado: rota exige verificação de role
+  if (allowedRoles && !authUser.profile) {
+    const handleRetry = async () => {
+      setRetrying(true)
+      await refreshAuth()
+      setRetrying(false)
+    }
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+        <div className="max-w-md text-center space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">Perfil não carregado</h2>
+          <p className="text-muted-foreground">
+            Não foi possível carregar seus dados. Verifique sua conexão e tente novamente.
+          </p>
+          <Button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="bg-[#fc4d00] hover:bg-[#e04400] text-white"
+          >
+            {retrying ? 'Tentando...' : 'Tentar novamente'}
+          </Button>
+          <Button variant="outline" onClick={() => window.location.href = '/login'} className="mt-2">
+            Voltar ao login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // Verificar se o usuário tem permissão
   if (allowedRoles && authUser.profile) {
-    if (!allowedRoles.includes(authUser.profile.role)) {
-      console.warn('Usuário sem permissão para acessar esta rota')
-      // Redireciona para o dashboard apropriado baseado no role
-      if (authUser.profile.role === 'geral' || authUser.profile.role === 'gerente_sci') {
+    const role = authUser.profile.role
+    if (!role || !allowedRoles.includes(role)) {
+      console.warn('Usuário sem permissão para acessar esta rota', { role, allowedRoles })
+      if (role === 'geral' || role === 'gerente_sci') {
         return <Navigate to="/dashboard-gerente" replace />
       } else {
         return <Navigate to="/dashboard-chefe" replace />

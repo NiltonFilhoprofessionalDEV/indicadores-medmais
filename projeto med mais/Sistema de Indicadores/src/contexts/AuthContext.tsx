@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     import.meta.env.VITE_SUPABASE_URL && 
     import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  async function loadProfile(userId: string) {
+  async function loadProfile(userId: string, retryCount = 0) {
+    const maxRetries = 1
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -36,7 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single()
 
       if (error) {
-        console.warn('Erro ao buscar perfil:', error)
+        console.warn('Erro ao buscar perfil:', error, { code: error.code, retryCount })
+        if (retryCount < maxRetries) {
+          await new Promise(r => setTimeout(r, 500))
+          return loadProfile(userId, retryCount + 1)
+        }
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           setAuthUser({ user, profile: null })
@@ -52,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error loading profile:', error)
+      if (retryCount < maxRetries) {
+        await new Promise(r => setTimeout(r, 500))
+        return loadProfile(userId, retryCount + 1)
+      }
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setAuthUser({ user, profile: null })

@@ -23,7 +23,7 @@ export function DashboardGerente() {
       if (error) throw error
       return count ?? 0
     },
-    enabled: !!authUser?.user?.id,
+    enabled: !!authUser?.user?.id && authUser?.profile?.role === 'geral',
   })
 
   const handleLogout = async () => {

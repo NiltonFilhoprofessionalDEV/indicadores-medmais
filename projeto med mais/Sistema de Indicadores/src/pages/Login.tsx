@@ -18,7 +18,9 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
+const LOGIN_BUILD = '2025-02-05-gerente-sci-fix'
 export function Login() {
+  console.log('[LOGIN] Build:', LOGIN_BUILD, '- se não ver isso, limpe o cache (Ctrl+Shift+R)')
   const navigate = useNavigate()
   // Otimização: Não carregar useAuth na página de login (só verifica se já está logado)
   const { authUser, loading: authLoading, refreshAuth } = useAuth()

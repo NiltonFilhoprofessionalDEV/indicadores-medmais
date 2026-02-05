@@ -80,8 +80,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   // Verificar se o usuário tem permissão
   if (allowedRoles && authUser.profile) {
-    const role = authUser.profile.role
-    if (!role || !allowedRoles.includes(role)) {
+    const role = String(authUser.profile.role || '').trim().toLowerCase()
+    if (!role || !allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')) {
       console.warn('Usuário sem permissão para acessar esta rota', { role, allowedRoles })
       if (role === 'geral' || role === 'gerente_sci') {
         return <Navigate to="/dashboard-gerente" replace />

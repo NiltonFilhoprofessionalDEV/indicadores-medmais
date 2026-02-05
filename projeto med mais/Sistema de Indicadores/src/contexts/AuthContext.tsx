@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     import.meta.env.VITE_SUPABASE_ANON_KEY
 
   async function loadProfile(userId: string, retryCount = 0) {
-    const maxRetries = 1
+    const maxRetries = 2
     try {
       const { data: profile, error } = await supabase
         .from('profiles')

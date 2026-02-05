@@ -29,9 +29,11 @@ export function Login() {
   // Redirecionar se já estiver autenticado (evitar durante login ativo)
   useEffect(() => {
     if (loading) return
-    if (!authLoading && authUser?.user && authUser.profile?.role) {
-      console.log('🔄 Usuário já autenticado, redirecionando...')
-      if (authUser.profile.role === 'geral' || authUser.profile.role === 'gerente_sci') {
+    const r = authUser?.profile?.role
+    if (!authLoading && authUser?.user && r) {
+      const roleNorm = String(r).trim().toLowerCase()
+      console.log('🔄 Usuário já autenticado, redirecionando...', { role: roleNorm })
+      if (roleNorm === 'geral' || roleNorm === 'gerente_sci') {
         navigate('/dashboard-gerente', { replace: true })
       } else {
         navigate('/dashboard-chefe', { replace: true })
@@ -130,35 +132,35 @@ export function Login() {
           console.warn('⚠️ Erro ao atualizar contexto:', refreshError)
         }
         
-        // Aguardar um momento para garantir que o contexto seja atualizado
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Verificar o perfil do usuário para redirecionar corretamente
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authData.user.id)
-          .single()
-
-        if (profileError) {
-          console.warn('⚠️ Erro ao buscar perfil:', profileError)
-          // Continua mesmo sem perfil, redireciona para dashboard-chefe como padrão
-        } else {
-          console.log('✅ Perfil encontrado:', profile)
+        // Aguardar contexto atualizar e buscar perfil (com retry para gerente_sci)
+        let role: string | null = null
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 300 : 500))
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', authData.user.id)
+            .single()
+          const p = profile as { role?: string } | null
+          if (!profileError && p && typeof p.role === 'string') {
+            role = p.role
+            console.log('✅ Perfil encontrado:', profile)
+            break
+          }
+          console.warn(`⚠️ Tentativa ${attempt + 1}/3 de buscar perfil:`, profileError?.message || 'sem role')
+          await refreshAuth()
         }
 
-        const role = profile && typeof profile === 'object' && 'role' in profile ? (profile as { role: string }).role : null
-        
         if (role === null || role === undefined) {
-          console.warn('⚠️ Perfil não carregado, exibindo mensagem em vez de redirecionar')
+          console.warn('⚠️ Perfil não carregado após retentativas')
           setError('Não foi possível carregar seu perfil. Clique em Entrar novamente para tentar, ou faça logout para usar outra conta.')
           setLoading(false)
-          await refreshAuth()
           return
         }
-        
-        if (role === 'geral' || role === 'gerente_sci') {
-          console.log('🔄 Redirecionando para Dashboard Gerente')
+
+        const roleNormalized = String(role).trim().toLowerCase()
+        if (roleNormalized === 'geral' || roleNormalized === 'gerente_sci') {
+          console.log('🔄 Redirecionando para Dashboard Gerente (role:', roleNormalized, ')')
           navigate('/dashboard-gerente', { replace: true })
         } else {
           console.log('🔄 Redirecionando para Dashboard Chefe')

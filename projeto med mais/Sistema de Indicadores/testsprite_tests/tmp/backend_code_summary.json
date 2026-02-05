@@ -1,0 +1,128 @@
+{
+  "tech_stack": [
+    "Deno",
+    "Supabase Edge Functions",
+    "TypeScript",
+    "PostgreSQL",
+    "Supabase Auth",
+    "REST API"
+  ],
+  "baseUrl": "https://eanobeiqmpymrdbvdnnr.supabase.co/functions/v1",
+  "auth": {
+    "type": "bearer_and_apikey",
+    "headers": {
+      "Authorization": "Bearer <SERVICE_ROLE_KEY>",
+      "apikey": "<SERVICE_ROLE_KEY>",
+      "Content-Type": "application/json"
+    },
+    "envKey": "SUPABASE_SERVICE_ROLE_KEY"
+  },
+  "features": [
+    {
+      "name": "create-user Edge Function",
+      "description": "API para criar novos usuários no sistema. Cria usuário no Supabase Auth e perfil na tabela profiles. Valida campos obrigatórios e regras de negócio (chefe precisa de base_id e equipe_id).",
+      "files": [
+        "supabase/functions/create-user/index.ts"
+      ],
+      "endpoint": "POST create-user",
+  "fullUrl": "https://eanobeiqmpymrdbvdnnr.supabase.co/functions/v1/create-user",
+      "parameters": {
+        "required": ["email", "password", "nome", "role"],
+        "optional": ["base_id", "equipe_id"],
+        "conditional": {
+          "role=chefe": ["base_id", "equipe_id"]
+        }
+      },
+      "responses": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "userId": "uuid"
+          }
+        },
+        "error": {
+          "status": [400, 500],
+          "body": {
+            "error": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "update-user Edge Function",
+      "description": "API para atualizar usuários existentes. Atualiza perfil na tabela profiles e opcionalmente credenciais de autenticação (email/senha). Valida existência do usuário e regras de negócio.",
+      "files": [
+        "supabase/functions/update-user/index.ts"
+      ],
+      "endpoint": "POST update-user",
+  "fullUrl": "https://eanobeiqmpymrdbvdnnr.supabase.co/functions/v1/update-user",
+      "parameters": {
+        "required": ["id", "nome", "role"],
+        "optional": ["base_id", "equipe_id", "email", "password"],
+        "conditional": {
+          "role=chefe": ["base_id", "equipe_id"]
+        }
+      },
+      "responses": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "userId": "uuid"
+          }
+        },
+        "error": {
+          "status": [400, 404, 500],
+          "body": {
+            "error": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete-user Edge Function",
+      "description": "API para remover usuários do sistema. Deleta usuário do Supabase Auth, o que aciona CASCADE para deletar perfil e lançamentos relacionados.",
+      "files": [
+        "supabase/functions/delete-user/index.ts"
+      ],
+      "endpoint": "POST delete-user",
+  "fullUrl": "https://eanobeiqmpymrdbvdnnr.supabase.co/functions/v1/delete-user",
+      "parameters": {
+        "required": ["userId"],
+        "optional": []
+      },
+      "responses": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "string"
+          }
+        },
+        "error": {
+          "status": [400, 500],
+          "body": {
+            "error": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "Database Schema",
+      "description": "Estrutura do banco de dados PostgreSQL com tabelas: profiles, bases, equipes, indicadores_config, lancamentos, colaboradores, feedbacks. Políticas RLS implementadas para segurança.",
+      "files": [
+        "supabase/migrations/*.sql",
+        "supabase/schema.sql"
+      ]
+    },
+    {
+      "name": "Row Level Security (RLS)",
+      "description": "Políticas de segurança implementadas nas tabelas para controle de acesso baseado em roles (geral/chefe) e base/equipe do usuário.",
+      "files": [
+        "supabase/migrations/002_add_colaboradores_write_policies.sql",
+        "supabase/migrations/005_security_and_performance_fixes.sql"
+      ]
+    }
+  ]
+}

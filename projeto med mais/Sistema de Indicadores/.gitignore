@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.local
+.env.production
+.vercel
+
+# Submodules inválidos (diretórios que não devem ser rastreados)
+Projeto-indicadores/
+indicadores_medmais01/
+
+# Cypress / TestSprite
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+testsprite/videos/
+testsprite/screenshots/
+testsprite/downloads/
+*.log
+
+# TestSprite / testes backend – config com chaves e proxy (não versionar)
+testsprite_tests/tmp/config.json
+# Relatórios gerados a cada execução (regerados pelo MCP)
+testsprite_tests/tmp/raw_report.md
+testsprite_tests/tmp/test_results.json
+# Opcional: se usar arquivo local com Service Role Key
+testsprite_tests/backend_config.local.py

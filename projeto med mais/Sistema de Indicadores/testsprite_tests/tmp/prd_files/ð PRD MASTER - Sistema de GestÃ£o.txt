@@ -10,15 +10,11 @@ Data: TanStack Query + Supabase.
 Forms: React Hook Form + Zod (Schema Validation).
 
 3. Segurança e Atores
+Gerente Geral: Acesso irrestrito. Pode cadastrar usuários.
 
-**Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários e Gestão de Efetivo em todas as bases.
-
-**Gerente de SCI (role='gerente_sci'):** Administrador local de uma base. Gerencia apenas usuários e colaboradores da sua base. Acesso a: Lançamentos (visualização/conferência), Gestão de Usuários, Gestão de Efetivo, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados. O filtro de Base nas telas de gestão vem travado na base dele (desabilitado). No cadastro de usuários/colaboradores, o campo Base é preenchido automaticamente e fica read-only.
-
-**Chefe de Equipe (role='chefe'):**
+Chefe de Equipe:
 Leitura: Vê dados de toda a sua Base (para comparação).
 Escrita: Insere/Edita apenas para sua Equipe.
-Menu: Lançamentos, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados.
 
 4. Estrutura de Dados (Supabase)
 
@@ -26,8 +22,8 @@ A. Tabelas de Catálogo (Dados Estáticos)
 
 O script SQL de inicialização deve criar e popular estas tabelas automaticamente:
 bases: Tabela contendo as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
-Bases Aeroportuárias (grafia com acentuação correta em português): "ALTAMIRA", "ARACAJU", "BACACHERI", "BELÉM", "BRASÍLIA", "CAMPO DE MARTE", "CARAJÁS", "CONFINS", "CONGONHAS", "CUIABÁ", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIÂNIA", "IMPERATRIZ", "JACAREPAGUÁ", "JOINVILLE", "LONDRINA", "MACAÉ", "MACAPÁ", "MACEIÓ", "MARABÁ", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTARÉM", "SÃO LUÍS", "SINOP", "TERESINA", "VITÓRIA".
-Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
+Bases Aeroportuárias: "ALTAMIRA", "ARACAJU", "BACACHERI", "BELEM", "BRASILIA", "CAMPO DE MARTE", "CARAJAS", "CONFINS", "CONGONHAS", "CUIABA", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIANIA", "IMPERATRIZ", "JACAREPAGUA", "JOINVILE", "LONDRINA", "MACAE", "MACAPA", "MACEIO", "MARABA", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTAREM", "SÃO LUIZ", "SINOP", "TERESINA", "VITORIA".
+Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral).
 
 equipes: Tabela contendo as 5 equipes padrão:
 
@@ -56,21 +52,17 @@ Dados:
 B. Tabelas de Sistema
 
 profiles: Tabela de usuários (vinculada ao auth.users).
-Campos: id (PK, UUID), nome, role ('geral', 'chefe' ou 'gerente_sci'), base_id (FK bases), equipe_id (FK equipes).
-- geral: base_id e equipe_id = null.
-- chefe: base_id e equipe_id obrigatórios.
-- gerente_sci: base_id obrigatório, equipe_id = null (gerencia toda a base).
+Campos: id (PK, UUID), nome, role ('geral' ou 'chefe'), base_id (FK bases), equipe_id (FK equipes).
 
 colaboradores: Tabela de efetivo (colaboradores) das bases.
 Campos: id (PK, UUID), created_at, nome (TEXT), base_id (FK bases), ativo (BOOLEAN, default true).
 RLS: Leitura permitida para autenticados da mesma base; Escrita apenas para Admin (Service Role).
 
 feedbacks: Tabela para armazenar feedbacks, sugestões e relatórios de bugs dos usuários.
-Campos: id (PK, UUID), created_at (TIMESTAMP), user_id (FK profiles), tipo ('bug' | 'sugestao' | 'outros'), mensagem (TEXT), status ('pendente' | 'em_andamento' | 'resolvido' | 'fechado', default: 'pendente'), tratativa_tipo (TEXT, opcional — tipo de tratativa realizada pelo suporte).
+Campos: id (PK, UUID), created_at (TIMESTAMP), user_id (FK profiles), tipo ('bug' | 'sugestao' | 'outros'), mensagem (TEXT), status ('pendente' | 'em_andamento' | 'resolvido' | 'fechado', default: 'pendente').
 RLS:
 - Insert: Usuários autenticados podem criar feedbacks.
 - Select: Usuários veem seus próprios feedbacks. Gerentes Gerais (role='geral') veem todos os feedbacks.
-- Update: Gerentes Gerais (role='geral') podem atualizar feedbacks (status e tratativa_tipo).
 
 lancamentos: Tabela central (Single Source of Truth).
 Estratégia: Uso de JSONB para dados variáveis.
@@ -82,18 +74,15 @@ C. Segurança (Row Level Security - RLS)
 Profiles: Leitura pública (para o sistema saber quem é quem), Escrita apenas via Admin (Service Role).
 
 Colaboradores: 
-Leitura: Autenticados da mesma base (geral vê tudo, chefe e gerente_sci vêem apenas sua base).
-Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe não escreve em colaboradores.
+Leitura: Autenticados da mesma base (geral vê tudo, chefe vê apenas sua base).
+Escrita: Apenas Admin (Service Role).
 
 Lancamentos (Leitura):
 Se role == 'geral': TRUE (Vê tudo).
 Se role == 'chefe': lancamento.base_id == profile.base_id (Vê a base toda).
-Se role == 'gerente_sci': lancamento.base_id == profile.base_id (Vê a base toda para conferência).
 Lancamentos (Escrita/Edição/Exclusão):
 Se role == 'chefe': lancamento.equipe_id == profile.equipe_id (Só mexe na sua equipe).
 IMPORTANTE: O sistema sempre faz INSERT (não UPDATE) para permitir múltiplos lançamentos no mesmo dia.
-
-Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
 
 5. Especificação Técnica dos Formulários (Inputs & Lógica)
 Regra Global: Todos os formulários possuem Base e Equipe (Automáticos/Read-only) e Data (dd/mm/aaaa).
@@ -245,8 +234,10 @@ Autenticação via Supabase Auth.
 Tela 2: Painel do Chefe (Dashboard & Histórico)
 
 Navegação:
-- Menu: Lançamentos (histórico operacional), Configurações.
-- **Restrição:** Chefe **não** tem acesso ao Dashboard Analytics nem ao Explorador de Dados. Apenas Gerente Geral (role='geral') pode visualizar essas telas.
+- Header com botão "Painel de Indicadores" que navega para `/dashboard-analytics`.
+- Permissão: Visível para role === 'chefe' e role === 'geral'.
+- Experiência: O Chefe pode alternar facilmente entre "Lançamentos" (Operacional) e "Indicadores" (Analítico).
+- No Analytics, quando o usuário for Chefe, aparece botão "Voltar ao Dashboard" no header para retornar ao painel operacional.
 
 Histórico: Painel de Controle de Lançamentos Profissional
 
@@ -287,15 +278,9 @@ Estrutura:
 Regra de Permissão: Pode Editar/Excluir apenas dados da sua Equipe. Dados de outras equipes da mesma base são "Read-only" (apenas visualização).
 Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo readOnly={true}.
 
-Tela 3: Dashboard Gerencial (Administrador)
-Header: Exibe apenas o nome do usuário (sem a palavra "geral" ou role ao lado).
+Tela 3: Dashboard Gerencial
 Filtros Globais: Base, Equipe, Período.
-Cards de acesso rápido:
-- Gestão de Usuários (Admin). Gestão de Efetivo (Colaboradores).
-- Dashboard Analytics (apenas Gerente Geral).
-- Monitoramento de Aderência.
-- Explorador de Dados.
-- Suporte / Feedback: Card com ícone MessageSquare. Permite acessar a tela de suporte para ver feedbacks enviados pelos usuários e dar tratativas. Exibe badge com a quantidade de feedbacks pendentes quando houver (ex.: "3 pendentes"). Rota: `/suporte`.
+Botão "Gestão de Usuários" (Admin).
 
 Tela 4: Admin - Gestão de Usuários (Apenas Gerente Geral)
 
@@ -369,8 +354,6 @@ Filtro Dinâmico por Base: Select acima da tabela com opção "Todas as Bases" (
 - Ao selecionar "Todas as Bases": Mostra todos os usuários cadastrados.
 - Comportamento: Gerentes Gerais (role='geral') sempre aparecem na lista, independente do filtro selecionado, para garantir que o administrador nunca desapareça da visualização.
 
-**Para Gerente de SCI:** O filtro de Base vem travado na base dele e desabilitado. No formulário de cadastro, o campo Base é preenchido automaticamente com a base do gerente e fica read-only — impede cadastrar em outra base. O Gerente de SCI pode cadastrar apenas Chefes de Equipe (não Gerentes Gerais nem outros Gerentes de SCI).
-
 Tabela listando todos os usuários cadastrados (Nome | Email | Base | Equipe | Perfil | Ações).
 Botões no topo: "Adicionar Novo Usuário" e "Cadastro em Lote".
 Coluna Ações: Botões "Editar" e "Remover" para cada usuário.
@@ -432,63 +415,7 @@ Ações:
 IMPORTANTE: O Frontend NÃO deve usar supabase.auth.signUp ou métodos diretos de auth (pois isso desloga o admin).
 Todas as operações devem ser feitas via Edge Functions usando Service Role Key.
 
-Tela 6: Explorador de Dados (/dashboard/explorer) - Apenas Gerente Geral
-**Objetivo:** Fornecer acesso a relatórios avançados com filtros detalhados e capacidade de exportação para análise externa.
-
-**Acesso:**
-- Card "Explorador de Dados" no Dashboard Gerencial (Tela 3).
-- Ícone: FileSpreadsheet (Lucide-react).
-- Descrição: "Auditoria completa, filtros avançados e exportação para Excel (CSV)."
-- Rota: `/dashboard/explorer`.
-- Permissão: Apenas role='geral' (Gerente Geral).
-
-**Estrutura da Tela:**
-- Herda o Layout Padrão do sistema (mesmo cabeçalho e estrutura das outras telas).
-- Header com logo, título "Explorador de Dados" e botão "Voltar ao Dashboard".
-- Área de conteúdo principal contendo:
-  - Filtros avançados (a serem implementados).
-  - Tabela de dados detalhados (a ser implementada).
-  - Botão de exportação para CSV/Excel (a ser implementado).
-
-**Status:** Funcionalidade em desenvolvimento. Página base criada com estrutura visual e navegação funcional.
-
-Tela: Suporte / Feedback (/suporte) - Apenas Gerente Geral
-**Objetivo:** Permitir que o administrador visualize todos os feedbacks enviados pelos usuários (via Configurações > Suporte/Feedback) e registre as tratativas realizadas.
-
-**Acesso:**
-- Rota: `/suporte`.
-- Permissão: Apenas `role === 'geral'` (Gerente Geral).
-- Navegação: Card "Suporte / Feedback" no Dashboard Administrador (Tela 3), com ícone MessageSquare. O card exibe um badge com a quantidade de feedbacks pendentes quando houver (ex.: "3 pendentes").
-
-**Estrutura da Tela:**
-- Header: Título "Suporte / Feedback", subtítulo "Veja os feedbacks enviados pelos usuários e dê as tratativas", botão "Voltar ao Dashboard".
-- Filtro por status: Select com opções Todos, Pendente, Em Andamento, Resolvido, Fechado.
-- Tabela de feedbacks (colunas):
-  - Data (data/hora de criação, formato pt-BR).
-  - Usuário (nome do perfil; fallback: primeiros 8 caracteres do user_id).
-  - Tipo (Bug, Sugestão, Outros).
-  - Mensagem (resumo com line-clamp-2).
-  - Ação: Botão "Ver" (ícone Eye) que abre modal com detalhe completo do feedback.
-  - Status: Select para alterar (Pendente, Em Andamento, Resolvido, Fechado). Atualização imediata no Supabase.
-  - Tipo de tratativa: Select para registrar a tratativa realizada. Opções: Selecione a tratativa, Correção aplicada, Em análise, Respondido ao usuário, Fechado sem alteração, Outros. Atualização imediata no Supabase.
-- Modal de detalhe (ao clicar em "Ver"): Exibe data, usuário, tipo, status, tipo de tratativa (se houver) e mensagem completa em área com scroll (max-h-60). Botão Fechar. Clique no fundo escuro também fecha o modal.
-- Paginação (abaixo da tabela):
-  - Texto "Mostrando X a Y de Z feedback(s)".
-  - Select "Itens por página" com opções 5, 10, 20, 50 (padrão 10).
-  - Botões "Anterior" e "Próxima" (ícones ChevronLeft/ChevronRight), desabilitados na primeira/última página.
-  - Texto "Página N de M".
-  - Ao alterar o filtro por status, a página volta para 1. Ao alterar itens por página, a página volta para 1.
-
-**Banco de dados:**
-- Tabela `feedbacks`: coluna `tratativa_tipo` (TEXT, opcional). Migration: `supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql`.
-- RLS: Política "Gerentes Gerais podem atualizar feedbacks" (FOR UPDATE) para permitir que administradores atualizem `status` e `tratativa_tipo`.
-
-**Arquivos:**
-- Página: `src/pages/Suporte.tsx`.
-- Rota em `App.tsx`: `/suporte` com `ProtectedRoute` para role `geral`.
-- Dashboard Administrador: card e contagem de pendentes em `src/pages/DashboardGerente.tsx`.
-
-Tela 7: Configurações do Usuário (/settings)
+Tela 6: Configurações do Usuário (/settings)
 **Objetivo:** Permitir que usuários gerenciem seu perfil, segurança e enviem feedback ao sistema.
 
 **Acesso:**
@@ -537,14 +464,11 @@ Interface com sistema de abas (Tabs) contendo três seções principais:
 - Título: "Configurações" com subtítulo "Gerencie seu perfil e preferências".
 - Botões: "Voltar" (retorna ao dashboard conforme role), "Sair" (logout).
 
-Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Gerente Geral e Gerente de SCI)
-
-**Para Gerente de SCI:** O Select de Base vem travado na base dele e desabilitado — gerencia apenas os colaboradores da sua base.
-
+Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Apenas Gerente Geral)
 Objetivo: Cadastrar e gerenciar o efetivo (bombeiros/colaboradores) de cada base.
 
 Estrutura da Página:
-Topo: Select para escolher a Base (travado e desabilitado para Gerente de SCI).
+Topo: Select grande para escolher a Base que deseja gerenciar.
 Meio: Tabela listando os colaboradores da base selecionada (Colunas: Nome | Status | Ações).
 Botão de Ação: "Novo Colaborador" (após selecionar uma base).
 
@@ -590,10 +514,6 @@ Integração:
 - **Conteúdo Principal (Centro):** Área dinâmica que muda conforme a visão selecionada
 - **Barra de Filtros (Topo do Conteúdo):** Filtros específicos para cada visão usando componente `AnalyticsFilterBar`
 
-**Monitoramento em Tempo Real e Modo Monitor (características nativas de todos os módulos analíticos):**
-- **Realtime:** A página Analytics inscreve-se nas mudanças da tabela `lancamentos` (INSERT, UPDATE, DELETE). Qualquer alteração dispara a revalidação das queries (TanStack Query), atualizando automaticamente todos os sub-dashboards (Ocorrências, TAF, Treinamento, Estoque, etc.) sem necessidade de recarregar a página. A inscrição é limpa ao sair da página para evitar vazamento de memória. As queries usam `placeholderData` para evitar "piscar" em branco durante a atualização.
-- **Modo Monitor (Modo TV):** Botão no header ativa tela cheia (Full Screen API). Em modo tela cheia, header e sidebar são ocultados, a barra de filtros é oculta, e o conteúdo exibe um badge "📡 MONITORAMENTO EM TEMPO REAL — [NOME DA BASE]" e layout em coluna única para gráficos grandes e legíveis à distância. Botão "Sair do Modo Monitor" ou tecla ESC restaura o layout normal.
-
 **Filtros Dinâmicos (AnalyticsFilterBar):**
 - **Filtros Globais (Sempre presentes):**
   1. **Base:** Select com opção "Todas as bases" + lista de bases
@@ -633,10 +553,10 @@ Quatro cards no topo usando Card do shadcn/ui:
    - Formato: "X ocorrências" + "% de crescimento vs período anterior"
 
 2. **Agilidade (Tempo Resposta):**
-   - Valor: Valor referência global dos tempos de resposta convertida para formato mm:ss
+   - Valor: Média global dos tempos de resposta convertida para formato mm:ss
    - Cor condicional:
-     - Verde: Se índice de agilidade < 3 minutos
-     - Amarelo: Se índice de agilidade ≥ 3 minutos
+     - Verde: Se tempo médio < 3 minutos
+     - Amarelo: Se tempo médio ≥ 3 minutos
    - Badge: "Meta atingida" (verde) ou "Atenção necessária" (amarelo)
    - Ícone: Clock com cor correspondente
 
@@ -659,11 +579,11 @@ Gráfico misto usando Recharts (Barra + Linha combinados):
 - **Barra (Eixo Y Esquerdo):** Volume de Ocorrências (soma de Aero + Não Aero por mês)
   - Cor: Laranja (#fc4d00)
   - Nome: "Ocorrências"
-- **Linha (Eixo Y Direito):** Agilidade de Resposta (valor referência dos tempos de resposta por mês)
+- **Linha (Eixo Y Direito):** Tempo Médio de Resposta (média dos tempos de resposta por mês)
   - Cor: Verde (#22c55e)
-  - Nome: "Agilidade"
+  - Nome: "Tempo Médio"
   - Formato do eixo: mm:ss
-- **Objetivo:** Cruzar demanda (ocorrências) vs eficiência (agilidade de resposta) para identificar correlações
+- **Objetivo:** Cruzar demanda (ocorrências) vs eficiência (tempo de resposta) para identificar correlações
 
 #### 3. Painéis de Gestão por Exceção (Grid Inferior)
 Dividido em dois painéis lado a lado:
@@ -711,12 +631,12 @@ Dividido em dois painéis lado a lado:
     *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.acao`
 *   **KPIs (Focados em Tempos de Resposta e Tipo de Ação - Críticos para ANAC):**
     *   **Total Ocorrências:** Contagem simples de ocorrências no período
-    *   **Performance de Resposta (1º CCI):** Valor referência do campo `tempo_chegada_1_cci`, formatado em mm:ss. Este é o KPI mais importante para monitoramento de performance operacional.
+    *   **Tempo Médio Resposta (1º CCI):** Média do campo `tempo_chegada_1_cci`, formatado em mm:ss. Este é o KPI mais importante para monitoramento de performance operacional.
     *   **Pior Tempo Resposta (1º CCI):** Valor máximo encontrado no período, ajuda a identificar falhas e gargalos operacionais.
     *   **% de Intervenções:** Porcentagem das ocorrências onde `acao === 'Intervenção'`, indicador crítico para análise de perfil operacional.
 *   **Gráficos:**
     *   **[Donut Chart] Perfil da Operação:** Distribuição entre "Posicionamento" vs "Intervenção" (campo `acao`). Cores: Azul para Posicionamento, Laranja para Intervenção.
-    *   **[Line Chart] Agilidade da Equipe:** Eixo X = Meses (ordenados cronologicamente: Jan, Fev, Mar...), Eixo Y = Performance de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
+    *   **[Line Chart] Agilidade da Equipe:** Eixo X = Meses (ordenados cronologicamente: Jan, Fev, Mar...), Eixo Y = Tempo Médio de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
     *   **[Bar Chart Horizontal] Mapa de Calor de Locais:** Agrupa ocorrências pelo campo `local`. Barras horizontais para legibilidade dos nomes dos locais (ex: "Cabeceira 29") no eixo Y. Ordenado do maior para o menor (Top 5).
 *   **Tabela Detalhada:**
     *   Colunas críticas: Data | Base | Ação | Local | Chegada 1º CCI | Chegada Últ. CCI
@@ -727,19 +647,17 @@ Dividido em dois painéis lado a lado:
     *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.tipo_ocorrencia`
 *   **KPIs:**
     *   Total de Ocorrências
-    *   Tempo de Atendimento Típico
-    *   Eficiência de Chegada
+    *   Total Horas Somadas
 *   **Gráficos:**
     *   [Linha] Evolução Mensal
     *   [Barras Horizontais] Top 5 Tipos (Contagem por tipo_ocorrencia)
-    *   [Barras Horizontais] Eficiência por Tipo (Eficiência de Chegada por Tipo de Ocorrência)
 
 #### 3. Atividades Acessórias
 *   **KPIs (Focados em Produtividade e Gestão de Tempo):**
     *   **Total de Atividades:** Contagem simples de atividades realizadas no período
     *   **Total de Horas Empenhadas:** Soma de todo o `tempo_gasto` formatado em HH:mm. Justifica o salário da equipe e mostra o esforço total investido.
     *   **Equipamentos Inspecionados:** Soma do campo `qtd_equipamentos`. Indica o volume de trabalho realizado em inspeções.
-    *   **Efetivo Empenhado por Atividade:** Valor referência do campo `qtd_bombeiros` (arredondado). Mostra o tamanho típico da equipe mobilizada para as atividades.
+    *   **Média de Bombeiros:** Média do campo `qtd_bombeiros` (arredondado). Mostra o tamanho médio da equipe mobilizada para as atividades.
 *   **Gráficos:**
     *   **[Donut Chart] Onde gastamos nosso tempo?:** Soma de `tempo_gasto` agrupado por `tipo_atividade`. Mostra qual atividade consome mais horas do plantão (Esforço), diferente de qual acontece mais vezes (Frequência). Gráfico de Rosca com legenda clara e porcentagens escritas.
     *   **[Bar Chart Horizontal] Ranking de Frequência:** Melhoria do gráfico "Atividades por Tipo". Barras horizontais para legibilidade dos nomes longos (ex: "Inspeção de extintores e mangueiras...") no eixo Y. Ordenado do mais frequente para o menos frequente.
@@ -760,11 +678,11 @@ Dividido em dois painéis lado a lado:
     *   **Total Avaliados:** Contagem total de pessoas avaliadas no período
     *   **Taxa de Aprovação:** Porcentagem (Verde se > 90%). Subtítulo: "X Aprovados / Y Reprovados"
     *   **Melhor Tempo (Recorde):** O menor tempo registrado no período
-    *   **Índice de Performance Física:** Valor referência de todos os tempos
+    *   **Tempo Médio Geral:** A média de todos os tempos
 *   **Gráficos:**
     *   **[Donut Chart] Status de Aprovação:** Distribuição "Aprovado" (Verde primary) vs "Reprovado" (Vermelho destructive). % de Aprovação no centro da rosca em destaque.
-    *   **[Line Chart] Evolução do Condicionamento:** Eixo X = Meses (ordenados cronologicamente - CORRIGIDO). Eixo Y = Índice de Performance Física em minutos. Insight: Se a linha estiver descendo, o time está ficando mais rápido/forte.
-    *   **[Bar Chart] Performance por Faixa Etária:** Agrupa avaliados em faixas: "Até 30 anos", "31-40 anos", "Acima de 40". Mostra o Índice de Performance Física de cada grupo. Identifica se o envelhecimento da tropa está impactando o tempo de resposta.
+    *   **[Line Chart] Evolução do Condicionamento:** Eixo X = Meses (ordenados cronologicamente - CORRIGIDO). Eixo Y = Tempo Médio em minutos. Insight: Se a linha estiver descendo, o time está ficando mais rápido/forte.
+    *   **[Bar Chart] Performance por Faixa Etária:** Agrupa avaliados em faixas: "Até 30 anos", "31-40 anos", "Acima de 40". Mostra o Tempo Médio de cada grupo. Identifica se o envelhecimento da tropa está impactando o tempo de resposta.
     *   **[Bar Chart] Distribuição de Notas:** Mostra quantos bombeiros tiraram Nota 10, Nota 9, Nota 8, etc. Indica a "Qualidade" da aprovação (passaram raspando ou sobraram?).
 *   **Tabela de Resultados:**
     *   Colunas: Data | Nome | Idade | Tempo | Nota/Status
@@ -781,14 +699,14 @@ Dividido em dois painéis lado a lado:
     *   *Comportamento:* Se um colaborador for selecionado, os gráficos e KPIs mostram apenas o histórico dele
 *   **KPIs (Focados em Análise de Conhecimento):**
     *   **Total Avaliados:** Contagem total de pessoas avaliadas no período
-    *   **Nível de Conhecimento Global:** Valor referência de todas as notas (1 ou 2 casas decimais)
+    *   **Nota Média Geral:** Média de todas as notas (1 ou 2 casas decimais)
     *   **Taxa de Aprovação:** % de pessoas com nota >= 8.0 (Verde se > 80%). Subtítulo: "X Aprovados / Y Reprovados"
     *   **Nota Máxima:** A maior nota tirada no período (ex: 10.0)
 *   **Gráficos:**
     *   **[Donut Chart] Status de Aprovação (Corrigido):** Aprovado (Verde) vs Reprovado (Vermelho). Reflete a realidade baseada na regra >= 8.0. % de Aprovação no centro.
-    *   **[Bar Chart] Distribuição de Notas (Histograma - NOVO):** Agrupa notas em faixas qualitativas: "Excelência (9.0 - 10.0)", "Na Média (8.0 - 8.9)", "Abaixo da Média (< 8.0)". Mostra se o nível alto é porque todos são bons ou se tem gente tirando 10 e gente tirando 5.
-    *   **[Bar Chart] Ranking de Conhecimento por Equipe (NOVO):** Eixo Y = Equipes (Alfa, Bravo, etc). Eixo X = Nível de Conhecimento da Equipe. Descobre qual equipe está estudando mais.
-    *   **[Line Chart] Evolução do Conhecimento (CORRIGIDO):** Eixo X = Meses (ordenados cronologicamente). Eixo Y = Nível de Conhecimento Mensal.
+    *   **[Bar Chart] Distribuição de Notas (Histograma - NOVO):** Agrupa notas em faixas qualitativas: "Excelência (9.0 - 10.0)", "Na Média (8.0 - 8.9)", "Abaixo da Média (< 8.0)". Mostra se a média alta é porque todos são bons ou se tem gente tirando 10 e gente tirando 5.
+    *   **[Bar Chart] Ranking de Conhecimento por Equipe (NOVO):** Eixo Y = Equipes (Alfa, Bravo, etc). Eixo X = Nota Média da Equipe. Descobre qual equipe está estudando mais.
+    *   **[Line Chart] Evolução do Conhecimento (CORRIGIDO):** Eixo X = Meses (ordenados cronologicamente). Eixo Y = Nota Média Mensal.
 *   **Tabela de Resultados:**
     *   Colunas: Data | Nome | Equipe | Nota | Status (Badge Verde/Vermelho)
     *   Permite ordenar por Nota (Descrescente) para ver os "01" (melhores alunos). Botão de ordenação com ícone de setas.
@@ -807,11 +725,11 @@ Dividido em dois painéis lado a lado:
     *   **Efetivo Total Analisado:** Quantidade de bombeiros únicos no período
     *   **Efetivo Apto (>=16h):** Quantidade e % (Cor Verde). Indica bombeiros que cumpriram a meta.
     *   **Efetivo Irregular (<16h):** Quantidade e % (Cor Vermelha). Este é o KPI crítico para identificar não conformidades.
-    *   **Carga Horária de Qualificação:** Valor referência global para ver se a corporação como um todo está acima de 16h.
+    *   **Média de Horas Geral:** Média global para ver se a corporação como um todo está acima de 16h.
 *   **Gráficos:**
     *   **[Donut Chart] Situação da Tropa:** Mostra a proporção de Conforme (Verde) vs Não Conforme (Vermelho). No centro ou legenda, destaca a % de Conformidade.
     *   **[Bar Chart] Distribuição de Carga Horária (Histograma):** Agrupa colaboradores em faixas: "0-8h", "8-15h", "16-24h", "25h+". Eixo X = Faixas, Eixo Y = Quantidade de Bombeiros. Insight: Mostra se a maioria dos irregulares está "quase lá" (8-15h) ou "críticos" (0-8h).
-    *   **[Bar Chart] Desempenho por Equipe (com Reference Line):** Eixo X = Equipes (Alfa, Bravo, etc). Eixo Y = Carga Horária de Qualificação da Equipe. IMPORTANTE: Linha de referência vermelha tracejada em 16h. As barras que ficarem abaixo da linha indicam equipes que não bateram a meta coletiva.
+    *   **[Bar Chart] Desempenho por Equipe (com Reference Line):** Eixo X = Equipes (Alfa, Bravo, etc). Eixo Y = Média de Horas da Equipe. IMPORTANTE: Linha de referência vermelha tracejada em 16h. As barras que ficarem abaixo da linha indicam equipes que não bateram a meta coletiva.
 *   **Remoção:** Todas as menções a Ranking foram removidas. O dashboard agora foca exclusivamente no Compliance da Meta de 16h/mês.
 
 #### 7. Inspeção de Viaturas
@@ -835,13 +753,13 @@ Dividido em dois painéis lado a lado:
 *   **KPIs (Cards de Topo):**
     *   **Total de Avaliações:** Contagem de pessoas avaliadas no período.
     *   **Taxa de Prontidão (%):** Porcentagem de bombeiros que fizeram abaixo de 59s (Verde se ≥ 90%).
-    *   **Performance de Prontidão:** Valor referência de todos os tempos registrados (formato mm:ss).
+    *   **Tempo Médio Geral:** Média de todos os tempos registrados (formato mm:ss).
     *   **Recorde (Menor Tempo):** Mostra o tempo mais rápido E o nome do colaborador + Equipe (Ex: "00:34 - Sd. Silva (Alfa)").
 *   **Gráficos:**
     *   **[Donut Chart] Aderência à Meta:** Mostra a proporção de "Dentro da Meta (≤59s)" vs "Acima da Meta (>59s)". Cores: Verde (Dentro) e Vermelho (Acima). Exibe a % de Prontidão no centro.
-    *   **[Bar Chart] Performance por Equipe com Linha de Corte:** Eixo X: Equipes (nomes, não UUIDs). Eixo Y: Performance de Prontidão (em segundos, formatado como mm:ss). **Destaque:** Linha de Referência vermelha tracejada em 60 segundos (meta de 59s). Equipes que passam dessa linha precisam treinar mais.
+    *   **[Bar Chart] Performance por Equipe com Linha de Corte:** Eixo X: Equipes (nomes, não UUIDs). Eixo Y: Tempo Médio (em segundos, formatado como mm:ss). **Destaque:** Linha de Referência vermelha tracejada em 60 segundos (meta de 59s). Equipes que passam dessa linha precisam treinar mais.
     *   **[Bar Chart] Distribuição de Tempos (Histograma):** Agrupa os tempos em faixas de 10 segundos: "30-40s", "41-50s", "51-59s" (Faixa Segura), "1m-1m10s", "1m10s+" (Faixa de Risco). Eixo Y: Quantidade de Bombeiros. Insight: Mostra a consistência da tropa.
-    *   **[Line Chart] Evolução Mensal:** Performance de Prontidão Mensal ao longo do tempo. **Correção:** Ordenação cronológica correta (Janeiro antes de Fevereiro). Eixo Y formatado como mm:ss.
+    *   **[Line Chart] Evolução Mensal:** Tempo Médio Mensal ao longo do tempo. **Correção:** Ordenação cronológica correta (Janeiro antes de Fevereiro). Eixo Y formatado como mm:ss.
 *   **Lógica de Cálculo:**
     *   Para cada registro individual (dentro do array `avaliados`), o status é calculado dinamicamente:
         *   Tempo ≤ 59 segundos (00:59) → **Aprovado**
@@ -852,12 +770,12 @@ Dividido em dois painéis lado a lado:
 *   **Objetivo:** Medir a eficiência das viaturas e a consistência dos tempos de resposta. Foco em identificar problemas mecânicos e garantir agilidade operacional. **Não há ranking de motoristas** - a análise é focada na performance das viaturas.
 *   **KPIs (Cards de Topo):**
     *   **Menor Tempo (Recorde):** Exibe o Tempo e a Viatura (ex: "01:50 - CCI 01").
-    *   **Índice de Agilidade Operacional:** Valor referência de todas as aferições registradas.
+    *   **Tempo Médio Geral:** Média de todas as aferições registradas.
     *   **Maior Tempo (Alerta):** O tempo mais lento registrado com a viatura correspondente. Indica falha grave ou problema mecânico.
     *   **Total de Exercícios:** Quantidade total de aferições realizadas no período.
 *   **Gráficos:**
-    *   **[Bar Chart] Performance por Viatura:** Substitui qualquer ranking de motoristas. Eixo X: Viaturas (CCI 01, CCI 02, etc). Eixo Y: Índice de Agilidade Operacional de cada viatura. Insight: Identifica se algum caminhão está mecanicamente mais lento que os outros, independente de quem dirige.
-    *   **[Line Chart] Curva de Agilidade:** Eixo X: Meses (Ordenados Corretamente - ordenação cronológica corrigida). Eixo Y: Índice de Agilidade Operacional Mensal. **Linha de Referência:** Adicionada linha vermelha tracejada em 3:00 (meta padrão de segurança).
+    *   **[Bar Chart] Performance por Viatura:** Substitui qualquer ranking de motoristas. Eixo X: Viaturas (CCI 01, CCI 02, etc). Eixo Y: Tempo Médio de cada viatura. Insight: Identifica se algum caminhão está mecanicamente mais lento que os outros, independente de quem dirige.
+    *   **[Line Chart] Curva de Agilidade:** Eixo X: Meses (Ordenados Corretamente - ordenação cronológica corrigida). Eixo Y: Tempo Médio Mensal. **Linha de Referência:** Adicionada linha vermelha tracejada em 3:00 (meta padrão de segurança).
     *   **[Donut Chart] Consistência:** Classifica os tempos em três faixas: "Excelente (< 2min)" (Verde), "Bom (2min - 3min)" (Amarelo), "Crítico (> 3min)" (Vermelho). Mostra a proporção dessas faixas para avaliar a consistência da frota.
 *   **Lógica de Processamento:**
     *   Todos os tempos são convertidos de mm:ss para segundos para realizar os cálculos.
@@ -1029,77 +947,6 @@ Com as otimizações implementadas, o sistema deve suportar:
 
 ---
 
-## 10. Módulo de Relatórios e Exportação (Explorador de Dados)
-
-**Objetivo:** Fornecer ao Gerente Geral uma ferramenta de auditoria completa com capacidade de exportação para análise externa em Excel/CSV.
-
-**Acesso:**
-- Rota: `/dashboard/explorer`
-- Permissão: Apenas `role='geral'` (Gerente Geral)
-- Acesso via card "Explorador de Dados" no Dashboard Gerencial
-
-**Estrutura da Tela:**
-
-1. **Filtros Globais (Topo):**
-   - Base: Select com todas as bases (opção "Todas as Bases")
-   - Equipe: Select com todas as equipes (opção "Todas as Equipes")
-   - Indicador: Select com todos os 14 indicadores (opção "Todos os Indicadores")
-   - Data Início: Input tipo `date` (formato YYYY-MM-DD)
-   - Data Fim: Input tipo `date` (formato YYYY-MM-DD)
-   - Validação: Intervalo máximo de 12 meses (mesma regra do Analytics)
-   - Botão "Limpar Filtros": Reseta todos os filtros para valores padrão
-
-2. **Botão de Exportação (Meio):**
-   - Botão primário: "Exportar Resultados (.csv)"
-   - Ícone: Download (Lucide-react)
-   - Funcionalidade:
-     - Busca todos os lançamentos filtrados (sem paginação)
-     - Limite: Máximo 1000 linhas por exportação (para evitar sobrecarga)
-     - Aplana (flatten) dados JSONB para formato tabular
-     - Gera arquivo CSV com BOM UTF-8 (compatível com Excel)
-     - Dispara download automático: `relatorio_indicadores_[DDMMAAAA].csv`
-   - Estado: Desabilitado durante exportação e quando não há dados
-
-3. **Tabela de Auditoria (Baixo):**
-   - Paginação Server-side: 20 registros por página
-   - Colunas:
-     - **ID**: Primeiros 8 caracteres do UUID (para referência)
-     - **Data/Hora Registro**: `created_at` formatado (DD/MM/YYYY HH:mm:ss) - mostra quando foi lançado
-     - **Data Referência**: `data_referencia` formatada (DD/MM/YYYY) - data do fato
-     - **Usuário**: Nome do usuário que fez o lançamento (busca na tabela `profiles`)
-     - **Base**: Nome da base (busca na tabela `bases`)
-     - **Equipe**: Nome da equipe (busca na tabela `equipes`)
-     - **Indicador**: Nome do indicador (busca na tabela `indicadores_config`)
-     - **Ações**: Botão "Ver Detalhes" que abre modal com formulário em modo read-only
-   - Paginação: Controles "Anterior" e "Próximo" com informação "Página X de Y (Z lançamentos)"
-
-**Funcionalidade de Exportação CSV:**
-
-- **Utilitário:** `src/lib/export-utils.ts`
-- **Flattening de Dados:**
-  - Indicadores Simples (ex: Estoque): Uma linha por lançamento com colunas específicas do tipo
-  - Indicadores com Arrays (ex: TAF, Prova Teórica): Uma linha por item do array, repetindo dados do cabeçalho
-  - Campos Comuns: ID, Data/Hora Registro, Data Referência, Usuário, Base, Equipe, Indicador
-  - Campos Específicos: Adicionados conforme o tipo de indicador (ex: `po_quimico_atual`, `nome`, `nota`, etc.)
-- **Formato CSV:**
-  - Encoding: UTF-8 com BOM (para Excel reconhecer acentos)
-  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente
-  - Headers: Primeira linha contém nomes das colunas
-- **Limitações:**
-  - Máximo 1000 registros por exportação (para evitar timeout)
-  - Aviso exibido se total de registros exceder o limite
-
-**Modal de Visualização:**
-
-- Ao clicar em "Ver Detalhes", abre modal com:
-  - Formulário do indicador em modo `readOnly={true}`
-  - Mesma estrutura visual dos formulários de lançamento
-  - Botão "Fechar" para retornar à tabela
-
-**Arquivos Implementados:**
-- `src/pages/DataExplorer.tsx` - Página principal do Explorador
-- `src/lib/export-utils.ts` - Utilitários de exportação CSV com flattening
-
 ## 10. Módulo de Monitoramento de Aderência (Compliance)
 
 **Conceito:** Ferramenta de auditoria para identificar quais bases estão cumprindo a rotina de lançamentos e engajamento no uso do sistema.
@@ -1137,7 +984,7 @@ Com as otimizações implementadas, o sistema deve suportar:
 - Regra: Verifica se existe pelo menos 1 lançamento no Mês Atual.
 - Visual: ✅ (Verde) se tem no mês | 🟡 (Amarelo) se não tem e mês aberto | 🔴 (Vermelho) se virou o mês e não teve.
 
-## 11. Correções e Melhorias Implementadas
+## 10. Correções e Melhorias Implementadas
 
 ### 9.1. Nova Tabela: colaboradores
 - Criada tabela para armazenar o efetivo das bases.
@@ -1366,12 +1213,12 @@ Com as otimizações implementadas, o sistema deve suportar:
   - **KPIs Refatorados:**
     - Substituídos cards genéricos por KPIs focados em performance operacional:
       - Total Ocorrências (contagem simples)
-      - Performance de Resposta (1º CCI): Valor referência do campo `tempo_chegada_1_cci`, formatado em mm:ss (KPI mais importante)
+      - Tempo Médio Resposta (1º CCI): Média do campo `tempo_chegada_1_cci`, formatado em mm:ss (KPI mais importante)
       - Pior Tempo Resposta (1º CCI): Valor máximo encontrado no período (identifica falhas)
       - % de Intervenções: Porcentagem onde `acao === 'Intervenção'`
   - **Gráficos Implementados:**
     1. **Perfil da Operação (Donut Chart):** Distribuição entre "Posicionamento" vs "Intervenção" (campo `acao`). Cores: Azul (#3b82f6) para Posicionamento, Laranja (#fc4d00) para Intervenção.
-    2. **Agilidade da Equipe (Line Chart):** Eixo X = Meses (ordenados cronologicamente), Eixo Y = Performance de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
+    2. **Agilidade da Equipe (Line Chart):** Eixo X = Meses (ordenados cronologicamente), Eixo Y = Tempo Médio de Resposta (em segundos convertidos para mm:ss). Tooltip mostra tempo formatado "mm:ss" ao passar o mouse.
     3. **Mapa de Calor de Locais (Bar Chart Horizontal):** Agrupa ocorrências pelo campo `local`. Barras horizontais para legibilidade dos nomes dos locais no eixo Y. Ordenado do maior para o menor (Top 5).
   - **Tabela Detalhada:**
     - Adicionada tabela com colunas críticas: Data | Base | Ação | Local | Chegada 1º CCI | Chegada Últ. CCI
@@ -1494,91 +1341,3 @@ Com as otimizações implementadas, o sistema deve suportar:
   - src/lib/analytics-utils.ts (refatoração completa de `processHorasTreinamento` com agregação por colaborador, classificação de conformidade e novos gráficos)
   - src/components/charts/BarChart.tsx (adicionado suporte para `ReferenceLine` para exibir linha de referência em gráficos)
   - src/pages/DashboardAnalytics.tsx (atualização completa da seção de Treinamento com novos KPIs de conformidade e gráficos focados em compliance)
-
-### 9.24. Módulo Suporte / Feedback (Administrador) e Ajustes no Dashboard Administrador
-- **OBJETIVO:** Permitir que o administrador visualize todos os feedbacks enviados pelos usuários (via Configurações > Suporte/Feedback) e registre as tratativas realizadas; ajustar o header do Dashboard Administrador.
-- **IMPLEMENTAÇÃO:**
-  1. **Dashboard Administrador (Tela 3):**
-     - Header: Removida a palavra "geral" (ou role) ao lado do nome do usuário. Agora exibe apenas o nome do usuário no subtítulo do header.
-     - Novo card "Suporte / Feedback": Ícone MessageSquare. Descrição: "Veja os feedbacks enviados pelos usuários e dê as tratativas". Botão "Acessar Suporte" navega para `/suporte`. Badge exibe a quantidade de feedbacks pendentes (status = 'pendente') quando > 0 (ex.: "3 pendentes").
-  2. **Nova tela: Suporte / Feedback (/suporte):**
-     - Rota: `/suporte`. Protegida para role `geral` (Gerente Geral).
-     - Filtro por status: Todos, Pendente, Em Andamento, Resolvido, Fechado.
-     - Tabela: Data, Usuário (nome do perfil), Tipo (Bug/Sugestão/Outros), Mensagem (resumo), Ação (botão Ver), Status (select para alterar), Tipo de tratativa (select). Larguras mínimas nos selects para evitar texto cortado (Status: min-w 170px; Tipo de tratativa: min-w 260px).
-     - Coluna "Tipo de tratativa": Select com opções: Selecione a tratativa, Correção aplicada, Em análise, Respondido ao usuário, Fechado sem alteração, Outros. Valor persistido na coluna `tratativa_tipo` da tabela `feedbacks`.
-     - Botão "Ver" (coluna Ação): Abre modal com detalhe completo do feedback (data, usuário, tipo, status, tipo de tratativa se houver, mensagem completa em área com scroll). Fechar por botão ou clique no fundo.
-     - Paginação: "Mostrando X a Y de Z feedback(s)"; select "Itens por página" (5, 10, 20, 50, padrão 10); botões Anterior/Próxima; "Página N de M". Ao alterar filtro ou itens por página, página volta para 1.
-     - Tratamento de erro: Exibição de mensagem amigável quando a query de feedbacks falha (ex.: permissão RLS). Evitada query `.in('id', [])` quando não há feedbacks (lista vazia de user_ids).
-  3. **Banco de dados:**
-     - Tabela `feedbacks`: adicionada coluna `tratativa_tipo` (TEXT, opcional). Migration: `supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql`.
-     - RLS: Política "Gerentes Gerais podem atualizar feedbacks" (FOR UPDATE) para permitir que administradores atualizem `status` e `tratativa_tipo`.
-  4. **Tipos:** `database.types.ts` atualizado com `tratativa_tipo` em Row, Insert e Update da tabela `feedbacks`.
-- **Arquivos criados:**
-  - src/pages/Suporte.tsx (página completa de suporte com listagem, filtro, paginação, modal de detalhe, atualização de status e tratativa_tipo)
-  - supabase/migrations/009_add_tratativa_tipo_to_feedbacks.sql (coluna tratativa_tipo e política UPDATE)
-- **Arquivos modificados:**
-  - src/App.tsx (rota /suporte com lazy load e ProtectedRoute para 'geral')
-  - src/pages/DashboardGerente.tsx (card Suporte/Feedback, query de feedbacks pendentes, ícone MessageSquare)
-  - src/lib/database.types.ts (tratativa_tipo em feedbacks)
-  - docs/PRD.md (seção 4 feedbacks com tratativa_tipo e UPDATE; Tela 3 com header e card Suporte; nova Tela Suporte/Feedback; item 9.24)
-
-### 9.25. Acentuação dos Nomes das Bases (Banco e Frontend)
-- **OBJETIVO:** Exibir os nomes das bases com grafia correta em português (acentuação) em todos os modais e listas do sistema.
-- **IMPLEMENTAÇÃO:**
-  1. **Banco de dados:** Migration `010_fix_bases_acentuacao.sql` atualiza os nomes na tabela `bases`: BELEM → BELÉM, BRASILIA → BRASÍLIA, CARAJAS → CARAJÁS, CUIABA → CUIABÁ, GOIANIA → GOIÂNIA, JACAREPAGUA → JACAREPAGUÁ, JOINVILE → JOINVILLE, MACAE → MACAÉ, MACAPA → MACAPÁ, MACEIO → MACEIÓ, MARABA → MARABÁ, SANTAREM → SANTARÉM, SÃO LUIZ → SÃO LUÍS, VITORIA → VITÓRIA. A base ADMINISTRATIVO permanece sem alteração.
-  2. **Schema:** O arquivo `supabase/schema.sql` foi atualizado para que o INSERT inicial das 34 bases utilize a grafia com acentuação correta (para novos ambientes).
-- **Arquivos criados:** supabase/migrations/010_fix_bases_acentuacao.sql
-- **Arquivos modificados:** supabase/schema.sql
-
-### 9.26. Botão Limpar Filtros no Dashboard Analytics
-- **OBJETIVO:** Permitir que o usuário resete todos os filtros da barra de Analytics (Base, Equipe, Data Início/Fim, Colaborador, Tipo de Ocorrência) em um único clique.
-- **IMPLEMENTAÇÃO:**
-  1. **AnalyticsFilterBar:** Nova prop opcional `onClearFilters?: () => void`. Botão "Limpar filtros" (ícone RotateCcw) exibido abaixo da grade de filtros, alinhado à direita, quando a prop é passada.
-  2. **DashboardAnalytics:** Função `handleClearFilters` que redefine: Data Início/Fim para o intervalo padrão (mês atual via `getDefaultDateRange()`), Equipe e Colaborador para vazio, Tipo de Ocorrência (aero e não aero) para vazio; Base para vazio apenas para Gerente (Chefe mantém a base fixa).
-- **Arquivos modificados:** src/components/AnalyticsFilterBar.tsx, src/pages/DashboardAnalytics.tsx
-
-### 9.27. Ordenação do Histórico de Lançamentos (Último Lançado no Topo)
-- **OBJETIVO:** Exibir no Histórico de Lançamentos sempre o último indicador lançado (mais recente por `created_at`) no topo da lista.
-- **IMPLEMENTAÇÃO:**
-  1. **useLancamentos:** Todas as queries (principal, busca por texto e fallback RPC) passaram a ordenar por `data_referencia` descendente e `created_at` descendente (antes era ascendente), garantindo que o lançamento mais recente apareça primeiro dentro da mesma data.
-  2. **HistoryTable:** O `useMemo` de ordenação no cliente foi ajustado para, na mesma data, ordenar por `created_at` descendente (`(b.created_at).localeCompare(a.created_at)`).
-- **Arquivos modificados:** src/hooks/useLancamentos.ts, src/components/HistoryTable.tsx
-
-### 9.28. Responsividade Mobile (Layout e Headers)
-- **OBJETIVO:** Melhorar a experiência em telas pequenas (celulares e tablets) em todas as dashboards e telas principais.
-- **IMPLEMENTAÇÃO:**
-  1. **Dashboard Analytics:**
-     - Sidebar em drawer no mobile: Em telas &lt; 1024px (lg), a sidebar fica oculta e é aberta por um botão de menu (ícone Menu) no header. Backdrop escuro fecha o drawer ao clicar fora. Botão X dentro do drawer para fechar. Ao selecionar uma opção do menu, o drawer fecha automaticamente (`setViewAndCloseSidebar`).
-     - Sidebar: Em mobile é fixa (`fixed inset-y-0 left-0 z-50`), com transição de entrada/saída (`translate-x`). Em desktop (lg+) permanece no fluxo (`lg:relative`, `lg:translate-x-0`).
-     - Header: Botão hambúrguer visível apenas em mobile (`lg:hidden`), logo e título com tamanhos responsivos (`text-lg sm:text-2xl`, `h-8 sm:h-10`), padding do conteúdo `p-4 sm:p-6`, `min-w-0` no main para evitar overflow.
-  2. **Dashboard Chefe:** Header com título "Dashboard - Chefe" em mobile, logo e texto responsivos (`text-lg sm:text-2xl`, `h-8 sm:h-10`), botão "Painel de Indicadores" abreviado para "Painel" no mobile com `size="sm"`. Main com `py-6 sm:py-8` e `min-w-0`.
-  3. **Dashboard Gerente:** Header com título "Dashboard - Admin", logo e texto responsivos (mesmo padrão do Chefe).
-  4. **Histórico de Lançamentos (HistoryTable):** Paginação em coluna no mobile (`flex-col sm:flex-row`) com botões acima do texto; toolbar de filtros já em grid responsivo (`grid-cols-1 md:grid-cols-4`).
-  5. **Login:** Container com `p-4` na página e `px-4 sm:px-6` no card para evitar conteúdo colado nas bordas em mobile.
-- **Arquivos modificados:** src/pages/DashboardAnalytics.tsx, src/pages/DashboardChefe.tsx, src/pages/DashboardGerente.tsx, src/components/HistoryTable.tsx, src/pages/Login.tsx
-
-### 9.29. Realtime e Modo Monitor (Monitoramento em Tempo Real — Todos os Módulos Analíticos)
-- **OBJETIVO:** Disponibilizar monitoramento em tempo real e "Modo TV" em todas as visualizações analíticas do sistema, com atualização automática dos dados e layout otimizado para exibição em tela cheia (monitores/salas).
-- **IMPLEMENTAÇÃO:**
-  1. **Realtime (Banco de Dados):**
-     - A tabela `lancamentos` foi adicionada à publicação `supabase_realtime` para permitir inscrição em mudanças (INSERT, UPDATE, DELETE). Migration: `supabase/migrations/011_enable_realtime_lancamentos.sql`.
-  2. **Hook useRealtimeSync:**
-     - Novo hook `src/hooks/useRealtimeSync.ts` que se inscreve no canal de mudanças da tabela `lancamentos` (postgres_changes). Ao detectar qualquer evento (INSERT, UPDATE, DELETE), dispara `queryClient.invalidateQueries` para as chaves `lancamentos` e `lancamentos-todos`, garantindo que todos os sub-dashboards (Ocorrências, TAF, Treinamento, Estoque, etc.) sejam atualizados automaticamente.
-     - A inscrição é removida no unmount (cleanup) para evitar vazamento de memória quando o usuário sai da página Analytics.
-  3. **Prevenção de "piscar" (placeholderData):**
-     - Nas queries de lançamentos usadas no Analytics foi aplicado `placeholderData: (prev) => prev` (TanStack Query): no hook `useLancamentos` e na query `lancamentos-todos` em DashboardAnalytics. Assim, durante a revalidação após um evento Realtime, os gráficos mantêm os dados anteriores até os novos carregarem, sem tela em branco.
-  4. **Modo Monitor (Modo TV):**
-     - Botão "Modo Monitor" no header do Dashboard Analytics (ícone Monitor + texto em telas maiores). Ao clicar, ativa a Full Screen API do navegador (`document.documentElement.requestFullscreen()`).
-     - Quando em modo tela cheia: Header e Sidebar são ocultados (`display: none` via condicional); barra de filtros oculta; área de conteúdo com padding reduzido (`p-2 sm:p-4`), largura total (`max-w-none`).
-     - Badge fixo no topo do conteúdo: "📡 MONITORAMENTO EM TEMPO REAL — [NOME DA BASE]" (nome da base atual ou "Todas as bases"), com botão "Sair do Modo Monitor" para sair da tela cheia.
-     - Classe CSS `.monitor-mode` aplicada ao container de conteúdo: grids internos forçados a uma coluna (`grid-template-columns: repeat(1, minmax(0, 1fr))`) para que os gráficos fiquem grandes e legíveis à distância.
-     - Sincronização com o evento `fullscreenchange`: se o usuário sair da tela cheia (ex.: tecla ESC), o estado `isMonitorMode` é atualizado e header/sidebar voltam a ser exibidos.
-  5. **Escopo:** O hook `useRealtimeSync` é chamado na página pai do Analytics (`DashboardAnalytics.tsx`), portanto todos os sub-dashboards (Visão Geral, Ocorrência Aeronáutica, Ocorrência Não Aeronáutica, Atividades Acessórias, TAF, Prova Teórica, Treinamento, Tempo TP/EPR, Tempo Resposta, Inspeção Viaturas, Logística) se beneficiam da atualização automática e do Modo Monitor.
-- **Arquivos criados:**
-  - supabase/migrations/011_enable_realtime_lancamentos.sql
-  - src/hooks/useRealtimeSync.ts
-- **Arquivos modificados:**
-  - src/pages/DashboardAnalytics.tsx (useRealtimeSync, estado isMonitorMode, toggleMonitorMode, fullscreenchange, botão Modo Monitor, layout condicional, placeholderData na query lancamentos-todos)
-  - src/hooks/useLancamentos.ts (placeholderData)
-  - src/index.css (classe .monitor-mode para grid em coluna única)
-  - docs/PRD.md (item 9.29)

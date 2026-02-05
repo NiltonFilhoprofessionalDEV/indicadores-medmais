@@ -1,0 +1,265 @@
+{
+  "meta": {
+    "project": "Sistema de Gestão de Indicadores Operacionais",
+    "date": "2026-01-21",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "Sistema web para gestão integrada de indicadores operacionais e compliance de 34 bases aeroportuárias, com foco em integridade de dados, segurança por controle de acesso baseado em funções e painéis analíticos avançados para tomada de decisão estratégica.",
+  "core_goals": [
+    "Garantir a integridade e segurança dos dados operacionais com uso de JSONB e políticas RLS rigorosas.",
+    "Prover dashboards e relatórios analíticos customizados para Gerente Geral e Chefes de Equipe com visualizações detalhadas e KPIs críticos.",
+    "Facilitar a gestão de usuários, colaboradores e efetivo das bases com funcionalidades CRUD e operações em lote.",
+    "Monitorar a aderência e compliance de bases e equipes com sistemas automatizados de auditoria e alertas.",
+    "Oferecer experiência de uso eficiente por meio de filtros dinâmicos, paginação server-side e formulários validados com UX padronizado.",
+    "Manter alta performance e escalabilidade para grandes volumes de dados com otimizações de banco e frontend."
+  ],
+  "key_features": [
+    "Sistema de autenticação robusto com Supabase Auth e proteção de rotas baseada em roles (Gerente Geral e Chefe de Equipe).",
+    "Dashboards distintos para Gerente Geral e Chefe de Equipe contendo visão operacional, analytics e histórico de lançamentos.",
+    "Formulários para 14 indicadores operacionais, com validação forte via Zod e integração com base de colaboradores ativa.",
+    "Módulo avançado de analytics com filtros ricos (base, equipe, período, colaborador, tipos de ocorrência), gráficos interativos e ranking de alertas.",
+    "Gestão completa de usuários e colaboradores: cadastro individual e em lote, edição, remoção, e vinculação correta a base e equipe.",
+    "Monitoramento automático de compliance e aderência das bases com indicadores visuais claros, incluindo alertas para usuários inativos.",
+    "Interface padronizada com tema claro predominante em laranja, uso de componentes UI reutilizáveis e layouts responsivos.",
+    "Otimização de consultas com uso de índices B-Tree e GIN para JSONB, limitando periodos de consulta para garantir performance.",
+    "Implementação de Edge Functions para operações administrativas sensíveis, preservando a sessão do administrador.",
+    "Sistema de feedback integrado para coleta e visualização de bugs, sugestões e comentários dos usuários.",
+    "Histórico detalhado de lançamentos com busca, filtros avançados, paginação server-side e ações condicionadas por níveis de permissão.",
+    "Módulo de configurações pessoais com gerenciamento de perfil, alteração de senha e envio de feedbacks.",
+    "Dashboard executivo (C-Level) agregando todos indicadores para decisões estratégicas, incluindo alertas críticos e tendências operacionais."
+  ],
+  "user_flow_summary": [
+    "Usuário acessa o sistema pela tela de Login autenticando-se via Supabase Auth.",
+    "Conforme sua role, é direcionado para o Dashboard Gerente (acesso total) ou Dashboard Chefe (acesso restrito).",
+    "No Dashboard, usuários podem visualizar painéis operacionais, históricos de lançamentos e navegar para o módulo de Analytics via botão.",
+    "Usuário pode editar seus dados no menu Configurações, trocar senha ou enviar feedback ao sistema.",
+    "Gerente Geral pode acessar a Gestão de Usuários para cadastrar, editar ou remover usuários, individualmente ou em lote, com formulários validados e replicação de valores para facilitar entradas.",
+    "Gerente Geral também pode gerenciar colaboradores/efetivo por base, cadastrando nomes individualmente ou em lote via textarea.",
+    "Chefes de Equipe podem lançar dados dos indicadores de sua equipe via formulários com controle automático de datas e máscaras de tempo.",
+    "No módulo Analytics, usuários filtram os dados por base, equipe, data e outras variáveis específicas para visualizar KPIs, gráficos e ranking de alertas.",
+    "Sistema realiza validação de intervalo de datas e limita consultas a até 12 meses para manter performance.",
+    "Histórico de lançamentos apresenta busca textual em campos JSONB, filtros por indicador, período, com paginação e ações condicionadas a permissão do usuário.",
+    "Módulo de Monitoramento de Aderência exibe alertas visuais para bases que não cumprem rotinas operacionais e usuários inativos.",
+    "Usuários podem navegar entre painéis detalhados de cada indicador, visualizando gráficos, tabelas e KPIs relevantes para tomada de decisão."
+  ],
+  "validation_criteria": [
+    "Todos os formulários respeitam a validação via esquema Zod, prevendo obrigatoriedade, formatos de data e máscaras de tempo.",
+    "O sistema valida e previne seleção de intervalos maiores que 12 meses em filtros analíticos.",
+    "Consultas de dados para analytics buscam somente colunas necessárias, reduzindo uso de memória e tráfego em ~30-40%.",
+    "Políticas RLS garantem que usuários vejam e modifiquem apenas dados permitidos conforme sua role e base/equipe correspondentes.",
+    "O sistema permite múltiplos lançamentos no mesmo dia para um indicador através de inserções (INSERT), nunca sobrescrevendo registros anteriores.",
+    "Dashboard Analytics recebe dados processados com funções que garantem consistência nos KPIs, status calculados e filtragem precisa por colaborador e tipo.",
+    "Operações de criação, edição e remoção de usuários são feitas via Edge Functions usando Service Role Key, sem impacto na sessão atual do administrador.",
+    "Paginação server-side implementada no histórico para carregar exatamente 20 registros por página com navegação e scroll automático ao topo.",
+    "Feedbacks de usuários são armazenados com tipos e status, acessíveis apenas conforme permissão, e exibidos ordenadamente na área de suporte.",
+    "Índices de banco (B-Tree e GIN) são mantidos para garantir que queries de analytics completem em até 2 segundos mesmo com 100k+ registros.",
+    "Temas, cores e layouts seguem o padrão definido, com botões laranja (#fc4d00), sombras específicas e ausência de modo escuro.",
+    "Tabela de aderência exibe corretamente os símbolos e cores de status com base nas regras de compliance para os grupos A, B e C.",
+    "Ao editar usuários com email 'N/A' ou em branco, a validação aceita e permite manter informações sem forçar reentrada.",
+    "Filtros dinâmicos de tipo de ocorrência para Aeronáutica e Não Aeronáutica aplicam filtros corretos nos dados.",
+    "Os gráficos utilizam legendas, tooltips e ordenações cronológicas corretas conforme descrito para garantir interpretação precisa.",
+    "O sistema rejeita tentativa de editar ou excluir dados fora da permissão do usuário, exibindo mensagens adequadas.",
+    "Consultas e ações são auditadas para garantir integridade e segurança dos dados.",
+    "Testes automatizados cobrem os fluxos críticos de formulário, autenticação, roles e rendering dos dashboards com dados simulados."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "React 18",
+      "Vite",
+      "React Router DOM",
+      "Supabase (PostgreSQL)",
+      "TanStack Query",
+      "Recharts",
+      "Tailwind CSS",
+      "shadcn/ui",
+      "date-fns",
+      "React Hook Form",
+      "Zod"
+    ],
+    "features": [
+      {
+        "name": "Authentication",
+        "description": "Sistema de autenticação com Supabase Auth, incluindo login, logout e proteção de rotas baseada em roles (geral, chefe)",
+        "files": [
+          "src/pages/Login.tsx",
+          "src/contexts/AuthContext.tsx",
+          "src/hooks/useAuth.ts",
+          "src/components/ProtectedRoute.tsx"
+        ]
+      },
+      {
+        "name": "Dashboard Gerente",
+        "description": "Dashboard principal para Gerente Geral com acesso a todas as funcionalidades administrativas",
+        "files": [
+          "src/pages/DashboardGerente.tsx"
+        ]
+      },
+      {
+        "name": "Dashboard Chefe",
+        "description": "Dashboard para Chefe de Equipe com acesso limitado a funcionalidades específicas",
+        "files": [
+          "src/pages/DashboardChefe.tsx"
+        ]
+      },
+      {
+        "name": "Dashboard Analytics",
+        "description": "Sistema completo de analytics e visualização de dados com múltiplos indicadores (Visão Geral, Ocorrências Aeronáuticas/Não Aeronáuticas, TAF, Prova Teórica, Treinamento, TP/EPR, Tempo Resposta, Inspeção Viaturas, Logística)",
+        "files": [
+          "src/pages/DashboardAnalytics.tsx",
+          "src/components/AnalyticsFilterBar.tsx",
+          "src/lib/analytics-utils.ts"
+        ]
+      },
+      {
+        "name": "Chart Components",
+        "description": "Componentes reutilizáveis de gráficos usando Recharts (Bar, Line, Donut, Composed, Pie, GroupedBar)",
+        "files": [
+          "src/components/charts/BarChart.tsx",
+          "src/components/charts/LineChart.tsx",
+          "src/components/charts/DonutChart.tsx",
+          "src/components/charts/ComposedChart.tsx",
+          "src/components/charts/PieChart.tsx",
+          "src/components/charts/GroupedBarChart.tsx"
+        ]
+      },
+      {
+        "name": "Gestão de Usuários",
+        "description": "CRUD completo de usuários com criação individual e em massa, edição e listagem",
+        "files": [
+          "src/pages/GestaoUsuarios.tsx",
+          "src/components/BulkUserForm.tsx"
+        ]
+      },
+      {
+        "name": "Gestão de Efetivo",
+        "description": "Gerenciamento de colaboradores/bombeiros com CRUD completo",
+        "files": [
+          "src/pages/admin/Colaboradores.tsx"
+        ]
+      },
+      {
+        "name": "Monitoramento de Aderência",
+        "description": "Sistema de compliance e aderência que monitora o cumprimento de obrigações por base e indicador",
+        "files": [
+          "src/pages/Aderencia.tsx",
+          "src/lib/compliance-rules.ts"
+        ]
+      },
+      {
+        "name": "Formulários de Lançamento",
+        "description": "Formulários para lançamento de dados de diferentes indicadores (TAF, Prova Teórica, Ocorrências, Treinamento, etc)",
+        "files": [
+          "src/components/forms/TAFForm.tsx",
+          "src/components/forms/ProvaTeoricaForm.tsx",
+          "src/components/forms/OcorrenciaAeronauticaForm.tsx",
+          "src/components/forms/OcorrenciaNaoAeronauticaForm.tsx",
+          "src/components/forms/HorasTreinamentoForm.tsx",
+          "src/components/forms/TempoTPEPRForm.tsx",
+          "src/components/forms/TempoRespostaForm.tsx",
+          "src/components/forms/InspecaoViaturasForm.tsx",
+          "src/components/forms/ControleEstoqueForm.tsx",
+          "src/components/forms/ControleEPIForm.tsx",
+          "src/components/forms/ControleTrocasForm.tsx",
+          "src/components/forms/AtividadesAcessoriasForm.tsx",
+          "src/components/forms/HigienizacaoTPForm.tsx",
+          "src/components/forms/VerificacaoTPForm.tsx",
+          "src/components/forms/BaseFormFields.tsx"
+        ]
+      },
+      {
+        "name": "Histórico de Lançamentos",
+        "description": "Tabela de histórico com paginação, filtros e visualização de lançamentos anteriores",
+        "files": [
+          "src/components/HistoryTable.tsx",
+          "src/lib/history-utils.ts"
+        ]
+      },
+      {
+        "name": "Configurações",
+        "description": "Página de configurações do usuário com perfil, segurança (mudança de senha) e feedback",
+        "files": [
+          "src/pages/Settings.tsx"
+        ]
+      },
+      {
+        "name": "Data Utilities",
+        "description": "Utilitários para manipulação de datas, validação de intervalos e formatação",
+        "files": [
+          "src/lib/date-utils.ts"
+        ]
+      },
+      {
+        "name": "Analytics Utilities",
+        "description": "Funções de processamento e agregação de dados para analytics (processTAF, processProvaTeorica, processOcorrenciaAeronautica, etc)",
+        "files": [
+          "src/lib/analytics-utils.ts"
+        ]
+      },
+      {
+        "name": "Calculations",
+        "description": "Funções utilitárias para cálculos diversos (médias, totais, percentuais)",
+        "files": [
+          "src/lib/calculations.ts"
+        ]
+      },
+      {
+        "name": "Masks",
+        "description": "Utilitários para formatação de dados (máscaras de input)",
+        "files": [
+          "src/lib/masks.ts"
+        ]
+      },
+      {
+        "name": "Database Hooks",
+        "description": "Custom hooks para acesso a dados (useLancamentos, useLancamento, useColaboradores)",
+        "files": [
+          "src/hooks/useLancamentos.ts",
+          "src/hooks/useLancamento.ts",
+          "src/hooks/useColaboradores.ts"
+        ]
+      },
+      {
+        "name": "UI Components",
+        "description": "Componentes UI reutilizáveis baseados em shadcn/ui (Button, Card, Input, Select, Calendar, DatePicker, Tabs, Badge, Avatar, etc)",
+        "files": [
+          "src/components/ui/button.tsx",
+          "src/components/ui/card.tsx",
+          "src/components/ui/input.tsx",
+          "src/components/ui/select.tsx",
+          "src/components/ui/calendar.tsx",
+          "src/components/ui/date-picker.tsx",
+          "src/components/ui/tabs.tsx",
+          "src/components/ui/badge.tsx",
+          "src/components/ui/avatar.tsx",
+          "src/components/ui/label.tsx",
+          "src/components/ui/popover.tsx",
+          "src/components/ui/textarea.tsx",
+          "src/components/ui/input-with-suffix.tsx"
+        ]
+      },
+      {
+        "name": "Error Boundary",
+        "description": "Componente para captura e tratamento de erros React",
+        "files": [
+          "src/components/ErrorBoundary.tsx"
+        ]
+      },
+      {
+        "name": "Supabase Client",
+        "description": "Cliente Supabase configurado com tipos TypeScript e configurações de autenticação",
+        "files": [
+          "src/lib/supabase.ts",
+          "src/lib/database.types.ts"
+        ]
+      },
+      {
+        "name": "Routing",
+        "description": "Sistema de roteamento com lazy loading e proteção de rotas baseada em roles",
+        "files": [
+          "src/App.tsx"
+        ]
+      }
+    ]
+  }
+}

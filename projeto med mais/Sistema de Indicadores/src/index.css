@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "react-day-picker/dist/style.css";
+
+@layer base {
+  :root {
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(222.2 84% 4.9%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
+    --primary: hsl(222.2 47.4% 11.2%);
+    --primary-foreground: hsl(210 40% 98%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(210 40% 96.1%);
+    --muted-foreground: hsl(215.4 16.3% 46.9%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84.2% 60.2%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 91.4%);
+    --input: hsl(214.3 31.8% 91.4%);
+    --ring: hsl(222.2 84% 4.9%);
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .page-transition {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .shadow-orange {
+    box-shadow: 0 0 30px 10px rgba(252, 77, 0, 0.15), 0 0 60px 20px rgba(252, 77, 0, 0.08);
+  }
+
+  .shadow-orange-sm {
+    box-shadow: 0 0 15px 5px rgba(252, 77, 0, 0.1), 0 0 30px 10px rgba(252, 77, 0, 0.05);
+  }
+
+  /* Modo Monitor: conteúdo ocupa toda a tela (largura e altura) */
+  .monitor-mode {
+    width: 100%;
+    min-width: 0;
+  }
+  .monitor-mode [class*="space-y"],
+  .monitor-mode .grid {
+    width: 100%;
+    min-width: 0;
+  }
+  /* KPIs em linha cheia no modo monitor */
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* Gráficos em 2 colunas para preencher a linha */
+  .monitor-mode .grid.grid-cols-1.md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

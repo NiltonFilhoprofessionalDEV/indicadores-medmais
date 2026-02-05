@@ -1,0 +1,410 @@
+{
+  "tech_stack": [
+    "Deno",
+    "TypeScript",
+    "Supabase Edge Functions",
+    "PostgreSQL",
+    "Supabase Auth",
+    "REST API"
+  ],
+  "features": [
+    {
+      "name": "create-user",
+      "description": "Edge Function para criar novos usuários no sistema. Cria usuário no Supabase Auth e perfil na tabela profiles. Valida campos obrigatórios e regras de negócio (chefe precisa de base_id e equipe_id). Se falhar ao criar profile, deleta o usuário auth automaticamente.",
+      "files": [
+        "supabase/functions/create-user/index.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Create User API",
+          "version": "1.0.0",
+          "description": "API para criar novos usuários no sistema"
+        },
+        "servers": [
+          {
+            "url": "https://{project}.supabase.co/functions/v1",
+            "description": "Supabase Edge Function endpoint"
+          }
+        ],
+        "paths": {
+          "/create-user": {
+            "post": {
+              "summary": "Criar novo usuário",
+              "operationId": "createUser",
+              "tags": ["Users"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["email", "password", "nome", "role"],
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "description": "Email do usuário"
+                        },
+                        "password": {
+                          "type": "string",
+                          "minLength": 6,
+                          "description": "Senha do usuário"
+                        },
+                        "nome": {
+                          "type": "string",
+                          "description": "Nome completo do usuário"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": ["geral", "chefe"],
+                          "description": "Role do usuário: 'geral' (Gerente Geral) ou 'chefe' (Chefe de Equipe)"
+                        },
+                        "base_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID da base (obrigatório se role='chefe')"
+                        },
+                        "equipe_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID da equipe (obrigatório se role='chefe')"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Usuário criado com sucesso",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "ID do usuário criado"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Erro de validação ou requisição inválida",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string",
+                            "description": "Mensagem de erro"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "500": {
+                  "description": "Erro interno do servidor",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "security": [
+                {
+                  "apikey": []
+                }
+              ]
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "apikey": {
+              "type": "apiKey",
+              "in": "header",
+              "name": "apikey",
+              "description": "Supabase Anon Key ou Service Role Key"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "update-user",
+      "description": "Edge Function para atualizar usuários existentes. Atualiza perfil na tabela profiles e opcionalmente credenciais de autenticação (email/senha). Valida existência do usuário e regras de negócio. Se falhar ao atualizar auth, retorna warning mas mantém atualização do perfil.",
+      "files": [
+        "supabase/functions/update-user/index.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Update User API",
+          "version": "1.0.0",
+          "description": "API para atualizar usuários existentes"
+        },
+        "servers": [
+          {
+            "url": "https://{project}.supabase.co/functions/v1",
+            "description": "Supabase Edge Function endpoint"
+          }
+        ],
+        "paths": {
+          "/update-user": {
+            "post": {
+              "summary": "Atualizar usuário existente",
+              "operationId": "updateUser",
+              "tags": ["Users"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["id", "nome", "role"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID do usuário a ser atualizado"
+                        },
+                        "nome": {
+                          "type": "string",
+                          "description": "Novo nome do usuário"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": ["geral", "chefe"],
+                          "description": "Nova role do usuário"
+                        },
+                        "base_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID da base (obrigatório se role='chefe')"
+                        },
+                        "equipe_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID da equipe (obrigatório se role='chefe')"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "description": "Novo email (opcional, só atualiza se diferente do atual)"
+                        },
+                        "password": {
+                          "type": "string",
+                          "minLength": 6,
+                          "description": "Nova senha (opcional)"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Usuário atualizado com sucesso",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "warning": {
+                            "type": "string",
+                            "description": "Aviso opcional se houver problema ao atualizar credenciais"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Erro de validação",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "404": {
+                  "description": "Usuário não encontrado",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string",
+                            "example": "Usuário não encontrado"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "500": {
+                  "description": "Erro interno do servidor"
+                }
+              },
+              "security": [
+                {
+                  "apikey": []
+                }
+              ]
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "apikey": {
+              "type": "apiKey",
+              "in": "header",
+              "name": "apikey"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "delete-user",
+      "description": "Edge Function para remover usuários do sistema. Deleta usuário do Supabase Auth, o que aciona CASCADE para deletar perfil na tabela profiles e todos os lançamentos relacionados na tabela lancamentos.",
+      "files": [
+        "supabase/functions/delete-user/index.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Delete User API",
+          "version": "1.0.0",
+          "description": "API para remover usuários do sistema"
+        },
+        "servers": [
+          {
+            "url": "https://{project}.supabase.co/functions/v1",
+            "description": "Supabase Edge Function endpoint"
+          }
+        ],
+        "paths": {
+          "/delete-user": {
+            "post": {
+              "summary": "Deletar usuário",
+              "operationId": "deleteUser",
+              "tags": ["Users"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["userId"],
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID do usuário a ser deletado"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Usuário deletado com sucesso",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "message": {
+                            "type": "string",
+                            "example": "Usuário removido com sucesso"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Erro de validação ou requisição inválida",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string",
+                            "description": "Código de erro opcional"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "500": {
+                  "description": "Erro interno do servidor"
+                }
+              },
+              "security": [
+                {
+                  "apikey": []
+                }
+              ]
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "apikey": {
+              "type": "apiKey",
+              "in": "header",
+              "name": "apikey"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

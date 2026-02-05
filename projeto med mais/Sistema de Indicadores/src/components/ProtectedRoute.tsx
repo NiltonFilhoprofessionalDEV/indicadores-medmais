@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 
@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { authUser, loading, refreshAuth } = useAuth()
+  const location = useLocation()
   const [showTimeout, setShowTimeout] = useState(false)
   const [retrying, setRetrying] = useState(false)
 
@@ -46,11 +47,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!authUser) {
+    console.log('[LOGIN_DEBUG] ProtectedRoute: sem authUser, redirecionando para /login', { pathname: location.pathname })
     return <Navigate to="/login" replace />
   }
 
   // Perfil não carregado: rota exige verificação de role
   if (allowedRoles && !authUser.profile) {
+    console.log('[LOGIN_DEBUG] ProtectedRoute: perfil null, exibindo tela de retry', { pathname: location.pathname, userId: authUser.user?.id })
     const handleRetry = async () => {
       setRetrying(true)
       await refreshAuth()
@@ -81,8 +84,15 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   // Verificar se o usuário tem permissão
   if (allowedRoles && authUser.profile) {
     const role = String(authUser.profile.role || '').trim().toLowerCase()
+    console.log('[LOGIN_DEBUG] ProtectedRoute:', {
+      pathname: location.pathname,
+      role,
+      roleOriginal: authUser.profile.role,
+      allowedRoles,
+      hasPermission: !!role && allowedRoles.includes(role as any),
+    })
     if (!role || !allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')) {
-      console.warn('Usuário sem permissão para acessar esta rota', { role, allowedRoles })
+      console.warn('[LOGIN_DEBUG] Sem permissão - redirecionando:', { role, allowedRoles, pathname: location.pathname })
       if (role === 'geral' || role === 'gerente_sci') {
         return <Navigate to="/dashboard-gerente" replace />
       } else {

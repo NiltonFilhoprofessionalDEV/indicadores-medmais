@@ -38,10 +38,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', userId)
         .single()
 
+      console.log('[LOGIN_DEBUG] AuthContext loadProfile:', {
+        userId,
+        directError: directError?.message,
+        hasDirectProfile: !!directProfile,
+        roleDirect: (directProfile as any)?.role,
+      })
+
       if (!directError && directProfile) {
         profile = directProfile as Profile
       } else {
         const { data: rpcProfile, error: rpcError } = await supabase.rpc('get_my_profile')
+        console.log('[LOGIN_DEBUG] AuthContext get_my_profile:', {
+          rpcError: rpcError?.message,
+          hasRpcProfile: !!rpcProfile,
+          roleRpc: (rpcProfile as any)?.role,
+        })
         if (!rpcError && rpcProfile && typeof rpcProfile === 'object') {
           profile = rpcProfile as Profile
         }
@@ -53,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('[LOGIN_DEBUG] AuthContext loadProfile resultado:', { hasUser: !!user, hasProfile: !!profile, role: (profile as any)?.role })
       if (user) {
         setAuthUser({ user, profile })
       } else {

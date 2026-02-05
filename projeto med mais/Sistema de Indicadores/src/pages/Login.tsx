@@ -30,9 +30,19 @@ export function Login() {
   useEffect(() => {
     if (loading) return
     const r = authUser?.profile?.role
+    // [LOGIN_DEBUG] Log para diagnóstico Vercel
+    console.log('[LOGIN_DEBUG] useEffect já-autenticado:', {
+      host: window.location.host,
+      authLoading,
+      hasUser: !!authUser?.user,
+      userId: authUser?.user?.id,
+      hasProfile: !!authUser?.profile,
+      role: r,
+      roleType: typeof r,
+    })
     if (!authLoading && authUser?.user && r) {
       const roleNorm = String(r).trim().toLowerCase()
-      console.log('🔄 Usuário já autenticado, redirecionando...', { role: roleNorm })
+      console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, destino: roleNorm === 'geral' || roleNorm === 'gerente_sci' ? '/dashboard-gerente' : '/dashboard-chefe' })
       if (roleNorm === 'geral' || roleNorm === 'gerente_sci') {
         navigate('/dashboard-gerente', { replace: true })
       } else {
@@ -144,14 +154,18 @@ export function Login() {
             .eq('id', authData.user.id)
             .single()
           const p = profile as { role?: string } | null
+          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'select profiles:', { profileError: profileError?.message, profile: p, role: p?.role })
           if (!profileError && p && typeof p.role === 'string') {
             role = p.role
+            console.log('[LOGIN_DEBUG] Role obtido via select:', role)
             break
           }
-          const { data: rpcProfile } = await supabase.rpc('get_my_profile')
+          const { data: rpcProfile, error: rpcError } = await supabase.rpc('get_my_profile')
           const rpc = rpcProfile as { role?: string } | null
+          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'get_my_profile:', { rpcError: rpcError?.message, rpcProfile: rpc, role: rpc?.role })
           if (rpc && typeof rpc.role === 'string') {
             role = rpc.role
+            console.log('[LOGIN_DEBUG] Role obtido via RPC:', role)
             break
           }
           await refreshAuth()
@@ -165,13 +179,14 @@ export function Login() {
         }
 
         const roleNormalized = String(role).trim().toLowerCase()
-        if (roleNormalized === 'geral' || roleNormalized === 'gerente_sci') {
-          console.log('🔄 Redirecionando para Dashboard Gerente (role:', roleNormalized, ')')
-          navigate('/dashboard-gerente', { replace: true })
-        } else {
-          console.log('🔄 Redirecionando para Dashboard Chefe')
-          navigate('/dashboard-chefe', { replace: true })
-        }
+        const destino = roleNormalized === 'geral' || roleNormalized === 'gerente_sci' ? '/dashboard-gerente' : '/dashboard-chefe'
+        console.log('[LOGIN_DEBUG] ANTES DO REDIRECT:', {
+          roleOriginal: role,
+          roleNormalized,
+          destino,
+          host: window.location.host,
+        })
+        navigate(destino, { replace: true })
       } else {
         console.error('❌ Login retornou sem usuário')
         setError('Erro: Login realizado mas usuário não encontrado.')

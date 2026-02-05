@@ -13,12 +13,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const [showTimeout, setShowTimeout] = useState(false)
   const [retrying, setRetrying] = useState(false)
 
-  // Timeout de segurança - se carregar por mais de 15 segundos, redireciona para login
+  // Timeout de segurança - se carregar por mais de 5 segundos, redireciona para login
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
         setShowTimeout(true)
-      }, 15000) // 15 segundos
+      }, 5000) // 5 segundos
 
       return () => clearTimeout(timer)
     } else {
@@ -33,11 +33,14 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#fc4d00] mb-4"></div>
           <div className="text-lg text-foreground">Carregando...</div>
         </div>
+        <a href="/logout" className="text-sm text-muted-foreground hover:text-[#fc4d00] hover:underline">
+          Sair / Voltar ao login
+        </a>
       </div>
     )
   }
@@ -67,8 +70,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
           >
             {retrying ? 'Tentando...' : 'Tentar novamente'}
           </Button>
-          <Button variant="outline" onClick={() => window.location.href = '/login'} className="mt-2">
-            Voltar ao login
+          <Button variant="outline" onClick={() => window.location.href = '/logout'} className="mt-2">
+            Sair e voltar ao login
           </Button>
         </div>
       </div>

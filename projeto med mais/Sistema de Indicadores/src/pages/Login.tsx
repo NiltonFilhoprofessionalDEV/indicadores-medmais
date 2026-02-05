@@ -28,12 +28,10 @@ export function Login() {
 
   // Redirecionar se já estiver autenticado (evitar durante login ativo)
   useEffect(() => {
-    // Não redirecionar se estiver no meio de um login
     if (loading) return
-
-    if (!authLoading && authUser) {
+    if (!authLoading && authUser?.user && authUser.profile?.role) {
       console.log('🔄 Usuário já autenticado, redirecionando...')
-      if (authUser.profile?.role === 'geral' || authUser.profile?.role === 'gerente_sci') {
+      if (authUser.profile.role === 'geral' || authUser.profile.role === 'gerente_sci') {
         navigate('/dashboard-gerente', { replace: true })
       } else {
         navigate('/dashboard-chefe', { replace: true })
@@ -150,6 +148,14 @@ export function Login() {
         }
 
         const role = profile && typeof profile === 'object' && 'role' in profile ? (profile as { role: string }).role : null
+        
+        if (role === null || role === undefined) {
+          console.warn('⚠️ Perfil não carregado, exibindo mensagem em vez de redirecionar')
+          setError('Não foi possível carregar seu perfil. Clique em Entrar novamente para tentar, ou faça logout para usar outra conta.')
+          setLoading(false)
+          await refreshAuth()
+          return
+        }
         
         if (role === 'geral' || role === 'gerente_sci') {
           console.log('🔄 Redirecionando para Dashboard Gerente')
@@ -281,6 +287,11 @@ export function Login() {
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
+              {authUser?.user && !authUser?.profile && (
+                <a href="/logout" className="block text-center text-sm text-muted-foreground hover:text-[#fc4d00] hover:underline mt-2">
+                  Fazer logout para tentar outra conta
+                </a>
+              )}
             </form>
           </CardContent>
         </Card>

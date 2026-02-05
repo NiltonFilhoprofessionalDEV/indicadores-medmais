@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { Login } from './pages/Login'
+import { Logout } from './pages/Logout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 // Lazy loading das páginas para reduzir bundle inicial
@@ -15,11 +16,17 @@ const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.S
 const DataExplorer = lazy(() => import('./pages/DataExplorer').then(m => ({ default: m.DataExplorer })))
 const Suporte = lazy(() => import('./pages/Suporte').then(m => ({ default: m.Suporte })))
 
-// Componente de loading simples
+// Componente de loading simples com opção de sair
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background transition-colors duration-300">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background transition-colors duration-300 gap-4">
       <div className="text-lg text-foreground font-semibold">Carregando...</div>
+      <a
+        href="/logout"
+        className="text-sm text-muted-foreground hover:text-[#fc4d00] hover:underline"
+      >
+        Sair / Voltar ao login
+      </a>
     </div>
   )
 }
@@ -30,6 +37,7 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/logout" element={<Logout />} />
           <Route
             path="/dashboard-chefe"
             element={

@@ -43,12 +43,20 @@ export class ErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 transition-colors"
-            >
-              Recarregar Página
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 transition-colors"
+              >
+                Recarregar Página
+              </button>
+              <a
+                href="/logout"
+                className="block w-full text-center py-2 px-4 rounded border border-border hover:bg-muted transition-colors text-foreground"
+              >
+                Fazer logout e voltar ao login
+              </a>
+            </div>
           </div>
         </div>
       )

@@ -23,6 +23,7 @@ COMMENT ON COLUMN public.profiles.role IS 'Role do usuário: geral (Gerente Gera
 -- 3. POLÍTICAS RLS: profiles (gerente_sci)
 -- ============================================
 -- Gerente de SCI pode SELECT, INSERT, UPDATE, DELETE apenas em profiles onde base_id = seu base_id
+DROP POLICY IF EXISTS "profiles_select_gerente_sci" ON public.profiles;
 CREATE POLICY "profiles_select_gerente_sci" ON public.profiles
     FOR SELECT
     USING (
@@ -34,6 +35,7 @@ CREATE POLICY "profiles_select_gerente_sci" ON public.profiles
         )
     );
 
+DROP POLICY IF EXISTS "profiles_insert_gerente_sci" ON public.profiles;
 CREATE POLICY "profiles_insert_gerente_sci" ON public.profiles
     FOR INSERT
     WITH CHECK (
@@ -45,6 +47,7 @@ CREATE POLICY "profiles_insert_gerente_sci" ON public.profiles
         )
     );
 
+DROP POLICY IF EXISTS "profiles_update_gerente_sci" ON public.profiles;
 CREATE POLICY "profiles_update_gerente_sci" ON public.profiles
     FOR UPDATE
     USING (
@@ -64,6 +67,7 @@ CREATE POLICY "profiles_update_gerente_sci" ON public.profiles
         )
     );
 
+DROP POLICY IF EXISTS "profiles_delete_gerente_sci" ON public.profiles;
 CREATE POLICY "profiles_delete_gerente_sci" ON public.profiles
     FOR DELETE
     USING (
@@ -122,6 +126,7 @@ CREATE POLICY "colaboradores_select_same_base" ON public.colaboradores
     );
 
 -- 5. POLÍTICAS RLS: colaboradores - CRUD para gerente_sci (apenas sua base)
+DROP POLICY IF EXISTS "colaboradores_insert_gerente_sci" ON public.colaboradores;
 CREATE POLICY "colaboradores_insert_gerente_sci" ON public.colaboradores
     FOR INSERT
     WITH CHECK (
@@ -133,6 +138,7 @@ CREATE POLICY "colaboradores_insert_gerente_sci" ON public.colaboradores
         )
     );
 
+DROP POLICY IF EXISTS "colaboradores_update_gerente_sci" ON public.colaboradores;
 CREATE POLICY "colaboradores_update_gerente_sci" ON public.colaboradores
     FOR UPDATE
     USING (
@@ -152,6 +158,7 @@ CREATE POLICY "colaboradores_update_gerente_sci" ON public.colaboradores
         )
     );
 
+DROP POLICY IF EXISTS "colaboradores_delete_gerente_sci" ON public.colaboradores;
 CREATE POLICY "colaboradores_delete_gerente_sci" ON public.colaboradores
     FOR DELETE
     USING (
@@ -166,6 +173,7 @@ CREATE POLICY "colaboradores_delete_gerente_sci" ON public.colaboradores
 -- ============================================
 -- 6. POLÍTICAS RLS: lancamentos - SELECT para gerente_sci (visualizar sua base)
 -- ============================================
+DROP POLICY IF EXISTS "lancamentos_select_gerente_sci" ON public.lancamentos;
 CREATE POLICY "lancamentos_select_gerente_sci" ON public.lancamentos
     FOR SELECT
     USING (

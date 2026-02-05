@@ -7,6 +7,8 @@ import './index.css'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
 
+console.warn('[MEDMAIS] App iniciando - build 2025-02-05-gerente-sci')
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

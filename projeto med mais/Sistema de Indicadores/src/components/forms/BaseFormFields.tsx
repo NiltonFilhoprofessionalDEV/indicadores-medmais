@@ -68,7 +68,7 @@ export function BaseFormFields({
             id="base"
             value={bases?.find((b) => b.id === finalBaseId)?.nome || ''}
             readOnly
-            className="bg-muted"
+            className="bg-muted py-2.5"
           />
         ) : (
           <Select
@@ -79,6 +79,7 @@ export function BaseFormFields({
               onBaseIdChange?.(e.target.value)
             }}
             disabled={!!authUser?.profile?.base_id}
+            className="py-2.5"
           >
             <option value="">Selecione a base</option>
             {bases?.map((base) => (
@@ -97,7 +98,7 @@ export function BaseFormFields({
             id="equipe"
             value={equipes?.find((e) => e.id === finalEquipeId)?.nome || ''}
             readOnly
-            className="bg-muted"
+            className="bg-muted py-2.5"
           />
         ) : (
           <Select
@@ -108,6 +109,7 @@ export function BaseFormFields({
               onEquipeIdChange?.(e.target.value)
             }}
             disabled={!!authUser?.profile?.equipe_id}
+            className="py-2.5"
           >
             <option value="">Selecione a equipe</option>
             {equipes?.map((equipe) => (

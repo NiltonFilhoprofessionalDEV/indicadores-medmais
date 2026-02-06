@@ -10,7 +10,8 @@
     --card-foreground: hsl(222.2 84% 4.9%);
     --popover: hsl(0 0% 100%);
     --popover-foreground: hsl(222.2 84% 4.9%);
-    --primary: hsl(222.2 47.4% 11.2%);
+    --primary: #EA580C;
+    --primary-hover: #C2410C;
     --primary-foreground: hsl(210 40% 98%);
     --secondary: hsl(210 40% 96.1%);
     --secondary-foreground: hsl(222.2 47.4% 11.2%);
@@ -24,6 +25,28 @@
     --input: hsl(214.3 31.8% 91.4%);
     --ring: hsl(222.2 84% 4.9%);
     --radius: 0.5rem;
+  }
+  .dark {
+    --background: hsl(222 47% 11%);
+    --foreground: hsl(210 40% 98%);
+    --card: hsl(217 33% 17%);
+    --card-foreground: hsl(210 40% 98%);
+    --popover: hsl(217 33% 17%);
+    --popover-foreground: hsl(210 40% 98%);
+    --primary: #EA580C;
+    --primary-hover: #C2410C;
+    --primary-foreground: hsl(210 40% 98%);
+    --secondary: hsl(217 33% 22%);
+    --secondary-foreground: hsl(210 40% 98%);
+    --muted: hsl(217 33% 22%);
+    --muted-foreground: hsl(215 20% 65%);
+    --accent: hsl(217 33% 22%);
+    --accent-foreground: hsl(210 40% 98%);
+    --destructive: hsl(0 84.2% 60.2%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(217 33% 24%);
+    --input: hsl(217 33% 24%);
+    --ring: #EA580C;
   }
 }
 
@@ -57,7 +80,7 @@
   }
 
   .shadow-orange-sm {
-    box-shadow: 0 0 15px 5px rgba(252, 77, 0, 0.1), 0 0 30px 10px rgba(252, 77, 0, 0.05);
+    box-shadow: 0 0 15px 5px rgba(234, 88, 12, 0.1), 0 0 30px 10px rgba(234, 88, 12, 0.05);
   }
 
   /* Modo Monitor: conteúdo ocupa toda a tela (largura e altura) */

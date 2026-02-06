@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Search, FileX2 } from 'lucide-react'
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 type Indicador = Database['public']['Tables']['indicadores_config']['Row']
@@ -185,7 +186,7 @@ export function HistoryTable({
   }
 
   return (
-    <Card>
+    <Card className="shadow-soft dark:bg-slate-800 dark:border-slate-700">
       <CardHeader>
         <CardTitle>Histórico de Lançamentos</CardTitle>
         <CardDescription>
@@ -194,24 +195,26 @@ export function HistoryTable({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Toolbar de Filtros */}
+        {/* Barra de Filtros - h-10 e ícones de busca */}
         <div className="mb-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Busca por Texto */}
+            {/* Busca por Texto com ícone */}
             <div className="space-y-1">
               <Label htmlFor="search" className="text-xs">
                 Buscar (mín. 2 caracteres)
               </Label>
-              <Input
-                id="search"
-                placeholder="Buscar por local, observações..."
-                value={searchText}
-                onChange={(e) => {
-                  setSearchText(e.target.value)
-                }}
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  id="search"
+                  placeholder="Buscar por local, observações..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="h-10 pl-10"
+                />
+              </div>
               {searchText.trim().length > 0 && searchText.trim().length < 2 && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Digite pelo menos 2 caracteres para buscar
                 </p>
               )}
@@ -229,6 +232,7 @@ export function HistoryTable({
                   setIndicadorFilter(e.target.value)
                   setPage(1)
                 }}
+                className="h-10"
               >
                 <option value="">Todos os indicadores</option>
                 {indicadores?.map((indicador) => (
@@ -251,6 +255,7 @@ export function HistoryTable({
                   setMesAnoFilter(e.target.value)
                   setPage(1)
                 }}
+                className="h-10"
               >
                 <option value="">Todos os períodos</option>
                 {mesesAnos.map((mesAno) => {
@@ -284,7 +289,7 @@ export function HistoryTable({
               <Button
                 variant="outline"
                 onClick={handleClearFilters}
-                className="w-full"
+                className="w-full h-10"
               >
                 Limpar Filtros
               </Button>
@@ -299,15 +304,23 @@ export function HistoryTable({
             <p className="mt-2 text-gray-600">Carregando...</p>
           </div>
         ) : !data || data.data.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            Nenhum lançamento encontrado.
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted dark:bg-slate-700 mb-4">
+              <FileX2 className="h-12 w-12 text-muted-foreground" />
+            </div>
+            <p className="text-lg font-medium text-foreground mb-1">
+              Nenhum lançamento encontrado
+            </p>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Tente ajustar os filtros ou cadastre um novo lançamento na seção acima.
+            </p>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-[#fc4d00] bg-muted/50">
+                  <tr className="border-b border-primary bg-muted/50 dark:bg-slate-700/50">
                     <th className="text-left p-3 font-semibold text-sm">Data</th>
                     <th className="text-left p-3 font-semibold text-sm">
                       Indicador
@@ -326,7 +339,7 @@ export function HistoryTable({
                     return (
                       <tr
                         key={lancamento.id}
-                        className="border-b border-[#fc4d00] hover:bg-muted/50 transition-colors"
+                        className="border-b border-border hover:bg-muted/50 dark:hover:bg-slate-700/50 transition-colors"
                       >
                         <td className="p-3">
                           {formatDateForDisplay(lancamento.data_referencia)}
@@ -340,7 +353,7 @@ export function HistoryTable({
                             {indicador.nome}
                           </Badge>
                         </td>
-                        <td className="p-3 text-sm text-gray-600">
+                        <td className="p-3 text-sm text-muted-foreground">
                           {getResumoLancamento(lancamento, indicador)}
                         </td>
                         <td className="p-3">{getBaseName(lancamento.base_id)}</td>
@@ -390,7 +403,7 @@ export function HistoryTable({
             {/* Paginação - Sempre mostrar quando houver dados */}
             {data && data.total > 0 && (
               <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="text-sm text-gray-600 order-2 sm:order-1">
+                <div className="text-sm text-muted-foreground order-2 sm:order-1">
                   Página {data.page} de {data.totalPages} ({data.total}{' '}
                   {data.total === 1 ? 'lançamento' : 'lançamentos'})
                 </div>
@@ -401,7 +414,7 @@ export function HistoryTable({
                       size="sm"
                       onClick={() => handlePageChange(page - 1)}
                       disabled={page === 1}
-                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Anterior
                     </Button>
@@ -410,7 +423,7 @@ export function HistoryTable({
                       size="sm"
                       onClick={() => handlePageChange(page + 1)}
                       disabled={page >= data.totalPages}
-                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Próximo
                     </Button>

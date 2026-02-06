@@ -164,7 +164,7 @@ export function AtividadesAcessoriasForm({
                   id="tipo_atividade"
                   {...field}
                   disabled={readOnly}
-                  className={readOnly ? 'bg-muted' : ''}
+                  className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                 >
                   <option value="">Selecione o tipo de atividade</option>
                   {TIPOS_ATIVIDADE.map((tipo) => (
@@ -191,7 +191,7 @@ export function AtividadesAcessoriasForm({
                     min="0"
                     {...register('qtd_equipamentos', { valueAsNumber: true })}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.qtd_equipamentos && (
                     <p className="text-sm text-destructive">{errors.qtd_equipamentos.message}</p>
@@ -206,7 +206,7 @@ export function AtividadesAcessoriasForm({
                     min="1"
                     {...register('qtd_bombeiros', { valueAsNumber: true })}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.qtd_bombeiros && (
                     <p className="text-sm text-destructive">{errors.qtd_bombeiros.message}</p>
@@ -224,7 +224,7 @@ export function AtividadesAcessoriasForm({
                       setValue('tempo_gasto', formatted)
                     }}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.tempo_gasto && (
                     <p className="text-sm text-destructive">{errors.tempo_gasto.message}</p>
@@ -239,7 +239,7 @@ export function AtividadesAcessoriasForm({
           )}
 
           {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+            <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? 'Salvando...' : 'Salvar Atividade'}
             </Button>
           )}

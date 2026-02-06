@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
+import { Trash2, CheckCircle2 } from 'lucide-react'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
 const avaliadoSchema = z.object({
@@ -174,106 +175,143 @@ export function TAFForm({
               )}
             </div>
 
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Nome *</Label>
-                    <Controller
-                      name={`avaliados.${index}.nome`}
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          {...field}
-                          disabled={readOnly || !finalBaseId}
-                          className={readOnly ? 'bg-muted' : ''}
-                        >
-                          <option value="">Selecione um colaborador</option>
-                          {colaboradores
-                            ?.filter((c) => c.ativo)
-                            .map((colaborador) => (
-                              <option key={colaborador.id} value={colaborador.nome}>
-                                {colaborador.nome}
-                              </option>
-                            ))}
-                        </Select>
-                      )}
-                    />
-                    {errors.avaliados?.[index]?.nome && (
-                      <p className="text-xs text-destructive">{errors.avaliados[index]?.nome?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Idade *</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      {...register(`avaliados.${index}.idade`, { valueAsNumber: true })}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.avaliados?.[index]?.idade && (
-                      <p className="text-xs text-destructive">{errors.avaliados[index]?.idade?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tempo (mm:ss) *</Label>
-                    <Input
-                      placeholder="02:30"
-                      {...register(`avaliados.${index}.tempo`)}
-                      onChange={(e) => {
-                        const formatted = formatTimeMMSS(e.target.value, 4)
-                        setValue(`avaliados.${index}.tempo`, formatted)
-                      }}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.avaliados?.[index]?.tempo && (
-                      <p className="text-xs text-destructive">{errors.avaliados[index]?.tempo?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Status</Label>
-                    <Input
-                      value={avaliados[index]?.status || ''}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Nota</Label>
-                    <Input
-                      value={avaliados[index]?.nota || ''}
-                      readOnly
-                      className="bg-muted"
-                    />
+            {/* Tabela de Avaliados - Design Premium */}
+            <div className="rounded-lg border overflow-hidden dark:border-slate-600">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-slate-700">
+                    <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Nome
+                    </th>
+                    <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Idade
+                    </th>
+                    <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Tempo (mm:ss)
+                    </th>
+                    <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Nota
+                    </th>
                     {!readOnly && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => remove(index)}
-                        className="mt-2 w-full"
-                      >
-                        Remover
-                      </Button>
+                      <th className="w-12 p-3"></th>
                     )}
-                  </div>
-                </div>
-              ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {fields.map((field, index) => (
+                    <tr
+                      key={field.id}
+                      className="border-t border-border hover:bg-muted/30 dark:border-slate-600 dark:hover:bg-slate-700/30 transition-colors"
+                    >
+                      <td className="p-3">
+                        <Controller
+                          name={`avaliados.${index}.nome`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <Select
+                              {...f}
+                              disabled={readOnly || !finalBaseId}
+                              className={`w-full h-9 text-sm ${readOnly ? 'bg-muted' : ''}`}
+                            >
+                              <option value="">Selecione</option>
+                              {colaboradores
+                                ?.filter((c) => c.ativo)
+                                .map((colaborador) => (
+                                  <option key={colaborador.id} value={colaborador.nome}>
+                                    {colaborador.nome}
+                                  </option>
+                                ))}
+                            </Select>
+                          )}
+                        />
+                        {errors.avaliados?.[index]?.nome && (
+                          <p className="text-xs text-destructive mt-0.5">{errors.avaliados[index]?.nome?.message}</p>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <Input
+                          type="number"
+                          min="1"
+                          {...register(`avaliados.${index}.idade`, { valueAsNumber: true })}
+                          disabled={readOnly}
+                          className={`h-9 text-sm w-full max-w-[80px] ${readOnly ? 'bg-muted' : ''}`}
+                        />
+                        {errors.avaliados?.[index]?.idade && (
+                          <p className="text-xs text-destructive mt-0.5">{errors.avaliados[index]?.idade?.message}</p>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <Input
+                          placeholder="02:30"
+                          {...register(`avaliados.${index}.tempo`)}
+                          onChange={(e) => {
+                            const formatted = formatTimeMMSS(e.target.value, 4)
+                            setValue(`avaliados.${index}.tempo`, formatted)
+                          }}
+                          disabled={readOnly}
+                          className={`h-9 text-sm w-full max-w-[100px] ${readOnly ? 'bg-muted' : ''}`}
+                        />
+                        {errors.avaliados?.[index]?.tempo && (
+                          <p className="text-xs text-destructive mt-0.5">{errors.avaliados[index]?.tempo?.message}</p>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <Input
+                          value={avaliados[index]?.status || ''}
+                          readOnly
+                          className="h-9 text-sm bg-muted w-full max-w-[120px]"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <Input
+                          value={avaliados[index]?.nota || ''}
+                          readOnly
+                          className="h-9 text-sm bg-muted w-full max-w-[80px]"
+                        />
+                      </td>
+                      {!readOnly && (
+                        <td className="p-3">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => remove(index)}
+                            className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            title="Remover"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {/* Rodapé de resumo */}
+              <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-gray-50 dark:bg-slate-700/50 border-t border-border dark:border-slate-600 text-sm">
+                <span className="text-muted-foreground">
+                  Total de avaliados: {avaliados.filter((a) => a?.nome?.trim()).length}
+                </span>
+                {avaliados.filter((a) => a?.nome?.trim()).length > 0 &&
+                 !errors.avaliados?.message && (
+                  <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Campos obrigatórios preenchidos
+                  </span>
+                )}
+              </div>
             </div>
 
-            {errors.avaliados && (
+            {errors.avaliados && typeof errors.avaliados.message === 'string' && (
               <p className="text-sm text-destructive">{errors.avaliados.message}</p>
             )}
           </div>
 
           {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+            <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? 'Salvando...' : 'Salvar TAF'}
             </Button>
           )}

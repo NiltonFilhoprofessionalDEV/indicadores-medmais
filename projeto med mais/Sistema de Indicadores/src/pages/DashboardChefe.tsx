@@ -3,11 +3,24 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { HistoryTable } from '@/components/HistoryTable'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Settings, LogOut } from 'lucide-react'
+import { AppShell } from '@/components/AppShell'
+import {
+  ClipboardList,
+  AlertTriangle,
+  Car,
+  Dumbbell,
+  FileQuestion,
+  GraduationCap,
+  Gauge,
+  Clock,
+  Shield,
+  Package,
+  RefreshCw,
+  CheckCircle2,
+  Droplets,
+} from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 import {
   OcorrenciaAeronauticaForm,
@@ -31,6 +44,24 @@ type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 type Base = Database['public']['Tables']['bases']['Row']
 type Equipe = Database['public']['Tables']['equipes']['Row']
 
+// Mapeamento de schema_type para ícones Lucide
+const INDICADOR_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  ocorrencia_aero: AlertTriangle,
+  ocorrencia_nao_aero: AlertTriangle,
+  atividades_acessorias: ClipboardList,
+  taf: Dumbbell,
+  prova_teorica: FileQuestion,
+  treinamento: GraduationCap,
+  inspecao_viaturas: Car,
+  tempo_tp_epr: Gauge,
+  tempo_resposta: Clock,
+  controle_epi: Shield,
+  estoque: Package,
+  controle_trocas: RefreshCw,
+  verificacao_tp: CheckCircle2,
+  higienizacao_tp: Droplets,
+}
+
 // Mapeamento de schema_type para componentes de formulário
 const FORM_COMPONENTS: Record<string, React.ComponentType<any>> = {
   ocorrencia_aero: OcorrenciaAeronauticaForm,
@@ -51,7 +82,6 @@ const FORM_COMPONENTS: Record<string, React.ComponentType<any>> = {
 
 export function DashboardChefe() {
   const { authUser } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
@@ -91,45 +121,6 @@ export function DashboardChefe() {
       return data || []
     },
   })
-
-  const handleLogout = async () => {
-    try {
-      // Limpar cache do React Query
-      queryClient.clear()
-      
-      // Limpar localStorage do Supabase antes do signOut
-      localStorage.removeItem('supabase.auth.token')
-      
-      // Fazer logout no Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('Erro ao fazer logout:', error)
-      } else {
-        console.log('✅ Logout realizado com sucesso')
-      }
-      
-      // Limpar qualquer estado restante no localStorage
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-      
-      // Aguardar um momento para o contexto ser atualizado
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      // Forçar reload completo da página para garantir limpeza total
-      window.location.href = '/login'
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      // Mesmo com erro, forçar navegação para login
-      window.location.href = '/login'
-    }
-  }
 
   const handleNovoLancamento = (indicador: Indicador) => {
     setSelectedIndicador(indicador)
@@ -198,72 +189,17 @@ export function DashboardChefe() {
     ? FORM_COMPONENTS[selectedIndicador.schema_type]
     : null
 
-  return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px] gap-2 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
-              <img 
-                src="/logo-medmais.png" 
-                alt="MedMais Logo" 
-                className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Dashboard - Chefe</h1>
-                <p className="text-xs sm:text-sm text-white/90 truncate">
-                  {authUser?.profile?.nome}
-                </p>
-                {baseId && equipeId && (
-                  <p className="text-xs text-white/80 mt-1 truncate">
-                    {getBaseName(baseId)} | {getEquipeName(equipeId)}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-1 sm:gap-2 flex-shrink-0 ml-auto sm:ml-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="text-white hover:bg-white/20 transition-all duration-200"
-                  >
-                    <Settings className="h-6 w-6" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-48 p-2">
-                  <div className="flex flex-col gap-1">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => navigate('/settings')} 
-                      className="w-full justify-start gap-2 text-gray-700 hover:text-[#fc4d00] hover:bg-orange-50"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Configurações
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleLogout} 
-                      className="w-full justify-start gap-2 text-gray-700 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sair
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-      </header>
+  const baseEquipe =
+    baseId && equipeId ? `${getBaseName(baseId)} | ${getEquipeName(equipeId)}` : undefined
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
-        {/* Seção: Novo Lançamento */}
-        <Card className="mb-8">
+  return (
+    <AppShell
+      title="Dashboard - Chefe"
+      subtitle={authUser?.profile?.nome}
+      baseEquipe={baseEquipe}
+    >
+        {/* Seção: Novo Lançamento - Cards Premium */}
+        <Card className="mb-8 shadow-soft dark:bg-slate-800 dark:border-slate-700">
           <CardHeader>
             <CardTitle>Novo Lançamento</CardTitle>
             <CardDescription>
@@ -272,16 +208,22 @@ export function DashboardChefe() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {indicadores?.map((indicador) => (
-                <Button
-                  key={indicador.id}
-                  onClick={() => handleNovoLancamento(indicador)}
-                  variant="outline"
-                  className="h-auto py-4 flex flex-col items-start hover:bg-[#fc4d00] hover:text-white hover:border-[#fc4d00] transition-colors shadow-orange-sm"
-                >
-                  <span className="font-semibold">{indicador.nome}</span>
-                </Button>
-              ))}
+              {indicadores?.map((indicador) => {
+                const IconComponent = INDICADOR_ICONS[indicador.schema_type] || ClipboardList
+                return (
+                  <button
+                    key={indicador.id}
+                    type="button"
+                    onClick={() => handleNovoLancamento(indicador)}
+                    className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-primary hover:text-white hover:border-primary transition-all shadow-soft hover:shadow-glow-primary text-left dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-primary dark:hover:border-primary"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-white/20 group-hover:text-white transition-colors dark:bg-primary/20">
+                      <IconComponent className="h-6 w-6" />
+                    </div>
+                    <span className="font-semibold">{indicador.nome}</span>
+                  </button>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -297,18 +239,24 @@ export function DashboardChefe() {
           getBaseName={getBaseName}
           getEquipeName={getEquipeName}
         />
-      </main>
 
       {/* Modal: Formulário de Cadastro/Edição */}
       {showFormModal && selectedIndicador && FormComponent && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto dark:bg-black/60"
         >
-          <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
-            <CardHeader className="relative">
-              <CardTitle>
-                {selectedLancamento ? 'Editar' : 'Novo'} - {selectedIndicador.nome}
-              </CardTitle>
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto relative shadow-glow-primary dark:bg-slate-800 dark:border-slate-700">
+            <CardHeader className="relative border-b dark:border-slate-700">
+              <div className="pr-10">
+                <CardTitle className="text-lg font-bold">
+                  {selectedLancamento ? 'Editar' : 'Novo'} - {selectedIndicador.nome}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {selectedLancamento
+                    ? 'Atualize os dados do lançamento e salve as alterações.'
+                    : 'Preencha os campos obrigatórios e salve o novo lançamento.'}
+                </CardDescription>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -362,11 +310,18 @@ export function DashboardChefe() {
       {/* Modal: Visualização (Read-only) */}
       {showViewModal && selectedIndicador && selectedLancamento && FormComponent && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto dark:bg-black/60"
         >
-          <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
-            <CardHeader className="relative">
-              <CardTitle>Visualizar - {selectedIndicador.nome}</CardTitle>
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto relative shadow-glow-primary dark:bg-slate-800 dark:border-slate-700">
+            <CardHeader className="relative border-b dark:border-slate-700">
+              <div className="pr-10">
+                <CardTitle className="text-lg font-bold">
+                  Visualizar - {selectedIndicador.nome}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Dados do lançamento em modo somente leitura.
+                </CardDescription>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -415,6 +370,6 @@ export function DashboardChefe() {
           </Card>
         </div>
       )}
-    </div>
+    </AppShell>
   )
 }

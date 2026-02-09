@@ -93,6 +93,7 @@ export interface Database {
           role: 'geral' | 'chefe' | 'gerente_sci'
           base_id: string | null
           equipe_id: string | null
+          acesso_gerente_sci: boolean | null
           created_at: string
           updated_at: string
         }
@@ -102,6 +103,7 @@ export interface Database {
           role: 'geral' | 'chefe' | 'gerente_sci'
           base_id?: string | null
           equipe_id?: string | null
+          acesso_gerente_sci?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -111,6 +113,7 @@ export interface Database {
           role?: 'geral' | 'chefe' | 'gerente_sci'
           base_id?: string | null
           equipe_id?: string | null
+          acesso_gerente_sci?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -178,6 +181,23 @@ export interface Database {
           indicador_id?: string
           conteudo?: Json
         }
+      }
+    }
+    Functions: {
+      update_user_profile: {
+        Args: {
+          target_id: string
+          p_nome: string
+          p_role: string
+          p_base_id: string | null
+          p_equipe_id: string | null
+          p_acesso_gerente_sci: boolean
+        }
+        Returns: Json
+      }
+      get_caller_role: {
+        Args: Record<string, never>
+        Returns: Json
       }
     }
   }

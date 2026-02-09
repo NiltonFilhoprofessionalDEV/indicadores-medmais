@@ -9,7 +9,9 @@ import { FileSpreadsheet, MessageSquare, ClipboardList } from 'lucide-react'
 
 export function DashboardGerente() {
   const { authUser } = useAuth()
-  const isGerenteSCI = authUser?.profile?.role === 'gerente_sci'
+  const role = authUser?.profile?.role
+  const isGerenteSCI = role === 'gerente_sci' || (role === 'chefe' && authUser?.profile?.acesso_gerente_sci)
+  const isChefeComAcesso = role === 'chefe' && authUser?.profile?.acesso_gerente_sci
   const navigate = useNavigate()
 
   const { data: feedbackPendentes } = useQuery({
@@ -29,6 +31,18 @@ export function DashboardGerente() {
     <AppShell
       title={isGerenteSCI ? 'Dashboard - Gerente de SCI' : 'Dashboard - Admin'}
       subtitle={authUser?.profile?.nome}
+      extraActions={
+        isChefeComAcesso ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/dashboard-chefe')}
+            className="bg-white/20 hover:bg-white/30 text-white border-0"
+          >
+            Painel Chefe / Lançamentos
+          </Button>
+        ) : undefined
+      }
     >
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -55,7 +69,7 @@ export function DashboardGerente() {
             </Card>
           )}
 
-          {/* Card Dashboard Analytics - apenas Gerente Geral */}
+          {/* Card Dashboard Analytics - apenas Administrador */}
           {!isGerenteSCI && (
             <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
               <CardHeader className="pb-4">
@@ -76,7 +90,7 @@ export function DashboardGerente() {
             </Card>
           )}
 
-          {/* Card Explorador de Dados - apenas Gerente Geral */}
+          {/* Card Explorador de Dados - apenas Administrador */}
           {!isGerenteSCI && (
             <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
               <CardHeader className="pb-4">
@@ -136,7 +150,7 @@ export function DashboardGerente() {
             </CardContent>
           </Card>
 
-          {/* Card Aderência - apenas Gerente Geral */}
+          {/* Card Aderência - apenas Administrador */}
           {!isGerenteSCI && (
           <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
             <CardHeader className="pb-4">
@@ -157,7 +171,7 @@ export function DashboardGerente() {
           </Card>
           )}
 
-          {/* Card Suporte - apenas Gerente Geral */}
+          {/* Card Suporte - apenas Administrador */}
           {!isGerenteSCI && (
           <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
             <CardHeader className="pb-4">

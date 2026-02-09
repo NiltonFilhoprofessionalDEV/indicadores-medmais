@@ -2,7 +2,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { useLancamento } from '@/hooks/useLancamento'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ export function HigienizacaoTPForm({
   initialData,
   readOnly = false,
 }: HigienizacaoTPFormProps) {
+  const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
@@ -48,6 +50,7 @@ export function HigienizacaoTPForm({
   const {
     register,
     handleSubmit,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<HigienizacaoTPFormData>({
@@ -84,7 +87,7 @@ export function HigienizacaoTPForm({
       onSuccess?.()
     } catch (error) {
       console.error('Erro ao salvar:', error)
-      alert('Erro ao salvar Higienização de TP. Tente novamente.')
+      handleSaveError(error, { onSuccess, navigate })
     }
   }
 
@@ -105,7 +108,7 @@ export function HigienizacaoTPForm({
               setValue('data_referencia', date)
             }}
             baseId={finalBaseId}
-            equipeId={finalEquipeId}
+            equipeId={watch('equipe_id') ?? finalEquipeId}
             onBaseIdChange={(baseId) => setValue('base_id', baseId)}
             onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
             readOnly={readOnly}

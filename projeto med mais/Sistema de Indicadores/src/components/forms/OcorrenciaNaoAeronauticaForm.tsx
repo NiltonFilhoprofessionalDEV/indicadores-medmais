@@ -2,7 +2,8 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
-import { useLancamento } from '@/hooks/useLancamento'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatTimeHHMM, validateHHMM, calculateTimeDifference } from '@/lib/masks'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
@@ -56,6 +57,7 @@ export function OcorrenciaNaoAeronauticaForm({
   initialData,
   readOnly = false,
 }: OcorrenciaNaoAeronauticaFormProps) {
+  const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const [dataReferencia, setDataReferencia] = useState<string>(
     initialData?.data_referencia 
@@ -130,7 +132,7 @@ export function OcorrenciaNaoAeronauticaForm({
       onSuccess?.()
     } catch (error) {
       console.error('Erro ao salvar:', error)
-      alert('Erro ao salvar ocorrência. Tente novamente.')
+      handleSaveError(error, { onSuccess, navigate })
     }
   }
 
@@ -150,8 +152,8 @@ export function OcorrenciaNaoAeronauticaForm({
               setDataReferencia(date)
               setValue('data_referencia', date)
             }}
-            baseId={initialData?.base_id as string | undefined}
-            equipeId={initialData?.equipe_id as string | undefined}
+            baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
+            equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
             onBaseIdChange={(baseId) => setValue('base_id', baseId)}
             onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
             readOnly={readOnly}

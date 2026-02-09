@@ -1,10 +1,33 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from './useAuth'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Database } from '@/lib/database.types'
 import { formatDateForStorage } from '@/lib/date-utils'
 
 type LancamentoInsert = Database['public']['Tables']['lancamentos']['Insert']
+
+/** Mensagem lançada quando a sessão está expirada (para fechar modal e redirecionar) */
+export const SESSION_EXPIRED_MESSAGE = 'Sessão expirada. Faça login novamente.'
+
+/** Timeout em ms para o salvamento (evita botão "Salvando..." travado para sempre) */
+const SAVE_TIMEOUT_MS = 35000 // 35 segundos (redes/PCs lentos)
+
+/** Rejeita após um tempo; evita que a promise do save fique pendurada. */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (v) => {
+        clearTimeout(timer)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(timer)
+        reject(e)
+      }
+    )
+  })
+}
 
 interface SaveLancamentoParams {
   dataReferencia: string // formato YYYY-MM-DD
@@ -14,69 +37,90 @@ interface SaveLancamentoParams {
   equipeId?: string
 }
 
+/** Trata erro ao salvar: se for sessão expirada, mostra mensagem, fecha o modal (onSuccess) e opcionalmente redireciona ao login */
+export function handleSaveError(
+  error: unknown,
+  options?: { onSuccess?: () => void; navigate?: (path: string) => void }
+): void {
+  const message = error instanceof Error ? error.message : String(error)
+  const isSessionExpired = message.includes(SESSION_EXPIRED_MESSAGE) || message.includes('Sessão expirada')
+  if (isSessionExpired) {
+    alert(SESSION_EXPIRED_MESSAGE)
+    options?.onSuccess?.()
+    options?.navigate?.('/login')
+  } else {
+    alert(message || 'Erro ao salvar. Tente novamente.')
+  }
+}
+
 export function useLancamento() {
   const queryClient = useQueryClient()
   const { authUser } = useAuth()
 
   const saveMutation = useMutation({
-    mutationFn: async ({ dataReferencia, indicadorId, conteudo, baseId, equipeId }: SaveLancamentoParams) => {
-      if (!authUser?.user?.id) {
-        throw new Error('Usuário não autenticado')
-      }
+    mutationFn: async (params: SaveLancamentoParams) => {
+      const doSave = async () => {
+        const { dataReferencia, indicadorId, conteudo, baseId, equipeId } = params
 
-      if (!authUser.profile) {
-        throw new Error('Perfil do usuário não encontrado')
-      }
-
-      // Usar base_id e equipe_id do perfil se não fornecidos
-      const finalBaseId = baseId || authUser.profile.base_id
-      const finalEquipeId = equipeId || authUser.profile.equipe_id
-
-      if (!finalBaseId || !finalEquipeId) {
-        throw new Error('Base e Equipe são obrigatórios')
-      }
-
-      // CORREÇÃO: Sempre fazer INSERT (não UPDATE)
-      // O sistema deve permitir múltiplos lançamentos para o mesmo indicador no mesmo dia
-      // Removida a lógica de verificação e atualização de registros existentes
-      
-      // CORREÇÃO TIMEZONE: Garantir que data_referencia está no formato YYYY-MM-DD (local, não UTC)
-      // Se já é string YYYY-MM-DD, usar direto. Se for Date ou ISO, converter.
-      let normalizedDate: string
-      if (typeof dataReferencia === 'string') {
-        // Se já é string, pode ser YYYY-MM-DD ou ISO com timezone
-        if (dataReferencia.includes('T')) {
-          normalizedDate = dataReferencia.split('T')[0]
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataReferencia)) {
-          normalizedDate = dataReferencia
-        } else {
-          // Tentar parsear e converter
-          const date = new Date(dataReferencia)
-          normalizedDate = formatDateForStorage(date)
+        if (!authUser?.user?.id) {
+          throw new Error('Usuário não autenticado')
         }
-      } else {
-        // Se for Date object, converter
-        normalizedDate = formatDateForStorage(new Date(dataReferencia))
+
+        if (!authUser.profile) {
+          throw new Error('Perfil do usuário não encontrado')
+        }
+
+        // Usar base_id e equipe_id do perfil se não fornecidos ou vazios
+        const finalBaseId = (baseId && String(baseId).trim()) ? baseId.trim() : authUser.profile.base_id
+        const finalEquipeId = (equipeId && String(equipeId).trim()) ? equipeId.trim() : authUser.profile.equipe_id
+
+        if (!finalBaseId || !finalEquipeId) {
+          throw new Error('Base e Equipe são obrigatórios')
+        }
+
+        // CORREÇÃO TIMEZONE: Garantir que data_referencia está no formato YYYY-MM-DD (local, não UTC)
+        let normalizedDate: string
+        if (typeof dataReferencia === 'string') {
+          if (dataReferencia.includes('T')) {
+            normalizedDate = dataReferencia.split('T')[0]
+          } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataReferencia)) {
+            normalizedDate = dataReferencia
+          } else {
+            const date = new Date(dataReferencia)
+            normalizedDate = formatDateForStorage(date)
+          }
+        } else {
+          normalizedDate = formatDateForStorage(new Date(dataReferencia))
+        }
+
+        const lancamentoData: LancamentoInsert = {
+          data_referencia: normalizedDate,
+          base_id: finalBaseId,
+          equipe_id: finalEquipeId,
+          user_id: authUser.user.id,
+          indicador_id: indicadorId,
+          conteudo: conteudo as Database['public']['Tables']['lancamentos']['Row']['conteudo'],
+        }
+
+        const table = supabase.from('lancamentos') as any
+        const { data, error } = await table.insert(lancamentoData).select().single()
+
+        if (error) {
+          const msg = error.message || 'Erro ao salvar no servidor.'
+          const code = (error as { code?: string }).code
+          if (code === 'PGRST301' || code === '401' || /jwt|session|unauthorized|expired/i.test(msg)) {
+            throw new Error(SESSION_EXPIRED_MESSAGE)
+          }
+          throw new Error(msg)
+        }
+        return data
       }
 
-      const lancamentoData: LancamentoInsert = {
-        data_referencia: normalizedDate,
-        base_id: finalBaseId,
-        equipe_id: finalEquipeId,
-        user_id: authUser.user.id,
-        indicador_id: indicadorId,
-        conteudo: conteudo as Database['public']['Tables']['lancamentos']['Row']['conteudo'],
-      }
-
-      // Sempre criar novo registro (INSERT)
-      const table = (supabase.from('lancamentos') as any)
-      const { data, error } = await table
-        .insert(lancamentoData)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
+      return withTimeout(
+        doSave(),
+        SAVE_TIMEOUT_MS,
+        'A requisição demorou muito. Verifique sua conexão e tente novamente.'
+      )
     },
     onSuccess: () => {
       // Invalidar queries relacionadas

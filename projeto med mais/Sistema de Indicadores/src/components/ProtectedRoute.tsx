@@ -81,19 +81,25 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     )
   }
 
-  // Verificar se o usuário tem permissão
+  // Verificar se o usuário tem permissão (inclui chefe com acesso_gerente_sci para rotas de gerente_sci)
   if (allowedRoles && authUser.profile) {
     const role = String(authUser.profile.role || '').trim().toLowerCase()
+    const acessoGerenteSci = !!authUser.profile.acesso_gerente_sci
+    const canAccessAsGerenteSci = role === 'gerente_sci' || (role === 'chefe' && acessoGerenteSci)
+    const hasPermission =
+      !!role &&
+      (allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci') ||
+        (role === 'chefe' && acessoGerenteSci && allowedRoles.includes('gerente_sci')))
     console.log('[LOGIN_DEBUG] ProtectedRoute:', {
       pathname: location.pathname,
       role,
-      roleOriginal: authUser.profile.role,
+      acessoGerenteSci,
       allowedRoles,
-      hasPermission: !!role && allowedRoles.includes(role as any),
+      hasPermission,
     })
-    if (!role || !allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci')) {
+    if (!hasPermission) {
       console.warn('[LOGIN_DEBUG] Sem permissão - redirecionando:', { role, allowedRoles, pathname: location.pathname })
-      if (role === 'geral' || role === 'gerente_sci') {
+      if (role === 'geral' || canAccessAsGerenteSci) {
         return <Navigate to="/dashboard-gerente" replace />
       } else {
         return <Navigate to="/dashboard-chefe" replace />

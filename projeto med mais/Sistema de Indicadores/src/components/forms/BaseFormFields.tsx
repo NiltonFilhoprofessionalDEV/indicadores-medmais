@@ -108,7 +108,6 @@ export function BaseFormFields({
               onEquipeChange?.(e.target.value)
               onEquipeIdChange?.(e.target.value)
             }}
-            disabled={!!authUser?.profile?.equipe_id}
             className="py-2.5"
           >
             <option value="">Selecione a equipe</option>

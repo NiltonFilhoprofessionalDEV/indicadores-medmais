@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -82,7 +83,9 @@ const FORM_COMPONENTS: Record<string, React.ComponentType<any>> = {
 
 export function DashboardChefe() {
   const { authUser } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const podeAcessarPainelGerente = !!authUser?.profile?.acesso_gerente_sci
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
   const [showFormModal, setShowFormModal] = useState(false)
@@ -197,6 +200,18 @@ export function DashboardChefe() {
       title="Dashboard - Chefe"
       subtitle={authUser?.profile?.nome}
       baseEquipe={baseEquipe}
+      extraActions={
+        podeAcessarPainelGerente ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/dashboard-gerente')}
+            className="bg-white/20 hover:bg-white/30 text-white border-0"
+          >
+            Painel Gerente de SCI
+          </Button>
+        ) : undefined
+      }
     >
         {/* Seção: Novo Lançamento - Cards Premium */}
         <Card className="mb-8 shadow-soft dark:bg-slate-800 dark:border-slate-700">

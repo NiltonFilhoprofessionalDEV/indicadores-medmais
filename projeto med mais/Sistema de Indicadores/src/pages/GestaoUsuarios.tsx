@@ -27,6 +27,7 @@ const createUserSchema = z.object({
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
+  acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
   if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
@@ -50,6 +51,7 @@ const updateUserSchema = z.object({
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
+  acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
   if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
@@ -69,6 +71,7 @@ interface UsuarioComEmail {
   role: 'geral' | 'chefe' | 'gerente_sci'
   base_id: string | null
   equipe_id: string | null
+  acesso_gerente_sci: boolean | null
   created_at: string
   updated_at: string
 }
@@ -77,6 +80,7 @@ export function GestaoUsuarios() {
   const navigate = useNavigate()
   const { authUser } = useAuth()
   const isGerenteSCI = authUser?.profile?.role === 'gerente_sci'
+  const isGerenteGeral = authUser?.profile?.role === 'geral'
   const gerenteSCIBaseId = authUser?.profile?.base_id ?? ''
   const [showModal, setShowModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
@@ -109,7 +113,7 @@ export function GestaoUsuarios() {
         let profiles: Profile[] = []
 
         // Aplicar filtro por base se selecionado (ou obrigatório para gerente_sci)
-        // IMPORTANTE: Gerentes Gerais (role='geral') sempre aparecem, independente do filtro
+        // IMPORTANTE: Administradores (role='geral') sempre aparecem, independente do filtro
         if (baseFilter && baseFilter !== '') {
           // Buscar usuários da base selecionada
           const { data: usuariosBase, error: errorBase } = await supabase
@@ -123,7 +127,7 @@ export function GestaoUsuarios() {
             throw errorBase
           }
 
-          // Buscar Gerentes Gerais (sempre aparecem)
+          // Buscar Administradores (sempre aparecem)
           const { data: gerentesGerais, error: errorGeral } = await supabase
             .from('profiles')
             .select('*')
@@ -131,7 +135,7 @@ export function GestaoUsuarios() {
             .order('created_at', { ascending: false })
 
           if (errorGeral) {
-            console.error('Erro ao buscar gerentes gerais:', errorGeral)
+            console.error('Erro ao buscar administradores:', errorGeral)
             throw errorGeral
           }
 
@@ -165,6 +169,7 @@ export function GestaoUsuarios() {
           role: profile.role,
           base_id: profile.base_id,
           equipe_id: profile.equipe_id,
+          acesso_gerente_sci: profile.acesso_gerente_sci ?? false,
           created_at: profile.created_at,
           updated_at: profile.updated_at,
           email: 'N/A', // Será preenchido se tivermos acesso
@@ -238,6 +243,7 @@ export function GestaoUsuarios() {
     resolver: zodResolver(isEditMode ? updateUserSchema : createUserSchema),
     defaultValues: {
       role: 'chefe',
+      acesso_gerente_sci: false,
     },
   })
 
@@ -289,6 +295,7 @@ export function GestaoUsuarios() {
               role: data.role,
               base_id: data.base_id || null,
               equipe_id: data.equipe_id || null,
+              acesso_gerente_sci: data.role === 'chefe' && typeof data.acesso_gerente_sci === 'boolean' ? data.acesso_gerente_sci : undefined,
             },
           })
 
@@ -335,6 +342,7 @@ export function GestaoUsuarios() {
                       role: data.role,
                       base_id: data.base_id || null,
                       equipe_id: data.equipe_id || null,
+                      acesso_gerente_sci: data.role === 'chefe' && typeof data.acesso_gerente_sci === 'boolean' ? data.acesso_gerente_sci : undefined,
                     }),
                   }
                 )
@@ -443,155 +451,55 @@ export function GestaoUsuarios() {
     },
   })
 
-  // Mutation para atualizar usuário
+  // Mutation para atualizar usuário: RPC update_user_profile (só role=geral altera acesso_gerente_sci)
   const updateUserMutation = useMutation({
     mutationFn: async (data: UpdateUserFormData) => {
-      try {
-        const response = await supabase.functions.invoke('update-user', {
-          body: {
-            id: data.id,
-            nome: data.nome,
-            role: data.role,
-            base_id: data.base_id || null,
-            equipe_id: data.equipe_id || null,
-            email: data.email && data.email.trim() !== '' && data.email !== 'N/A' ? data.email : undefined,
-            password: data.password && data.password.trim() !== '' ? data.password : undefined,
-          },
-        })
+      const acessoGerenteSci = data.role === 'chefe' ? !!(data as UpdateUserFormData).acesso_gerente_sci : false
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: updated, error } = await supabase.rpc('update_user_profile', {
+        target_id: data.id,
+        p_nome: data.nome.trim(),
+        p_role: data.role,
+        p_base_id: data.base_id || null,
+        p_equipe_id: data.equipe_id || null,
+        p_acesso_gerente_sci: acessoGerenteSci,
+      } as any)
 
-        console.log('Resposta completa da Edge Function update-user:', response)
-
-        // Se houver erro na chamada da função (erro de rede, etc)
-        if (response.error) {
-          console.error('Erro ao chamar Edge Function:', response.error)
-          
-          // Se o erro indica que a função não existe ou não está acessível
-          const errorMessage = response.error.message || ''
-          if (
-            errorMessage.includes('Failed to send') ||
-            errorMessage.includes('Function not found') ||
-            errorMessage.includes('404') ||
-            errorMessage.includes('not found')
-          ) {
-            throw new Error(
-              'Edge Function não está disponível. Por favor, faça o deploy da Edge Function "update-user" no Supabase.'
-            )
-          }
-          
-          // Se o erro é "non-2xx status code", tentar extrair a mensagem do response.data
-          if (errorMessage.includes('non-2xx') || errorMessage.includes('status code')) {
-            // Tentar fazer uma chamada direta para obter a mensagem de erro
-            try {
-              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-              const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-              const { data: sessionData } = await supabase.auth.getSession()
-              
-              const directResponse = await fetch(
-                `${supabaseUrl}/functions/v1/update-user`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${supabaseAnonKey}`,
-                    ...(sessionData.session ? { 'apikey': supabaseAnonKey } : {}),
-                  },
-                  body: JSON.stringify({
-                    id: data.id,
-                    nome: data.nome,
-                    role: data.role,
-                    base_id: data.base_id || null,
-                    equipe_id: data.equipe_id || null,
-                    email: data.email && data.email.trim() !== '' && data.email !== 'N/A' ? data.email : undefined,
-                    password: data.password && data.password.trim() !== '' ? data.password : undefined,
-                  }),
-                }
-              )
-
-              const responseData = await directResponse.json()
-              
-              if (!directResponse.ok) {
-                const errorMsg = responseData?.error || responseData?.message || errorMessage
-                throw new Error(errorMsg)
-              }
-
-              // Se chegou aqui, foi sucesso
-              return responseData
-            } catch (fetchError: any) {
-              // Se falhar na chamada direta, usar a mensagem original ou a do fetchError
-              const finalError = fetchError?.message || response.data?.error || errorMessage
-              throw new Error(finalError)
-            }
-          }
-          
-          // Tentar extrair mensagem de erro do response.data se disponível
-          let finalErrorMessage = errorMessage || 'Erro ao chamar a função'
-          
-          // Se o erro contém dados adicionais
-          if (response.data && typeof response.data === 'object') {
-            if ('error' in response.data) {
-              finalErrorMessage = String(response.data.error) || finalErrorMessage
-            } else if ('message' in response.data) {
-              finalErrorMessage = String(response.data.message) || finalErrorMessage
-            }
-          }
-          
-          throw new Error(finalErrorMessage)
+      if (error) {
+        if (error.code === 'PGRST301' || error.message?.includes('row-level security') || error.message?.includes('policy')) {
+          throw new Error('Você não tem permissão para editar usuários.')
         }
-
-        // Verificar se há erro no resultado (status não 2xx)
-        if (response.data) {
-          // Se a resposta contém um campo 'error', é um erro
-          if (typeof response.data === 'object' && 'error' in response.data) {
-            const errorMessage = typeof response.data.error === 'string' 
-              ? response.data.error 
-              : 'Erro desconhecido'
-            console.error('Erro retornado pela Edge Function:', response.data)
-            throw new Error(errorMessage)
-          }
-
-          // Verificar se foi sucesso
-          if (typeof response.data === 'object' && 'success' in response.data && response.data.success) {
-            return response.data
-          }
-        }
-
-        // Se chegou aqui, a resposta foi inesperada
-        console.error('Resposta inesperada:', response)
-        throw new Error('Resposta inesperada da Edge Function')
-      } catch (error: any) {
-        console.error('Erro ao atualizar usuário:', error)
-        if (error instanceof Error) {
-          throw error
-        }
-        throw new Error(error?.message || 'Erro desconhecido ao atualizar usuário')
+        throw new Error(error.message || 'Erro ao atualizar usuário')
       }
+      if (!updated || typeof updated !== 'object') {
+        throw new Error('Resposta inválida ao atualizar usuário.')
+      }
+      return updated as { acesso_gerente_sci?: boolean | null }
     },
-    onSuccess: () => {
+    onSuccess: async (updated: { acesso_gerente_sci?: boolean | null }, variables: UpdateUserFormData) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] })
       setShowModal(false)
       setIsEditMode(false)
       reset()
-      alert('Usuário atualizado com sucesso!')
+      const desejavaAcesso = variables.role === 'chefe' && !!((variables as UpdateUserFormData).acesso_gerente_sci)
+      const salvouAcesso = !!(updated?.acesso_gerente_sci ?? false)
+      if (variables.role === 'chefe' && desejavaAcesso !== salvouAcesso) {
+        alert(
+          'Usuário atualizado com sucesso!\n\n' +
+          'A alteração do "acesso ao painel Gerente de SCI" só pode ser feita por um usuário com perfil Administrador (role=geral na tabela profiles).'
+        )
+      } else {
+        alert('Usuário atualizado com sucesso!')
+      }
     },
     onError: (error: Error) => {
       console.error('Erro ao atualizar usuário:', error)
-      const errorMessage = error.message || 'Erro desconhecido ao atualizar usuário'
-      
-      // Mensagem mais amigável se for erro de Edge Function
-      if (errorMessage.includes('Edge Function não está disponível') || 
-          errorMessage.includes('Failed to send') ||
-          errorMessage.includes('Function not found')) {
-        alert(
-          '⚠️ Edge Function não está disponível!\n\n' +
-          'Para editar usuários, você precisa fazer o deploy da Edge Function "update-user".\n\n' +
-          'Opções:\n' +
-          '1. Use o Supabase CLI: supabase functions deploy update-user\n' +
-          '2. Ou use o Dashboard do Supabase: Edge Functions > Create a new function\n\n' +
-          'Consulte: DEPLOY_EDGE_FUNCTION_UPDATE_USER.md'
-        )
-      } else {
-        alert(`Erro: ${errorMessage}`)
+      const msg = error.message || 'Erro ao atualizar usuário'
+      if (msg.includes('permissão') || msg.includes('identificar seu perfil') || msg.includes('não encontrado')) {
+        alert(msg)
+        return
       }
+      alert(`Erro: ${msg}`)
     },
   })
 
@@ -601,6 +509,7 @@ export function GestaoUsuarios() {
     setValue('nome', usuario.nome)
     setValue('email', usuario.email === 'N/A' ? '' : usuario.email)
     setValue('role', usuario.role)
+    setValue('acesso_gerente_sci', usuario.acesso_gerente_sci ?? false)
     if (usuario.role === 'geral') {
       const baseAdministrativo = bases?.find((b) => b.nome === 'ADMINISTRATIVO')
       setValue('base_id', baseAdministrativo?.id || usuario.base_id || '')
@@ -621,6 +530,7 @@ export function GestaoUsuarios() {
     reset({
       role: isGerenteSCI ? 'chefe' : 'chefe',
       base_id: isGerenteSCI ? gerenteSCIBaseId : undefined,
+      acesso_gerente_sci: false,
     })
     setShowModal(true)
   }
@@ -1086,7 +996,7 @@ export function GestaoUsuarios() {
                       {...register('role')}
                       disabled={isGerenteSCI}
                     >
-                      {!isGerenteSCI && <option value="geral">Administrador (Gerente Geral)</option>}
+                      {!isGerenteSCI && <option value="geral">Administrador</option>}
                       {!isGerenteSCI && <option value="gerente_sci">Gerente de SCI</option>}
                       <option value="chefe">Chefe de Equipe</option>
                     </select>
@@ -1117,7 +1027,7 @@ export function GestaoUsuarios() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500">
-                        Base automaticamente definida como ADMINISTRATIVO para Gerentes Gerais
+                        Base automaticamente definida como ADMINISTRATIVO para Administradores
                       </p>
                       {errors.base_id && (
                         <p className="text-sm text-destructive">{errors.base_id.message}</p>
@@ -1194,6 +1104,25 @@ export function GestaoUsuarios() {
                           <p className="text-sm text-destructive">{errors.equipe_id.message}</p>
                         )}
                       </div>
+
+                      {/* Só Administrador pode conceder acesso ao painel Gerente de SCI (ao cadastrar ou editar chefe) */}
+                      {isGerenteGeral ? (
+                        <div className="flex items-center gap-2 pt-2">
+                          <input
+                            type="checkbox"
+                            id="acesso_gerente_sci"
+                            className="rounded border-input"
+                            {...register('acesso_gerente_sci', { setValueAs: (v) => !!v })}
+                          />
+                          <Label htmlFor="acesso_gerente_sci" className="cursor-pointer text-sm">
+                            Pode acessar painel Gerente de SCI
+                          </Label>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground pt-2">
+                          Apenas administradores podem realizar essa alteração.
+                        </p>
+                      )}
                     </>
                   )}
 

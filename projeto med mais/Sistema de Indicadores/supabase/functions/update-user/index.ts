@@ -13,12 +13,29 @@ serve(async (req) => {
   }
 
   try {
-    const { id, nome, role, base_id, equipe_id, email, password } = await req.json()
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { id, nome, role, base_id, equipe_id, email, password, acesso_gerente_sci } = await req.json()
 
     // Validação básica
     if (!id || !nome || !role) {
       return new Response(
         JSON.stringify({ error: 'Campos obrigatórios: id, nome, role' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // acesso_gerente_sci só pode ser alterado por Gerente Geral (role = 'geral')
+    const acessoGerenteSciDefinido = typeof acesso_gerente_sci === 'boolean'
+    if (acessoGerenteSciDefinido && role !== 'chefe') {
+      return new Response(
+        JSON.stringify({ error: 'acesso_gerente_sci só se aplica a Chefes de Equipe' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -57,6 +74,36 @@ serve(async (req) => {
       },
     })
 
+    // Se está alterando acesso_gerente_sci, verificar se o chamador é Gerente Geral (só então aplicamos o novo valor)
+    let podeAlterarAcessoGerenteSci = false
+    if (acessoGerenteSciDefinido) {
+      const jwt = authHeader.replace('Bearer ', '').trim()
+      let callerId: string | null = null
+      try {
+        const payloadB64 = jwt.split('.')[1]
+        if (payloadB64) {
+          const base64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/')
+          const padded = base64 + '=='.slice(0, (4 - (base64.length % 4)) % 4)
+          const payload = JSON.parse(atob(padded))
+          callerId = payload.sub ?? null
+        }
+      } catch {
+        // ignore
+      }
+      if (callerId) {
+        const { data: callerProfile } = await supabaseAdmin.from('profiles').select('role').eq('id', callerId).single()
+        if (callerProfile?.role === 'geral') {
+          podeAlterarAcessoGerenteSci = true
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'Apenas Gerente Geral pode alterar o acesso ao painel Gerente de SCI' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+      // Se não conseguimos identificar o chamador como geral, não alteramos acesso_gerente_sci (mas o resto do update segue)
+    }
+
     // Verificar se o usuário existe
     const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')
@@ -77,11 +124,21 @@ serve(async (req) => {
       role: string
       base_id: string | null
       equipe_id: string | null
+      acesso_gerente_sci?: boolean
     } = {
       nome,
       role,
       base_id: role === 'chefe' || role === 'gerente_sci' ? base_id : null,
       equipe_id: role === 'chefe' ? equipe_id : null,
+    }
+    if (role === 'chefe' && acessoGerenteSciDefinido && podeAlterarAcessoGerenteSci) {
+      updateData.acesso_gerente_sci = acesso_gerente_sci
+    }
+    if (role === 'chefe' && !acessoGerenteSciDefinido) {
+      updateData.acesso_gerente_sci = false
+    }
+    if (role !== 'chefe') {
+      updateData.acesso_gerente_sci = false
     }
 
     const { error: profileError } = await supabaseAdmin

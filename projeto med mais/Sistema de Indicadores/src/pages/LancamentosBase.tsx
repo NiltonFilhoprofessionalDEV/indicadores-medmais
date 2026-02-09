@@ -6,9 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { HistoryTable } from '@/components/HistoryTable'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Settings, LogOut } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { AppShell } from '@/components/AppShell'
 import {
   OcorrenciaAeronauticaForm,
   OcorrenciaNaoAeronauticaForm,
@@ -56,7 +54,6 @@ const FORM_COMPONENTS: Record<string, React.ComponentType<any>> = {
 export function LancamentosBase() {
   const { authUser } = useAuth()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const baseId = authUser?.profile?.base_id ?? undefined
   const [showViewModal, setShowViewModal] = useState(false)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
@@ -79,27 +76,6 @@ export function LancamentosBase() {
       return data || []
     },
   })
-
-  const handleLogout = async () => {
-    try {
-      queryClient.clear()
-      localStorage.removeItem('supabase.auth.token')
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('supabase.') || key.startsWith('sb-'))) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-      await supabase.auth.signOut()
-      await new Promise(resolve => setTimeout(resolve, 200))
-      window.location.href = '/login'
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      window.location.href = '/login'
-    }
-  }
 
   const getBaseName = (id: string) => bases?.find((b) => b.id === id)?.nome || 'N/A'
   const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || 'N/A'
@@ -126,81 +102,36 @@ export function LancamentosBase() {
 
   if (!baseId) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
+      <AppShell title="Lançamentos" subtitle={authUser?.profile?.nome}>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-muted-foreground">Perfil sem base configurada.</p>
           <Button onClick={() => navigate('/dashboard-gerente')} className="mt-4">
             Voltar ao Dashboard
           </Button>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px] gap-2 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
-              <img
-                src="/logo-medmais.png"
-                alt="MedMais Logo"
-                className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Lançamentos - Minha Base</h1>
-                <p className="text-xs sm:text-sm text-white/90 truncate">
-                  {authUser?.profile?.nome} • {getBaseName(baseId)}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0 ml-auto sm:ml-4">
-              <Button
-                onClick={() => navigate('/dashboard-gerente')}
-                variant="outline"
-                size="sm"
-                className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm"
-              >
-                Voltar ao Dashboard
-              </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 transition-all duration-200">
-                    <Settings className="h-6 w-6" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-48 p-2">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      onClick={() => navigate('/settings')}
-                      className="w-full justify-start gap-2 text-gray-700 hover:text-[#fc4d00] hover:bg-orange-50"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Configurações
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleLogout}
-                      className="w-full justify-start gap-2 text-gray-700 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sair
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-      </header>
+  const baseEquipe = baseId ? getBaseName(baseId) : undefined
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 min-w-0">
-        <p className="text-sm text-muted-foreground mb-6">
+  return (
+    <AppShell
+      title="Lançamentos - Minha Base"
+      subtitle={authUser?.profile?.nome}
+      baseEquipe={baseEquipe}
+      extraActions={
+        <Button
+          onClick={() => navigate('/dashboard-gerente')}
+          variant="outline"
+          size="sm"
+          className="bg-white/10 text-white hover:bg-white/20 border-white/40"
+        >
+          Voltar ao Dashboard
+        </Button>
+      }
+    >
+      <p className="text-sm text-muted-foreground mb-6">
           Visualização dos lançamentos da sua base para conferência. Apenas consulta (sem edição ou exclusão).
         </p>
         <HistoryTable
@@ -213,14 +144,20 @@ export function LancamentosBase() {
           getBaseName={getBaseName}
           getEquipeName={getEquipeName}
         />
-      </main>
 
       {/* Modal: Visualização (Read-only) */}
       {showViewModal && selectedIndicador && selectedLancamento && FormComponent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
-            <CardHeader className="relative">
-              <CardTitle>Visualizar - {selectedIndicador.nome}</CardTitle>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto dark:bg-black/60">
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto relative shadow-glow-primary dark:bg-slate-800 dark:border-slate-700">
+            <CardHeader className="relative border-b dark:border-slate-700">
+              <div className="pr-10">
+                <CardTitle className="text-lg font-bold">
+                  Visualizar - {selectedIndicador.nome}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Dados do lançamento em modo somente leitura.
+                </p>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -269,6 +206,6 @@ export function LancamentosBase() {
           </Card>
         </div>
       )}
-    </div>
+    </AppShell>
   )
 }

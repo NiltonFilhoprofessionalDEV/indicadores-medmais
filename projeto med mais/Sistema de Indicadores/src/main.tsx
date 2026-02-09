@@ -6,6 +6,7 @@ import 'react-day-picker/dist/style.css'
 import './index.css'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 
 console.warn('[MEDMAIS] App iniciando - build 2025-02-05-gerente-sci')
 
@@ -24,9 +25,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </React.StrictMode>
   </ErrorBoundary>,

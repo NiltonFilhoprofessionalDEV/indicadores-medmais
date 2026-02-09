@@ -310,7 +310,7 @@ export function Settings() {
                   <div className="space-y-2">
                     <Label>Perfil</Label>
                     <Input
-                      value={authUser.profile.role === 'geral' ? 'Administrador (Gerente Geral)' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
+                      value={authUser.profile.role === 'geral' ? 'Administrador' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
                       disabled
                       className="bg-muted"
                     />

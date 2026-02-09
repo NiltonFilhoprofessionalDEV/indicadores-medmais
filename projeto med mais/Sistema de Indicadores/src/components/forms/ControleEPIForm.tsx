@@ -2,7 +2,8 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
-import { useLancamento } from '@/hooks/useLancamento'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { calculatePercentage } from '@/lib/calculations'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
@@ -95,6 +96,7 @@ export function ControleEPIForm({
   initialData,
   readOnly = false,
 }: ControleEPIFormProps) {
+  const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
@@ -229,8 +231,7 @@ export function ControleEPIForm({
       onSuccess?.()
     } catch (error) {
       console.error('Erro ao salvar Controle de EPI:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar'
-      alert(`Erro ao salvar Controle de EPI: ${errorMessage}`)
+      handleSaveError(error, { onSuccess, navigate })
     }
   }
 
@@ -262,7 +263,7 @@ export function ControleEPIForm({
               setValue('data_referencia', date)
             }}
             baseId={finalBaseId}
-            equipeId={finalEquipeId}
+            equipeId={watch('equipe_id') ?? finalEquipeId}
             onBaseIdChange={(baseId) => setValue('base_id', baseId)}
             onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
             readOnly={readOnly}

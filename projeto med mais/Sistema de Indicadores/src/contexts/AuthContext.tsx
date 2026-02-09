@@ -13,7 +13,8 @@ export interface AuthUser {
 interface AuthContextType {
   authUser: AuthUser | null
   loading: boolean
-  refreshAuth: () => Promise<void>
+  /** Atualiza sessão e perfil; retorna o perfil carregado (útil para redirect pós-login). */
+  refreshAuth: () => Promise<Profile | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     import.meta.env.VITE_SUPABASE_URL && 
     import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  async function loadProfile(userId: string, retryCount = 0) {
+  async function loadProfile(userId: string, retryCount = 0): Promise<Profile | null> {
     const maxRetries = 2
     try {
       let profile: Profile | null = null
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         directError: directError?.message,
         hasDirectProfile: !!directProfile,
         roleDirect: (directProfile as any)?.role,
+        acessoGerenteSci: (directProfile as any)?.acesso_gerente_sci,
       })
 
       if (!directError && directProfile) {
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           rpcError: rpcError?.message,
           hasRpcProfile: !!rpcProfile,
           roleRpc: (rpcProfile as any)?.role,
+          acessoGerenteSci: (rpcProfile as any)?.acesso_gerente_sci,
         })
         if (!rpcError && rpcProfile && typeof rpcProfile === 'object') {
           profile = rpcProfile as Profile
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setAuthUser(null)
       }
+      return profile
     } catch (error) {
       console.error('Error loading profile:', error)
       if (retryCount < maxRetries) {
@@ -83,20 +87,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setAuthUser(null)
       }
+      return null
     }
   }
 
-  async function refreshAuth() {
+  async function refreshAuth(): Promise<Profile | null> {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        await loadProfile(session.user.id)
-      } else {
-        setAuthUser(null)
+        return await loadProfile(session.user.id)
       }
+      setAuthUser(null)
+      return null
     } catch (error) {
       console.error('Error refreshing auth:', error)
       setAuthUser(null)
+      return null
     }
   }
 

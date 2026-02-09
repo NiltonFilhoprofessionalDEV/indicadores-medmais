@@ -28,29 +28,27 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Redirecionar se já estiver autenticado (evitar durante login ativo)
+  // Redirecionar se já estiver autenticado: quem tem acesso ao painel Gerente vai para dashboard-gerente;
+  // apenas chefes sem acesso_gerente_sci vão para dashboard-chefe (nem todos os chefes têm os dois painéis).
   useEffect(() => {
     if (loading) return
     const r = authUser?.profile?.role
-    // [LOGIN_DEBUG] Log para diagnóstico Vercel
+    const acessoGerenteSci = !!authUser?.profile?.acesso_gerente_sci
     console.log('[LOGIN_DEBUG] useEffect já-autenticado:', {
       host: window.location.host,
       authLoading,
       hasUser: !!authUser?.user,
-      userId: authUser?.user?.id,
-      hasProfile: !!authUser?.profile,
       role: r,
-      roleType: typeof r,
+      acessoGerenteSci,
     })
     if (!authLoading && authUser?.user && r) {
-      const roleNorm = String(r)
-        .trim()
-        .toLowerCase()
-        .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
-      const isGerenteOuAdmin =
-        roleNorm === 'geral' || roleNorm === 'gerente_sci' || roleNorm.includes('gerente_sci')
-      const dest = isGerenteOuAdmin ? '/dashboard-gerente' : '/dashboard-chefe'
-      console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, isGerenteOuAdmin, destino: dest })
+      const roleNorm = String(r).trim().toLowerCase().replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+      const temAcessoPainelGerente =
+        roleNorm === 'geral' ||
+        roleNorm === 'gerente_sci' ||
+        (roleNorm === 'chefe' && acessoGerenteSci)
+      const dest = temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe'
+      console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, temAcessoPainelGerente, destino: dest })
       navigate(dest, { replace: true })
     }
   }, [authUser, authLoading, navigate, loading])
@@ -137,43 +135,38 @@ export function Login() {
 
       if (authData.user) {
         console.log('✅ Login bem-sucedido! Usuário:', authData.user.id)
-        
-        // Atualizar o contexto de autenticação
-        try {
-          await refreshAuth()
-          console.log('✅ Contexto de autenticação atualizado')
-        } catch (refreshError) {
-          console.warn('⚠️ Erro ao atualizar contexto:', refreshError)
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 400))
-        await refreshAuth()
 
-        let role: string | null = null
-        for (let attempt = 0; attempt < 3; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 200 : 400))
-          const { data: profile, error: profileError } = await supabase
+        // Usar o perfil carregado pelo AuthContext (select *) como fonte de verdade para o redirect
+        await new Promise(resolve => setTimeout(resolve, 300))
+        let profileFromAuth = await refreshAuth()
+        if (!profileFromAuth) {
+          await new Promise(resolve => setTimeout(resolve, 400))
+          profileFromAuth = await refreshAuth()
+        }
+
+        let role: string | null = profileFromAuth?.role ?? null
+        let acessoGerenteSci = !!(profileFromAuth?.acesso_gerente_sci ?? false)
+
+        // Fallback: se o contexto não retornou perfil, buscar direto
+        if (role == null) {
+          const { data: p } = await supabase
             .from('profiles')
-            .select('role')
+            .select('role, acesso_gerente_sci')
             .eq('id', authData.user.id)
             .single()
-          const p = profile as { role?: string } | null
-          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'select profiles:', { profileError: profileError?.message, profile: p, role: p?.role })
-          if (!profileError && p && typeof p.role === 'string') {
-            role = p.role
-            console.log('[LOGIN_DEBUG] Role obtido via select:', role)
-            break
+          const row = p as { role?: string; acesso_gerente_sci?: boolean } | null
+          if (row?.role) {
+            role = row.role
+            acessoGerenteSci = !!row.acesso_gerente_sci
           }
-          const { data: rpcProfile, error: rpcError } = await supabase.rpc('get_my_profile')
-          const rpc = rpcProfile as { role?: string; Role?: string } | null
-          const rpcRole = (rpc?.role ?? rpc?.Role) as string | undefined
-          console.log('[LOGIN_DEBUG] Tentativa', attempt + 1, 'get_my_profile:', { rpcError: rpcError?.message, rpcProfile: rpc, role: rpcRole })
-          if (rpc && typeof rpcRole === 'string') {
-            role = rpcRole
-            console.log('[LOGIN_DEBUG] Role obtido via RPC:', role)
-            break
+        }
+        if (role == null) {
+          const rpc = await supabase.rpc('get_my_profile')
+          const rpcData = rpc.data as { role?: string; acesso_gerente_sci?: boolean } | null
+          if (rpcData?.role) {
+            role = rpcData.role
+            acessoGerenteSci = !!rpcData.acesso_gerente_sci
           }
-          await refreshAuth()
         }
 
         if (role === null || role === undefined) {
@@ -183,20 +176,19 @@ export function Login() {
           return
         }
 
-        const roleNormalized = String(role ?? '')
-          .trim()
-          .toLowerCase()
-          .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
-        const isGerenteOuAdmin =
+        const roleNormalized = String(role ?? '').trim().toLowerCase().replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+        const temAcessoPainelGerente =
           roleNormalized === 'geral' ||
           roleNormalized === 'gerente_sci' ||
-          roleNormalized.includes('gerente_sci')
-        const destino = isGerenteOuAdmin ? '/dashboard-gerente' : '/dashboard-chefe'
+          (roleNormalized === 'chefe' && acessoGerenteSci)
+        const destino = temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe'
         console.log('[LOGIN_DEBUG] ANTES DO REDIRECT:', {
           roleOriginal: role,
           roleNormalized,
-          isGerenteOuAdmin,
+          acessoGerenteSci,
+          temAcessoPainelGerente,
           destino,
+          profileFromAuth: !!profileFromAuth,
           host: window.location.host,
         })
         navigate(destino, { replace: true })

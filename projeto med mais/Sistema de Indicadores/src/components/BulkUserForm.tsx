@@ -113,7 +113,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockedBaseId])
 
-  // Buscar base ADMINISTRATIVO para Gerentes Gerais
+  // Buscar base ADMINISTRATIVO para Administradores
   const baseAdministrativo = bases.find((b) => b.nome === 'ADMINISTRATIVO')
 
   // Função para gerar senha baseada no email ou padrão

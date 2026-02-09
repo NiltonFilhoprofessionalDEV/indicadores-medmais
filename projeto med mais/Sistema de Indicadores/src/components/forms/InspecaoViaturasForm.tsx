@@ -2,7 +2,8 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { useLancamento } from '@/hooks/useLancamento'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Select } from '@/components/ui/select'
@@ -59,6 +60,7 @@ export function InspecaoViaturasForm({
   initialData,
   readOnly = false,
 }: InspecaoViaturasFormProps) {
+  const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
@@ -82,6 +84,7 @@ export function InspecaoViaturasForm({
     register,
     handleSubmit,
     control,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<InspecaoViaturasFormData>({
@@ -123,7 +126,7 @@ export function InspecaoViaturasForm({
       onSuccess?.()
     } catch (error) {
       console.error('Erro ao salvar:', error)
-      alert('Erro ao salvar Inspeção de Viaturas. Tente novamente.')
+      handleSaveError(error, { onSuccess, navigate })
     }
   }
 
@@ -144,7 +147,7 @@ export function InspecaoViaturasForm({
               setValue('data_referencia', date)
             }}
             baseId={finalBaseId}
-            equipeId={finalEquipeId}
+            equipeId={watch('equipe_id') ?? finalEquipeId}
             onBaseIdChange={(baseId) => setValue('base_id', baseId)}
             onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
             readOnly={readOnly}

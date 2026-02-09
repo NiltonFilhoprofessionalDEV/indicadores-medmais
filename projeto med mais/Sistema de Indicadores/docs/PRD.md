@@ -17,7 +17,7 @@ Forms: React Hook Form + Zod (Schema Validation).
 
 **Chefe de Equipe (role='chefe'):**
 Leitura: Vê dados de toda a sua Base (para comparação).
-Escrita: Insere/Edita apenas para sua Equipe.
+Escrita: Insere/Edita/Exclui lançamentos de **qualquer equipe da sua base** (não apenas a equipe do perfil). O formulário permite selecionar a equipe no modal (caso de troca de equipe sem atualização do perfil). RLS: migration 016.
 Menu: Lançamentos, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados.
 
 4. Estrutura de Dados (Supabase)
@@ -90,13 +90,16 @@ Se role == 'geral': TRUE (Vê tudo).
 Se role == 'chefe': lancamento.base_id == profile.base_id (Vê a base toda).
 Se role == 'gerente_sci': lancamento.base_id == profile.base_id (Vê a base toda para conferência).
 Lancamentos (Escrita/Edição/Exclusão):
-Se role == 'chefe': lancamento.equipe_id == profile.equipe_id (Só mexe na sua equipe).
+Se role == 'chefe': lancamento.base_id == profile.base_id (pode inserir/editar/excluir em **qualquer equipe da mesma base**). Implementação: migration 016 (supabase/migrations/016_chefe_equipe_livre_mesma_base.sql). Permite que o chefe registre indicadores na equipe em que está atuando mesmo antes da atualização do perfil (ex.: troca de equipe).
 IMPORTANTE: O sistema sempre faz INSERT (não UPDATE) para permitir múltiplos lançamentos no mesmo dia.
 
 Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
 
 5. Especificação Técnica dos Formulários (Inputs & Lógica)
-Regra Global: Todos os formulários possuem Base e Equipe (Automáticos/Read-only) e Data (dd/mm/aaaa).
+Regra Global: Todos os formulários possuem Base, Equipe e Data (dd/mm/aaaa).
+- **Base:** Read-only (travada com o valor do perfil quando o usuário tem base_id).
+- **Equipe:** **Editável** — o usuário pode selecionar a equipe no modal. Permite registrar indicador em outra equipe da mesma base (caso de troca sem atualização do perfil). Valor exibido vem do estado do formulário (watch) para refletir a seleção.
+- **Data:** Editável via DatePicker.
 Máscaras de Tempo: Inputs de horário devem formatar automaticamente (ex: digita 1400 -> vira 14:00).
 
 CORREÇÃO CRÍTICA - Formato de Datas (Timezone Offset):
@@ -107,6 +110,13 @@ CORREÇÃO CRÍTICA - Formato de Datas (Timezone Offset):
 - Todos os formulários usam `formatDateForStorage` no onSubmit antes de enviar ao Supabase.
 - Todas as tabelas (Histórico e Dashboard) usam `formatDateForDisplay` para exibir datas.
 - O campo data_referencia no banco é do tipo DATE.
+
+**Fluxo de salvamento e resiliência (hook useLancamento, src/hooks/useLancamento.ts):**
+- Autenticação: usa o mesmo `useAuth` do **AuthContext** (fonte única de auth no app). Base e equipe não fornecidos ou vazios são preenchidos com valores do perfil.
+- Sem refresh de sessão antes do insert: o insert é feito diretamente; se o token estiver expirado, o erro (401/jwt/session) é tratado como "Sessão expirada" e o usuário é redirecionado ao login.
+- Timeout do cliente Supabase (src/lib/supabase.ts): fetch global com **25 segundos** para permitir conclusão do insert em rede/PC lentos.
+- Timeout do save: todo o fluxo de salvamento tem limite de **35 segundos**; ao estourar, exibe "A requisição demorou muito. Verifique sua conexão e tente novamente." e o botão sai do estado "Salvando...".
+- Tratamento de erro: `handleSaveError` exibe mensagem; se for sessão expirada, fecha o modal e redireciona para `/login`. Erros do insert (ex.: RLS, 401) são convertidos em mensagem clara.
 
 GRUPO A: Ocorrências e Eventos (Campos Fixos)
 
@@ -284,7 +294,7 @@ Estrutura:
     - Botões "Anterior" e "Próximo" com estados disabled quando apropriado.
     - Scroll automático para o topo da tabela ao mudar de página.
 
-Regra de Permissão: Pode Editar/Excluir apenas dados da sua Equipe. Dados de outras equipes da mesma base são "Read-only" (apenas visualização).
+Regra de Permissão: Chefe pode Editar/Excluir lançamentos de **qualquer equipe da sua base** (RLS migration 016). Na tabela, Ver/Editar/Excluir seguem a regra de mesma base.
 Modal de Detalhes: Ao clicar em "Ver", abre o formulário preenchido em modo readOnly={true}.
 
 Tela 3: Dashboard Gerencial (Administrador)

@@ -2,7 +2,8 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { useLancamento } from '@/hooks/useLancamento'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatTimeHHMM, validateHHMM } from '@/lib/masks'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
@@ -64,6 +65,7 @@ export function AtividadesAcessoriasForm({
   initialData,
   readOnly = false,
 }: AtividadesAcessoriasFormProps) {
+  const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const [dataReferencia, setDataReferencia] = useState<string>(
     initialData?.data_referencia 
@@ -127,7 +129,7 @@ export function AtividadesAcessoriasForm({
       onSuccess?.()
     } catch (error) {
       console.error('Erro ao salvar:', error)
-      alert('Erro ao salvar atividade. Tente novamente.')
+      handleSaveError(error, { onSuccess, navigate })
     }
   }
 
@@ -147,8 +149,8 @@ export function AtividadesAcessoriasForm({
               setDataReferencia(date)
               setValue('data_referencia', date)
             }}
-            baseId={initialData?.base_id as string | undefined}
-            equipeId={initialData?.equipe_id as string | undefined}
+            baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
+            equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
             onBaseIdChange={(baseId) => setValue('base_id', baseId)}
             onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
             readOnly={readOnly}
@@ -164,7 +166,7 @@ export function AtividadesAcessoriasForm({
                   id="tipo_atividade"
                   {...field}
                   disabled={readOnly}
-                  className={readOnly ? 'bg-muted' : ''}
+                  className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                 >
                   <option value="">Selecione o tipo de atividade</option>
                   {TIPOS_ATIVIDADE.map((tipo) => (
@@ -191,7 +193,7 @@ export function AtividadesAcessoriasForm({
                     min="0"
                     {...register('qtd_equipamentos', { valueAsNumber: true })}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.qtd_equipamentos && (
                     <p className="text-sm text-destructive">{errors.qtd_equipamentos.message}</p>
@@ -206,7 +208,7 @@ export function AtividadesAcessoriasForm({
                     min="1"
                     {...register('qtd_bombeiros', { valueAsNumber: true })}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.qtd_bombeiros && (
                     <p className="text-sm text-destructive">{errors.qtd_bombeiros.message}</p>
@@ -224,7 +226,7 @@ export function AtividadesAcessoriasForm({
                       setValue('tempo_gasto', formatted)
                     }}
                     disabled={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={`py-2.5 ${readOnly ? 'bg-muted' : ''}`}
                   />
                   {errors.tempo_gasto && (
                     <p className="text-sm text-destructive">{errors.tempo_gasto.message}</p>
@@ -239,7 +241,7 @@ export function AtividadesAcessoriasForm({
           )}
 
           {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
+            <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? 'Salvando...' : 'Salvar Atividade'}
             </Button>
           )}

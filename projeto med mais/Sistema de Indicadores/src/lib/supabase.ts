@@ -31,10 +31,10 @@ export const supabase = createClient<Database>(
       storageKey: 'supabase.auth.token',
     },
     global: {
-      // Timeout de 10 segundos para requisições
+      // Timeout de 25 segundos para requisições (permite insert concluir em rede/PC lentos)
       fetch: (url, options = {}) => {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos
+        const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 segundos
         
         return fetch(url, {
           ...options,

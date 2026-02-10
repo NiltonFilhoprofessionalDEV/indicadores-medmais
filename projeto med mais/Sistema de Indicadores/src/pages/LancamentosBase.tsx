@@ -24,6 +24,7 @@ import {
   HigienizacaoTPForm,
 } from '@/components/forms'
 import type { Database } from '@/lib/database.types'
+import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 type Indicador = Database['public']['Tables']['indicadores_config']['Row']
@@ -152,7 +153,7 @@ export function LancamentosBase() {
             <CardHeader className="relative border-b dark:border-slate-700">
               <div className="pr-10">
                 <CardTitle className="text-lg font-bold">
-                  Visualizar - {selectedIndicador.nome}
+                  Visualizar - {getIndicadorDisplayName(selectedIndicador)}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   Dados do lançamento em modo somente leitura.

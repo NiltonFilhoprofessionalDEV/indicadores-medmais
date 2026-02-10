@@ -127,6 +127,7 @@ export interface Database {
           mensagem: string
           status: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
           tratativa_tipo: string | null
+          resposta_suporte: string | null
         }
         Insert: {
           id?: string
@@ -136,6 +137,7 @@ export interface Database {
           mensagem: string
           status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
           tratativa_tipo?: string | null
+          resposta_suporte?: string | null
         }
         Update: {
           id?: string
@@ -145,6 +147,7 @@ export interface Database {
           mensagem?: string
           status?: 'pendente' | 'em_andamento' | 'resolvido' | 'fechado'
           tratativa_tipo?: string | null
+          resposta_suporte?: string | null
         }
       }
       lancamentos: {

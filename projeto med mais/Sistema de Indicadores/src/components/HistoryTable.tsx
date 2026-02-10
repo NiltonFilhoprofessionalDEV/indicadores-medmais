@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import { getIndicatorBadgeVariant, getResumoLancamento } from '@/lib/history-utils'
+import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import type { Database } from '@/lib/database.types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -237,7 +238,7 @@ export function HistoryTable({
                 <option value="">Todos os indicadores</option>
                 {indicadores?.map((indicador) => (
                   <option key={indicador.id} value={indicador.id}>
-                    {indicador.nome}
+                    {getIndicadorDisplayName(indicador)}
                   </option>
                 ))}
               </Select>
@@ -350,7 +351,7 @@ export function HistoryTable({
                               indicador.schema_type
                             )}
                           >
-                            {indicador.nome}
+                            {getIndicadorDisplayName(indicador)}
                           </Badge>
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">

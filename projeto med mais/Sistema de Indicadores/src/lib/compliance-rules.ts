@@ -28,7 +28,7 @@ const GRUPO_A: ComplianceRule[] = [
   },
   {
     schema_type: 'treinamento',
-    nome: 'Horas de Treinamento Mensal',
+    nome: 'PTR-BA - Horas treinamento diário',
     grupo: 'A',
     periodicidade: 'diario',
     obrigatorio: true,

@@ -62,7 +62,7 @@ def test_indicator_data_submission_forms_validation_and_submission():
                 "horario": "14:30"
             }
         },
-        # Example: Horas de Treinamento indicator form payload
+        # Example: PTR-BA - Horas treinamento diário indicator form payload
         {
             "endpoint": "/api/lancamentos/horas-treinamento",
             "payload": {

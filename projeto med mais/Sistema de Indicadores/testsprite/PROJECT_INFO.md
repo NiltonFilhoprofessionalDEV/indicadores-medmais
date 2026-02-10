@@ -66,7 +66,7 @@ C:/Users/sussa/Desktop/indicadores_medmais/Projeto indicadores
 - Atividades Acessórias
 - Teste de Aptidão Física (TAF)
 - Prova Teórica
-- Horas de Treinamento
+- PTR-BA - Horas treinamento diário
 - Exercício TP/EPR
 - Tempo de Resposta
 - Inspeção de Viaturas

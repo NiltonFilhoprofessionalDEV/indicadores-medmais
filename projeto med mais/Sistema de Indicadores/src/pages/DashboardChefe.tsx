@@ -23,6 +23,7 @@ import {
   Droplets,
 } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
+import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import {
   OcorrenciaAeronauticaForm,
   OcorrenciaNaoAeronauticaForm,
@@ -235,7 +236,7 @@ export function DashboardChefe() {
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-white/20 group-hover:text-white transition-colors dark:bg-primary/20">
                       <IconComponent className="h-6 w-6" />
                     </div>
-                    <span className="font-semibold">{indicador.nome}</span>
+                    <span className="font-semibold">{getIndicadorDisplayName(indicador)}</span>
                   </button>
                 )
               })}
@@ -264,7 +265,7 @@ export function DashboardChefe() {
             <CardHeader className="relative border-b dark:border-slate-700">
               <div className="pr-10">
                 <CardTitle className="text-lg font-bold">
-                  {selectedLancamento ? 'Editar' : 'Novo'} - {selectedIndicador.nome}
+                  {selectedLancamento ? 'Editar' : 'Novo'} - {getIndicadorDisplayName(selectedIndicador)}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   {selectedLancamento
@@ -331,7 +332,7 @@ export function DashboardChefe() {
             <CardHeader className="relative border-b dark:border-slate-700">
               <div className="pr-10">
                 <CardTitle className="text-lg font-bold">
-                  Visualizar - {selectedIndicador.nome}
+                  Visualizar - {getIndicadorDisplayName(selectedIndicador)}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   Dados do lançamento em modo somente leitura.

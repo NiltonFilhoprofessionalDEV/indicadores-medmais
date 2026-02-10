@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import { flattenLancamento, convertToCSV, downloadCSV, generateFilename } from '@/lib/export-utils'
+import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -348,7 +349,7 @@ export function DataExplorer() {
                   <option value="">Todos os Indicadores</option>
                   {indicadores?.map((indicador) => (
                     <option key={indicador.id} value={indicador.id}>
-                      {indicador.nome}
+                      {getIndicadorDisplayName(indicador)}
                     </option>
                   ))}
                 </Select>

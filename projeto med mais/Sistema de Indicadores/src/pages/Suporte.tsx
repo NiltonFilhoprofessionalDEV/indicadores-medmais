@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 
@@ -78,8 +79,13 @@ export function Suporte() {
   const queryClient = useQueryClient()
   const [filtroStatus, setFiltroStatus] = React.useState<string>('todos')
   const [feedbackDetalhe, setFeedbackDetalhe] = React.useState<FeedbackWithAuthor | null>(null)
+  const [respostaTexto, setRespostaTexto] = React.useState('')
   const [paginaAtual, setPaginaAtual] = React.useState(1)
   const [itensPorPagina, setItensPorPagina] = React.useState(10)
+
+  React.useEffect(() => {
+    setRespostaTexto(feedbackDetalhe?.resposta_suporte ?? '')
+  }, [feedbackDetalhe])
 
   const { data: feedbacks, isLoading, isError, error } = useQuery({
     queryKey: ['suporte-feedbacks'],
@@ -147,6 +153,34 @@ export function Suporte() {
     },
     onError: (err: Error) => {
       alert(`Erro ao atualizar tratativa: ${err.message}`)
+    },
+  })
+
+  const updateRespostaSuporteMutation = useMutation({
+    mutationFn: async ({ id, resposta_suporte }: { id: string; resposta_suporte: string | null }) => {
+      const { data, error } = await (supabase as any)
+        .from('feedbacks')
+        .update({ resposta_suporte: resposta_suporte ?? null })
+        .eq('id', id)
+        .select('id, resposta_suporte')
+        .single()
+      if (error) {
+        console.error('Erro ao salvar resposta do suporte:', error)
+        throw new Error(error.message + (error.details ? ` (${error.details})` : ''))
+      }
+      return data as { id: string; resposta_suporte: string | null }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks'] })
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks-pendentes'] })
+      if (feedbackDetalhe && data) {
+        setFeedbackDetalhe((prev) => (prev ? { ...prev, resposta_suporte: data.resposta_suporte } : null))
+      }
+      alert('Resposta salva com sucesso!')
+    },
+    onError: (err: Error) => {
+      console.error('updateRespostaSuporteMutation error:', err)
+      alert(`Erro ao salvar resposta: ${err.message}\n\nSe a coluna "resposta_suporte" não existir, execute a migration 025 no Supabase.`)
     },
   })
 
@@ -460,6 +494,32 @@ export function Suporte() {
                   <div className="mt-1 p-3 rounded-md bg-muted/50 border text-sm whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
                     {feedbackDetalhe.mensagem}
                   </div>
+                </div>
+                <div>
+                  <Label htmlFor="resposta-suporte" className="text-muted-foreground text-xs">
+                    Resposta do suporte
+                  </Label>
+                  <Textarea
+                    id="resposta-suporte"
+                    placeholder="Digite sua resposta ao usuário..."
+                    value={respostaTexto}
+                    onChange={(e) => setRespostaTexto(e.target.value)}
+                    className="mt-1 min-h-[100px] resize-y"
+                    disabled={updateRespostaSuporteMutation.isPending}
+                  />
+                  <Button
+                    type="button"
+                    className="mt-2 w-full bg-[#fc4d00] hover:bg-[#e04400] text-white"
+                    disabled={updateRespostaSuporteMutation.isPending}
+                    onClick={() =>
+                      updateRespostaSuporteMutation.mutate({
+                        id: feedbackDetalhe.id,
+                        resposta_suporte: respostaTexto.trim() || null,
+                      })
+                    }
+                  >
+                    {updateRespostaSuporteMutation.isPending ? 'Salvando...' : 'Salvar resposta'}
+                  </Button>
                 </div>
                 <Button
                   type="button"

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -52,9 +52,17 @@ function getInitials(nome: string): string {
 
 export function Settings() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { authUser } = useAuth()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('perfil')
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(tabParam === 'feedback' || tabParam === 'seguranca' ? tabParam : 'perfil')
+
+  useEffect(() => {
+    if (tabParam === 'feedback' || tabParam === 'seguranca') {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
 
   // Buscar bases e equipes para exibir nomes
   const { data: bases } = useQuery<Base[]>({
@@ -458,6 +466,12 @@ export function Settings() {
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-2">{feedback.mensagem}</p>
+                            {feedback.resposta_suporte && (
+                              <div className="mt-3 pt-3 border-t border-border">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Resposta do suporte:</p>
+                                <p className="text-sm whitespace-pre-wrap">{feedback.resposta_suporte}</p>
+                              </div>
+                            )}
                           </Card>
                         ))}
                       </div>

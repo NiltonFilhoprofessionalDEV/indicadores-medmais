@@ -1,12 +1,31 @@
+import { useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Settings, LogOut, Sun, Moon } from 'lucide-react'
+import { Settings, LogOut, Sun, Moon, Bell } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+
+const STORAGE_KEY_SUPORTE_VISTOS = 'suporte_resposta_vistos'
+
+function getSeenIds(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SUPORTE_VISTOS)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function markAsSeen(ids: string[]) {
+  const seen = getSeenIds()
+  const next = [...new Set([...seen, ...ids])]
+  localStorage.setItem(STORAGE_KEY_SUPORTE_VISTOS, JSON.stringify(next))
+  return next
+}
 
 interface AppShellProps {
   title: string
@@ -31,6 +50,33 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions }
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [seenIds, setSeenIds] = useState<string[]>(() => getSeenIds())
+
+  const { data: feedbackIdsComResposta = [] } = useQuery({
+    queryKey: ['notificacoes-resposta-suporte-ids', authUser?.user?.id],
+    queryFn: async () => {
+      if (!authUser?.user?.id) return []
+      const { data, error } = await supabase
+        .from('feedbacks')
+        .select('id')
+        .eq('user_id', authUser.user.id)
+        .not('resposta_suporte', 'is', null)
+      if (error) throw error
+      const rows = (data ?? []) as { id: string }[]
+      return rows.map((r) => r.id)
+    },
+    enabled: !!authUser?.user?.id,
+    refetchOnWindowFocus: true,
+  })
+
+  const notificacoesNaoLidas = feedbackIdsComResposta.filter((id) => !seenIds.includes(id))
+  const notificacoesRespostaSuporte = notificacoesNaoLidas.length
+
+  const handleIrParaSuporte = useCallback(() => {
+    if (feedbackIdsComResposta.length === 0) return
+    setSeenIds(markAsSeen(feedbackIdsComResposta))
+    navigate('/settings?tab=feedback')
+  }, [feedbackIdsComResposta, navigate])
 
   const handleLogout = async () => {
     try {
@@ -76,6 +122,48 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions }
 
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-auto">
               {extraActions}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-9 w-9 rounded-full text-white hover:bg-white/20 transition-all"
+                    title={notificacoesRespostaSuporte > 0 ? `Você tem ${notificacoesRespostaSuporte} resposta(s) do suporte` : 'Notificações'}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {notificacoesRespostaSuporte > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-[#EA580C]">
+                        {notificacoesRespostaSuporte > 99 ? '99+' : notificacoesRespostaSuporte}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-4 dark:bg-slate-800 dark:border-slate-700">
+                  {notificacoesRespostaSuporte > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleIrParaSuporte}
+                      className="w-full text-left space-y-2 rounded-md p-2 -m-2 hover:bg-muted/60 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <p className="font-medium text-foreground">
+                        Seu suporte foi respondido
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {notificacoesRespostaSuporte === 1
+                          ? 'Você tem 1 atualização: o suporte respondeu ao seu feedback.'
+                          : `Você tem ${notificacoesRespostaSuporte} atualizações: o suporte respondeu aos seus feedbacks.`}
+                      </p>
+                      <p className="text-xs text-primary font-medium pt-1">
+                        Clique aqui para ver a resposta →
+                      </p>
+                    </button>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma nova notificação no momento.
+                    </p>
+                  )}
+                </PopoverContent>
+              </Popover>
               <Button
                 variant="ghost"
                 size="icon"

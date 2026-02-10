@@ -208,7 +208,7 @@ export function HistoryTable({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   id="search"
-                  placeholder="Buscar por local, observações..."
+                  placeholder="Buscar por local, tipo..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   className="h-10 pl-10"

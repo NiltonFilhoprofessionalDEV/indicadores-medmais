@@ -867,17 +867,34 @@ export function GestaoUsuarios() {
 
         {/* Modal de Cadastro/Edição */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>{isEditMode ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</CardTitle>
-                <CardDescription>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto min-h-full py-6">
+            <Card className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+              <CardHeader className="relative">
+                <div className="pr-10">
+                  <CardTitle>{isEditMode ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</CardTitle>
+                  <CardDescription>
                   {isEditMode
                     ? 'Altere os dados do usuário. Deixe a senha em branco para manter a atual.'
                     : 'Preencha os dados para criar um novo usuário no sistema'}
-                </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowModal(false)
+                    setIsEditMode(false)
+                    reset()
+                  }}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 overflow-y-auto min-h-0">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                   {isEditMode && (
                     <input type="hidden" {...register('id')} />
@@ -1179,11 +1196,28 @@ export function GestaoUsuarios() {
         {showDeleteModal && usuarioToDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle className="text-red-600">Confirmar Remoção de Usuário</CardTitle>
-                <CardDescription>
-                  Esta ação não pode ser desfeita. Para confirmar, digite o nome do usuário abaixo.
-                </CardDescription>
+              <CardHeader className="relative">
+                <div className="pr-10">
+                  <CardTitle className="text-red-600">Confirmar Remoção de Usuário</CardTitle>
+                  <CardDescription>
+                    Esta ação não pode ser desfeita. Para confirmar, digite o nome do usuário abaixo.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setUsuarioToDelete(null)
+                    setConfirmacaoTexto('')
+                  }}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

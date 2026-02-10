@@ -14,7 +14,7 @@ interface UseLancamentosParams {
   // Paginação server-side
   page?: number
   pageSize?: number
-  // Busca por texto (busca em observações/local dentro do JSONB)
+  // Busca por texto (busca em local, tipo de ocorrência etc. dentro do JSONB)
   searchText?: string
 }
 
@@ -96,13 +96,11 @@ export function useLancamentos({
 
           // Buscar em campos comuns
           const local = String(conteudo.local || '').toLowerCase()
-          const observacoes = String(conteudo.observacoes || '').toLowerCase()
           const tipoOcorrencia = String(conteudo.tipo_ocorrencia || '').toLowerCase()
           const tipoAtividade = String(conteudo.tipo_atividade || '').toLowerCase()
 
           return (
             local.includes(searchLower) ||
-            observacoes.includes(searchLower) ||
             tipoOcorrencia.includes(searchLower) ||
             tipoAtividade.includes(searchLower)
           )

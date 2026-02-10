@@ -442,19 +442,10 @@ export function Suporte() {
               className="w-full max-w-lg max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <CardHeader className="flex-shrink-0 border-b">
-                <div className="flex items-center justify-between gap-4">
+              <CardHeader className="flex-shrink-0 border-b relative">
+                <div className="pr-10">
                   <CardTitle className="text-lg">Detalhe do feedback</CardTitle>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFeedbackDetalhe(null)}
-                  >
-                    Fechar
-                  </Button>
-                </div>
-                <CardDescription>
+                  <CardDescription>
                   Enviado em{' '}
                   {new Date(feedbackDetalhe.created_at).toLocaleDateString('pt-BR', {
                     day: '2-digit',
@@ -464,7 +455,19 @@ export function Suporte() {
                     minute: '2-digit',
                   })}{' '}
                   por {feedbackDetalhe.author_nome ?? feedbackDetalhe.user_id.slice(0, 8) + '…'}
-                </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFeedbackDetalhe(null)}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto pt-4 space-y-4">
                 <div>

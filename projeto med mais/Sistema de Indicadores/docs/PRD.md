@@ -140,7 +140,6 @@ hora_acionamento: Texto (Máscara HH:mm).
 hora_chegada: Texto (Máscara HH:mm).
 hora_termino: Texto (Máscara HH:mm).
 duracao_total: Calculado Automaticamente (Hora Término - Hora Acionamento). Formato HH:mm. Read-only.
-observacoes: Textarea (Opcional).
 
 3. Atividades Acessórias
 Mensagem de Apoio: "Preenchido sempre que realizado atividade no plantão."
@@ -262,7 +261,7 @@ Histórico: Painel de Controle de Lançamentos Profissional
 
 Estrutura:
 - Barra de Ferramentas (Toolbar) com filtros dinâmicos:
-  - Input de Busca: Busca por texto em campos como local, observações, tipo de ocorrência (busca no JSONB conteudo).
+  - Input de Busca: Busca por texto em campos como local, tipo de ocorrência (busca no JSONB conteudo).
   - Select "Filtrar por Indicador": Lista todos os 14 indicadores disponíveis.
   - Select "Mês/Ano": Filtro por período (últimos 12 meses disponíveis).
   - Botão "Limpar Filtros": Reseta todos os filtros e retorna à primeira página.

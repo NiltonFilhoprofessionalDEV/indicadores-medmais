@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BaseFormFields } from './BaseFormFields'
 
@@ -36,7 +35,6 @@ const ocorrenciaNaoAeronauticaSchema = z.object({
   hora_chegada: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
   hora_termino: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
   duracao_total: z.string().optional(),
-  observacoes: z.string().optional(),
   data_referencia: z.string().min(1, 'Data é obrigatória'),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
@@ -84,7 +82,6 @@ export function OcorrenciaNaoAeronauticaForm({
       hora_acionamento: (initialData?.hora_acionamento as string) || '',
       hora_chegada: (initialData?.hora_chegada as string) || '',
       hora_termino: (initialData?.hora_termino as string) || '',
-      observacoes: (initialData?.observacoes as string) || '',
       data_referencia: dataReferencia,
       base_id: finalBaseId,
       equipe_id: finalEquipeId,
@@ -113,7 +110,6 @@ export function OcorrenciaNaoAeronauticaForm({
         hora_chegada: data.hora_chegada,
         hora_termino: data.hora_termino,
         duracao_total: data.duracao_total,
-        observacoes: data.observacoes || '',
       }
 
       // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
@@ -261,17 +257,6 @@ export function OcorrenciaNaoAeronauticaForm({
               value={watch('duracao_total') || ''}
               readOnly
               className="bg-muted"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
-            <Textarea
-              id="observacoes"
-              {...register('observacoes')}
-              disabled={readOnly}
-              className={readOnly ? 'bg-muted' : ''}
-              rows={3}
             />
           </div>
 

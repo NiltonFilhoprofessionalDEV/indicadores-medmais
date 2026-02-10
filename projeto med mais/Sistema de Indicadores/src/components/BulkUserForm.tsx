@@ -406,11 +406,24 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
 
   return (
     <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-      <CardHeader className="flex-shrink-0">
-        <CardTitle>Cadastro de Usuários em Lote</CardTitle>
-        <CardDescription>
-          Cadastre múltiplos usuários de uma vez. Preencha os dados abaixo e clique em "Salvar Todos".
-        </CardDescription>
+      <CardHeader className="flex-shrink-0 relative">
+        <div className="pr-10">
+          <CardTitle>Cadastro de Usuários em Lote</CardTitle>
+          <CardDescription>
+            Cadastre múltiplos usuários de uma vez. Preencha os dados abaixo e clique em "Salvar Todos".
+          </CardDescription>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          className="absolute top-4 right-4 z-10"
+          title="Fechar"
+          aria-label="Fechar"
+        >
+          ✕
+        </Button>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

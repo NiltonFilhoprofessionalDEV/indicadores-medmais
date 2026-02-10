@@ -187,11 +187,6 @@ function flattenConteudo(
       })
   }
 
-  // Adicionar observações se existir
-  if (conteudo.observacoes) {
-    row.observacoes = String(conteudo.observacoes)
-  }
-
   return row
 }
 

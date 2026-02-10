@@ -113,7 +113,6 @@ export function GestaoUsuarios() {
         let profiles: Profile[] = []
 
         // Aplicar filtro por base se selecionado (ou obrigatório para gerente_sci)
-        // IMPORTANTE: Administradores (role='geral') sempre aparecem, independente do filtro
         if (baseFilter && baseFilter !== '') {
           // Buscar usuários da base selecionada
           const { data: usuariosBase, error: errorBase } = await supabase
@@ -127,24 +126,28 @@ export function GestaoUsuarios() {
             throw errorBase
           }
 
-          // Buscar Administradores (sempre aparecem)
-          const { data: gerentesGerais, error: errorGeral } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', 'geral')
-            .order('created_at', { ascending: false })
+          if (isGerenteSCI) {
+            // Gerente de SCI: vê apenas usuários da sua base (não vê Administradores)
+            profiles = (usuariosBase as Profile[]) || []
+          } else {
+            // Administrador: vê usuários da base + Administradores
+            const { data: gerentesGerais, error: errorGeral } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('role', 'geral')
+              .order('created_at', { ascending: false })
 
-          if (errorGeral) {
-            console.error('Erro ao buscar administradores:', errorGeral)
-            throw errorGeral
+            if (errorGeral) {
+              console.error('Erro ao buscar administradores:', errorGeral)
+              throw errorGeral
+            }
+
+            const allProfiles: Profile[] = [...(usuariosBase as Profile[] || []), ...(gerentesGerais as Profile[] || [])]
+            const uniqueProfiles = allProfiles.filter((profile, index, self) =>
+              index === self.findIndex((p) => p.id === profile.id)
+            )
+            profiles = uniqueProfiles
           }
-
-          // Combinar resultados e remover duplicatas
-          const allProfiles: Profile[] = [...(usuariosBase as Profile[] || []), ...(gerentesGerais as Profile[] || [])]
-          const uniqueProfiles = allProfiles.filter((profile, index, self) =>
-            index === self.findIndex((p) => p.id === profile.id)
-          )
-          profiles = uniqueProfiles
         } else {
           // Sem filtro: buscar todos os usuários
           const { data, error } = await supabase

@@ -70,7 +70,7 @@ async def run_test():
         elem = frame.locator('xpath=html/body/div/div/main/div/div[3]/div[2]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Open the specific indicator page 'Horas de Treinamento' to find the UI to create/add indicator records (look for 'Novo', 'Adicionar', 'Criar' or similar).
+        # -> Open the specific indicator page 'PTR-BA - Horas treinamento diário' to find the UI to create/add indicator records (look for 'Novo', 'Adicionar', 'Criar' or similar).
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/div/div/div/aside/nav/div[2]/button[3]').nth(0)
@@ -82,13 +82,13 @@ async def run_test():
         elem = frame.locator('xpath=html/body/div/div/header/div/div/div[2]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Open Dashboard Analytics again and navigate to the 'Horas de Treinamento' indicator page to re-attempt locating the add/create record control (buttons like 'Novo', 'Adicionar', '+').
+        # -> Open Dashboard Analytics again and navigate to the 'PTR-BA - Horas treinamento diário' indicator page to re-attempt locating the add/create record control (buttons like 'Novo', 'Adicionar', '+').
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/div/div/main/div/div[3]/div[2]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Open the 'Horas de Treinamento' indicator page again (click the left menu item) and then search the page for the add/create record control so the add-record form can be opened.
+        # -> Open the 'PTR-BA - Horas treinamento diário' indicator page again (click the left menu item) and then search the page for the add/create record control so the add-record form can be opened.
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/div/div/div/aside/nav/div[2]/button[3]').nth(0)

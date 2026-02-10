@@ -117,7 +117,7 @@ export function HorasTreinamentoForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Horas de Treinamento Mensal</CardTitle>
+        <CardTitle>PTR-BA - Horas treinamento diário</CardTitle>
         <CardDescription>
           Lista de participantes com horas de treinamento
         </CardDescription>
@@ -223,7 +223,7 @@ export function HorasTreinamentoForm({
 
           {!readOnly && (
             <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Horas de Treinamento'}
+              {isLoading ? 'Salvando...' : 'Salvar PTR-BA - Horas treinamento diário'}
             </Button>
           )}
         </form>

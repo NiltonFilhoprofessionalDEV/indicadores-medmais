@@ -43,7 +43,7 @@ Dados:
 "Atividades Acessórias" (atividades_acessorias)
 "Teste de Aptidão Física (TAF)" (taf)
 "Prova Teórica (PTR-BA)" (prova_teorica)
-"Horas de Treinamento Mensal" (treinamento)
+"PTR-BA - Horas treinamento diário" (treinamento)
 "Inspeção de Viaturas" (inspecao_viaturas)
 "Tempo de TP/EPR" (tempo_tp_epr)
 "Tempo Resposta" (tempo_resposta)
@@ -173,7 +173,7 @@ nome: Select (Lista colaboradores ativos da Base do usuário logado - integrado 
 nota: Número Decimal (0.0 a 10.0).
 status: Calculado Automaticamente em Tempo Real (atualiza enquanto usuário digita a nota). (Nota < 8.0 = "Reprovado", >= 8.0 = "Aprovado").
 
-6. Horas de Treinamento Mensal
+6. PTR-BA - Horas treinamento diário
 Estrutura: Lista de Participantes (Padrão 10 linhas).
 Campos por Linha:
 nome: Select (Lista colaboradores ativos da Base do usuário logado - integrado com tabela colaboradores).
@@ -327,7 +327,7 @@ Tela 5: Monitoramento de Aderência (Compliance) - Apenas Gerente Geral
 3. **Tabela de Aderência:**
    - **Coluna 1:** Nome da Base (34 bases aeroportuárias, excluindo ADMINISTRATIVO).
    - **Coluna 2 - Rotina Diária (Grupo A):**
-     - Ícones de status para "Atividades Acessórias" e "Horas de Treinamento Mensal".
+     - Ícones de status para "Atividades Acessórias" e "PTR-BA - Horas treinamento diário".
      - ✅ (Verde): Hoje OK - lançamento hoje.
      - ⚠️ (Amarelo): Ontem Pendente - último lançamento ontem.
      - ❌ (Vermelho): Sem lançamentos há 2+ dias.
@@ -347,7 +347,7 @@ Tela 5: Monitoramento de Aderência (Compliance) - Apenas Gerente Geral
 **Regras de Compliance (src/lib/compliance-rules.ts):**
 
 **GRUPO A: Obrigação Diária (Rotina de Plantão)**
-- Indicadores: 'Atividades Acessórias', 'Horas de Treinamento Mensal'.
+- Indicadores: 'Atividades Acessórias', 'PTR-BA - Horas treinamento diário'.
 - Regra de Monitoramento: Verifica se existe lançamento na Data Atual.
 - Visual na Tabela: Ícone de status do dia (✅ Hoje OK | ⚠️ Ontem Pendente | ❌ Sem lançamentos há 2+ dias).
 - Alerta: Destacar Bases/Equipes que estão há mais de 24h sem lançar esses itens.
@@ -807,7 +807,7 @@ Dividido em dois painéis lado a lado:
     *   Função `processProvaTeorica` utiliza mesma lógica de "flattening" (extrair avaliados dos arrays JSON) usada no TAF para ter uma lista única de todas as notas do período.
     *   **CORREÇÃO CRÍTICA:** Status calculado baseado em nota >= 8.0 (não depende do campo status do JSON). Regra de Negócio: Se nota >= 8.0: Status APROVADO. Se nota < 8.0: Status REPROVADO.
 
-#### 6. Horas de Treinamento Mensal (Foco em Compliance ANAC)
+#### 6. PTR-BA - Horas treinamento diário (Foco em Compliance ANAC)
 *   **Regra de Negócio:** Meta obrigatória de 16 horas mensais por bombeiro (Regra ANAC)
 *   **Processamento de Dados:**
     *   Agrupa registros pelo nome do colaborador
@@ -960,7 +960,7 @@ Database: Gerar SQL para criar tabelas, JSONB e Policies RLS rigorosas.
 Forms: Criar os 14 formulários em src/components/forms/. Use zod para validação e useFieldArray para as listas dinâmicas. Implementar a lógica de cálculo (ex: Notas do TAF) dentro do form usando watch ou useEffect.
 
 INTEGRAÇÃO COM TABELA COLABORADORES:
-- Os formulários que solicitam nomes de pessoas (TAF, Prova Teórica, Horas de Treinamento, Tempo TP/EPR, Tempo Resposta, Controle de EPI) agora usam Select que lista colaboradores ativos da Base do usuário logado.
+- Os formulários que solicitam nomes de pessoas (TAF, Prova Teórica, PTR-BA - Horas treinamento diário, Tempo TP/EPR, Tempo Resposta, Controle de EPI) agora usam Select que lista colaboradores ativos da Base do usuário logado.
 - Isso garante integridade dos dados e evita erros de digitação.
 - Os Selects são carregados dinamicamente usando o hook useColaboradores(baseId).
 - Cálculos em tempo real: Controle de EPI calcula percentuais automaticamente; TAF e Prova Teórica calculam status automaticamente enquanto o usuário digita.
@@ -1132,7 +1132,7 @@ Com as otimizações implementadas, o sistema deve suportar:
 **Regras de Compliance por Grupo:**
 
 **GRUPO A: Obrigação Diária (Rotina de Plantão)**
-- Indicadores: 'Atividades Acessórias', 'Horas de Treinamento Mensal'.
+- Indicadores: 'Atividades Acessórias', 'PTR-BA - Horas treinamento diário'.
 - Regra: Verifica se existe lançamento na Data Atual.
 - Visual: ✅ Hoje OK | ⚠️ Ontem Pendente | ❌ Sem lançamentos há 2+ dias.
 - Alerta: Destacar bases há mais de 24h sem lançar.
@@ -1592,3 +1592,21 @@ Com as otimizações implementadas, o sistema deve suportar:
   - src/hooks/useLancamentos.ts (placeholderData)
   - src/index.css (classe .monitor-mode para grid em coluna única)
   - docs/PRD.md (item 9.29)
+
+### 9.30. Edição de Usuário e Acesso ao Painel Gerente de SCI + Visibilidade por Role
+
+- **OBJETIVO:** Permitir que o Administrador (role='geral') altere o campo "Pode acessar painel Gerente de SCI" na edição de usuários, e que o Gerente de SCI veja apenas usuários da sua base (sem Administradores).
+- **IMPLEMENTAÇÃO:**
+  1. **RPC update_user_profile:** Criada RPC no Supabase para atualização de perfil. Apenas Administrador pode alterar `acesso_gerente_sci`; outros campos continuam sujeitos às regras de RLS. Função auxiliar `get_caller_role_for_update()` (SECURITY DEFINER) retorna o role do usuário sem depender de RLS.
+  2. **Remoção do trigger:** O trigger `trg_check_acesso_gerente_sci_only_geral` que revertia o valor de `acesso_gerente_sci` após o update foi removido — a lógica passou a ficar na RPC.
+  3. **Visibilidade na Gestão de Usuários:** Quando o usuário logado é Gerente de SCI (`role='gerente_sci'`), a lista exibe apenas usuários cujo `base_id` é igual à base do gerente — Administradores (role='geral', base_id=null ou ADMINISTRATIVO) deixam de ser incluídos na consulta.
+  4. **Nomenclatura:** "Gerente Geral" substituído por "Administrador" na interface (labels, headers, cards).
+- **Arquivos criados:**
+  - supabase/migrations/021_rpc_update_user_profile.sql
+  - supabase/migrations/022_get_caller_role.sql
+  - supabase/migrations/023_fix_update_user_profile_definer.sql
+  - supabase/APLICAR_023_FIX_UPDATE_USER_PROFILE_UMA_VEZ.sql
+  - supabase/APLICAR_024_REMOVER_TRIGGER.sql
+- **Arquivos modificados:**
+  - src/pages/GestaoUsuarios.tsx (uso de supabase.rpc('update_user_profile', ...) em vez de update direto; filtro de lista por role/base quando isGerenteSCI)
+  - docs/PRD.md (item 9.30)

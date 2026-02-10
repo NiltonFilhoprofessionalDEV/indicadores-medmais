@@ -297,7 +297,7 @@ INSERT INTO public.indicadores_config (nome, schema_type) VALUES
     ('Atividades Acessórias', 'atividades_acessorias'),
     ('Teste de Aptidão Física (TAF)', 'taf'),
     ('Prova Teórica (PTR-BA)', 'prova_teorica'),
-    ('Horas de Treinamento Mensal', 'treinamento'),
+    ('PTR-BA - Horas treinamento diário', 'treinamento'),
     ('Inspeção de Viaturas', 'inspecao_viaturas'),
     ('Tempo de TP/EPR', 'tempo_tp_epr'),
     ('Tempo Resposta', 'tempo_resposta'),

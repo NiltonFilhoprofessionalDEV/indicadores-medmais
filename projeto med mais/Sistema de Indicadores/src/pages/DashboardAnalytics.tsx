@@ -460,7 +460,7 @@ export function DashboardAnalytics() {
       atividades_acessorias: 'Atividades Acessórias',
       taf: 'Teste de Aptidão Física (TAF)',
       prova_teorica: 'Prova Teórica',
-      treinamento: 'Horas de Treinamento',
+      treinamento: 'PTR-BA - Horas treinamento diário',
       tempo_tp_epr: 'Exercício TP/EPR',
       tempo_resposta: 'Tempo de Resposta',
       inspecao_viaturas: 'Inspeção de Viaturas',
@@ -898,7 +898,7 @@ export function DashboardAnalytics() {
                   : 'text-white hover:bg-white/20'
               }`}
             >
-              Horas de Treinamento
+              PTR-BA - Horas treinamento diário
             </button>
             <button
               onClick={() => setViewAndCloseSidebar('tempo_tp_epr')}

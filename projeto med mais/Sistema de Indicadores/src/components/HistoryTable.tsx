@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useLancamentos } from '@/hooks/useLancamentos'
@@ -8,11 +8,12 @@ import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import type { Database } from '@/lib/database.types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, FileX2 } from 'lucide-react'
+import { FileX2 } from 'lucide-react'
+
+type Equipe = Database['public']['Tables']['equipes']['Row']
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 type Indicador = Database['public']['Tables']['indicadores_config']['Row']
@@ -41,20 +42,9 @@ export function HistoryTable({
   getEquipeName,
 }: HistoryTableProps) {
   const [page, setPage] = useState(1)
-  const [searchText, setSearchText] = useState('')
-  const [searchTextDebounced, setSearchTextDebounced] = useState('')
   const [indicadorFilter, setIndicadorFilter] = useState<string>('')
+  const [equipeFilter, setEquipeFilter] = useState<string>('')
   const [mesAnoFilter, setMesAnoFilter] = useState<string>('')
-
-  // Debounce da busca por texto (500ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchTextDebounced(searchText)
-      setPage(1) // Resetar para primeira página ao buscar
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [searchText])
 
   // Buscar indicadores para o filtro
   const { data: indicadores } = useQuery<Indicador[]>({
@@ -67,6 +57,20 @@ export function HistoryTable({
       if (error) throw error
       return data || []
     },
+  })
+
+  // Buscar equipes para o filtro (todas; lançamentos já são filtrados por baseId)
+  const { data: equipes } = useQuery<Equipe[]>({
+    queryKey: ['equipes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipes')
+        .select('*')
+        .order('nome')
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!baseId,
   })
 
   // Calcular dataInicio e dataFim do filtro de mês/ano
@@ -89,22 +93,14 @@ export function HistoryTable({
   }, [mesAnoFilter])
 
   // Buscar lançamentos com paginação e filtros
-  // IMPORTANTE: Não filtrar por equipeId aqui - o chefe deve ver TODAS as equipes da base
-  // Usar searchTextDebounced para evitar muitas requisições
-  // Mínimo de 2 caracteres para buscar (ou string vazia para buscar tudo)
-  const searchTerm = searchTextDebounced.trim().length >= 2 
-    ? searchTextDebounced.trim() 
-    : undefined
-
   const { data, isLoading, error } = useLancamentos({
     baseId: baseId || undefined,
-    equipeId: undefined, // Removido: chefe vê todas as equipes da base
+    equipeId: equipeFilter || undefined,
     indicadorId: indicadorFilter || undefined,
     dataInicio,
     dataFim,
     page,
     pageSize: PAGE_SIZE,
-    searchText: searchTerm,
     enabled: !!baseId,
   })
 
@@ -141,8 +137,8 @@ export function HistoryTable({
   }, [])
 
   const handleClearFilters = () => {
-    setSearchText('')
     setIndicadorFilter('')
+    setEquipeFilter('')
     setMesAnoFilter('')
     setPage(1)
   }
@@ -172,8 +168,8 @@ export function HistoryTable({
             <Button
               variant="outline"
               onClick={() => {
-                setSearchText('')
                 setIndicadorFilter('')
+                setEquipeFilter('')
                 setMesAnoFilter('')
                 setPage(1)
               }}
@@ -196,31 +192,9 @@ export function HistoryTable({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Barra de Filtros - h-10 e ícones de busca */}
+        {/* Barra de Filtros */}
         <div className="mb-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Busca por Texto com ícone */}
-            <div className="space-y-1">
-              <Label htmlFor="search" className="text-xs">
-                Buscar (mín. 2 caracteres)
-              </Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="search"
-                  placeholder="Buscar por local, tipo..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="h-10 pl-10"
-                />
-              </div>
-              {searchText.trim().length > 0 && searchText.trim().length < 2 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Digite pelo menos 2 caracteres para buscar
-                </p>
-              )}
-            </div>
-
             {/* Filtro por Indicador */}
             <div className="space-y-1">
               <Label htmlFor="indicador" className="text-xs">
@@ -239,6 +213,29 @@ export function HistoryTable({
                 {indicadores?.map((indicador) => (
                   <option key={indicador.id} value={indicador.id}>
                     {getIndicadorDisplayName(indicador)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Filtro por Equipe */}
+            <div className="space-y-1">
+              <Label htmlFor="equipe" className="text-xs">
+                Filtrar por Equipe
+              </Label>
+              <Select
+                id="equipe"
+                value={equipeFilter}
+                onChange={(e) => {
+                  setEquipeFilter(e.target.value)
+                  setPage(1)
+                }}
+                className="h-10"
+              >
+                <option value="">Todas as equipes</option>
+                {equipes?.map((equipe) => (
+                  <option key={equipe.id} value={equipe.id}>
+                    {equipe.nome}
                   </option>
                 ))}
               </Select>

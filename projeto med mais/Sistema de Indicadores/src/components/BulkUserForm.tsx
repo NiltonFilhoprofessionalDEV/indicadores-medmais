@@ -30,18 +30,18 @@ const bulkUserSchema = z.object({
       nome: z.string().min(1, 'Nome é obrigatório'),
       email: z.string().email('Email inválido'),
       password: z.string().min(1, 'Senha é obrigatória'),
-      role: z.enum(['geral', 'chefe'], {
+      role: z.enum(['geral', 'chefe', 'auxiliar'], {
         required_error: 'Selecione um perfil',
       }),
       base_id: z.string().optional(),
       equipe_id: z.string().optional(),
     }).refine((data) => {
-      if (data.role === 'chefe') {
+      if (data.role === 'chefe' || data.role === 'auxiliar') {
         return !!data.base_id && !!data.equipe_id
       }
       return true
     }, {
-      message: 'Base e Equipe são obrigatórios para Chefe de Equipe',
+      message: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate',
       path: ['base_id'],
     })
   ).min(1, 'Adicione pelo menos um usuário'),
@@ -70,7 +70,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
   const [results, setResults] = useState<UserCreationResult[]>([])
   const [showResults, setShowResults] = useState(false)
   const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({})
-  const [usersToCreateRef, setUsersToCreateRef] = useState<Array<{ email: string; password: string; nome: string; role: 'geral' | 'chefe'; base_id?: string; equipe_id?: string }>>([])
+  const [usersToCreateRef, setUsersToCreateRef] = useState<Array<{ email: string; password: string; nome: string; role: 'geral' | 'chefe' | 'auxiliar'; base_id?: string; equipe_id?: string }>>([])
 
   const {
     control,
@@ -105,7 +105,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
     if (lockedBaseId && fields.length > 0) {
       fields.forEach((_, index) => {
         const role = watch(`users.${index}.role`)
-        if (role === 'chefe') {
+        if (role === 'chefe' || role === 'auxiliar') {
           setValue(`users.${index}.base_id`, lockedBaseId)
         }
       })
@@ -143,7 +143,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
   // Função para replicar Base para todos
   const replicateBaseToAll = (baseId: string) => {
     users.forEach((_, index) => {
-      if (users[index].role === 'chefe') {
+      if (users[index].role === 'chefe' || users[index].role === 'auxiliar') {
         setValue(`users.${index}.base_id`, baseId)
       }
     })
@@ -152,19 +152,19 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
   // Função para replicar Equipe para todos
   const replicateEquipeToAll = (equipeId: string) => {
     users.forEach((_, index) => {
-      if (users[index].role === 'chefe') {
+      if (users[index].role === 'chefe' || users[index].role === 'auxiliar') {
         setValue(`users.${index}.equipe_id`, equipeId)
       }
     })
   }
 
   // Efeito para atualizar base_id quando role muda para 'geral' ou quando lockedBaseId
-  const handleRoleChange = (index: number, role: 'geral' | 'chefe') => {
+  const handleRoleChange = (index: number, role: 'geral' | 'chefe' | 'auxiliar') => {
     setValue(`users.${index}.role`, role)
     if (role === 'geral' && baseAdministrativo && !lockedBaseId) {
       setValue(`users.${index}.base_id`, baseAdministrativo.id)
       setValue(`users.${index}.equipe_id`, '')
-    } else if (role === 'chefe') {
+    } else if (role === 'chefe' || role === 'auxiliar') {
       setValue(`users.${index}.base_id`, lockedBaseId || '')
       setValue(`users.${index}.equipe_id`, '')
     }
@@ -176,7 +176,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
       if (user.nome.trim() === '') return false
       if (user.email.trim() === '') return false
       if (user.password.trim() === '') return false
-      if (user.role === 'chefe' && (!user.base_id || !user.equipe_id)) {
+      if ((user.role === 'chefe' || user.role === 'auxiliar') && (!user.base_id || !user.equipe_id)) {
         return false
       }
       return true
@@ -216,8 +216,8 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
           password: user.password,
           nome: user.nome,
           role: user.role,
-          base_id: user.role === 'chefe' ? user.base_id || null : null,
-          equipe_id: user.role === 'chefe' ? user.equipe_id || null : null,
+          base_id: (user.role === 'chefe' || user.role === 'auxiliar') ? user.base_id || null : null,
+          equipe_id: (user.role === 'chefe' || user.role === 'auxiliar') ? user.equipe_id || null : null,
         }
         
         console.log(`[BulkUserForm] Criando usuário ${i + 1}/${usersToCreate.length}:`, {
@@ -260,8 +260,8 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                     password: user.password,
                     nome: user.nome,
                     role: user.role,
-                    base_id: user.role === 'chefe' ? user.base_id || null : null,
-                    equipe_id: user.role === 'chefe' ? user.equipe_id || null : null,
+                    base_id: (user.role === 'chefe' || user.role === 'auxiliar') ? user.base_id || null : null,
+                    equipe_id: (user.role === 'chefe' || user.role === 'auxiliar') ? user.equipe_id || null : null,
                   }),
                 }
               )
@@ -508,13 +508,13 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                   <th className="text-left p-2 font-semibold text-sm">
                     <div className="flex items-center gap-2">
                       <span>Base *</span>
-                      {users.some((u) => u.role === 'chefe' && u.base_id) && (
+                      {users.some((u) => (u.role === 'chefe' || u.role === 'auxiliar') && u.base_id) && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const firstBaseId = users.find((u) => u.role === 'chefe' && u.base_id)?.base_id
+                            const firstBaseId = users.find((u) => (u.role === 'chefe' || u.role === 'auxiliar') && u.base_id)?.base_id
                             if (firstBaseId) {
                               replicateBaseToAll(firstBaseId)
                             }
@@ -531,13 +531,13 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                   <th className="text-left p-2 font-semibold text-sm">
                     <div className="flex items-center gap-2">
                       <span>Equipe *</span>
-                      {users.some((u) => u.role === 'chefe' && u.equipe_id) && (
+                      {users.some((u) => (u.role === 'chefe' || u.role === 'auxiliar') && u.equipe_id) && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const firstEquipeId = users.find((u) => u.role === 'chefe' && u.equipe_id)?.equipe_id
+                            const firstEquipeId = users.find((u) => (u.role === 'chefe' || u.role === 'auxiliar') && u.equipe_id)?.equipe_id
                             if (firstEquipeId) {
                               replicateEquipeToAll(firstEquipeId)
                             }
@@ -633,11 +633,12 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                     <td className="p-2">
                       <select
                         {...register(`users.${index}.role`)}
-                        onChange={(e) => handleRoleChange(index, e.target.value as 'geral' | 'chefe')}
+                        onChange={(e) => handleRoleChange(index, e.target.value as 'geral' | 'chefe' | 'auxiliar')}
                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                         disabled={!!lockedBaseId}
                       >
                         <option value="chefe">Chefe</option>
+                        <option value="auxiliar">Líder de Resgate</option>
                         {!lockedBaseId && <option value="geral">Gerente</option>}
                       </select>
                       {errors.users?.[index]?.role && (

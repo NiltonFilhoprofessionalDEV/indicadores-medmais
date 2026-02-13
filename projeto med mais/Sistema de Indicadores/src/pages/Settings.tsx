@@ -291,7 +291,7 @@ export function Settings() {
                   <div className="text-center">
                     <h3 className="text-xl font-semibold">{authUser.profile.nome}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {authUser.profile.role === 'geral' ? 'Administrador' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
+                      {authUser.profile.role === 'geral' ? 'Administrador' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : authUser.profile.role === 'auxiliar' ? 'Líder de Resgate' : 'Chefe de Equipe'}
                     </p>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export function Settings() {
                   <div className="space-y-2">
                     <Label>Perfil</Label>
                     <Input
-                      value={authUser.profile.role === 'geral' ? 'Administrador' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
+                      value={authUser.profile.role === 'geral' ? 'Administrador' : authUser.profile.role === 'gerente_sci' ? 'Gerente de SCI' : authUser.profile.role === 'auxiliar' ? 'Líder de Resgate' : 'Chefe de Equipe'}
                       disabled
                       className="bg-muted"
                     />

@@ -196,9 +196,14 @@ export function DashboardChefe() {
   const baseEquipe =
     baseId && equipeId ? `${getBaseName(baseId)} | ${getEquipeName(equipeId)}` : undefined
 
+  const dashboardTitle =
+    authUser?.profile?.role === 'auxiliar'
+      ? 'Dashboard - Líder de Resgate'
+      : 'Dashboard - Chefe de Equipe'
+
   return (
     <AppShell
-      title="Dashboard - Chefe"
+      title={dashboardTitle}
       subtitle={authUser?.profile?.nome}
       baseEquipe={baseEquipe}
       extraActions={

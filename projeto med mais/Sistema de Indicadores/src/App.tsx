@@ -41,7 +41,7 @@ function App() {
           <Route
             path="/dashboard-chefe"
             element={
-              <ProtectedRoute allowedRoles={['chefe']}>
+              <ProtectedRoute allowedRoles={['chefe', 'auxiliar']}>
                 <DashboardChefe />
               </ProtectedRoute>
             }
@@ -97,7 +97,7 @@ function App() {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute allowedRoles={['geral', 'chefe', 'gerente_sci']}>
+              <ProtectedRoute allowedRoles={['geral', 'chefe', 'gerente_sci', 'auxiliar']}>
                 <Settings />
               </ProtectedRoute>
             }

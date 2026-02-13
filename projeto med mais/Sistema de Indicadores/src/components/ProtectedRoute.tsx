@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: ('geral' | 'chefe' | 'gerente_sci')[]
+  allowedRoles?: ('geral' | 'chefe' | 'gerente_sci' | 'auxiliar')[]
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -88,7 +88,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const canAccessAsGerenteSci = role === 'gerente_sci' || (role === 'chefe' && acessoGerenteSci)
     const hasPermission =
       !!role &&
-      (allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci') ||
+      (allowedRoles.includes(role as 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar') ||
         (role === 'chefe' && acessoGerenteSci && allowedRoles.includes('gerente_sci')))
     console.log('[LOGIN_DEBUG] ProtectedRoute:', {
       pathname: location.pathname,

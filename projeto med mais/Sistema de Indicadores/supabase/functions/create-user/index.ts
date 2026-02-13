@@ -34,9 +34,9 @@ serve(async (req) => {
     // Validar e sanitizar base_id e equipe_id (evitar "" que vira NULL em colunas UUID)
     const baseIdVal = (base_id && String(base_id).trim()) || ''
     const equipeIdVal = (equipe_id && String(equipe_id).trim()) || ''
-    if (role === 'chefe' && (!baseIdVal || !equipeIdVal)) {
+    if ((role === 'chefe' || role === 'auxiliar') && (!baseIdVal || !equipeIdVal)) {
       return new Response(
-        JSON.stringify({ error: 'Chefe de Equipe precisa de base_id e equipe_id preenchidos' }),
+        JSON.stringify({ error: 'Chefe de Equipe e Líder de Resgate precisam de base_id e equipe_id preenchidos' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -111,14 +111,14 @@ serve(async (req) => {
     }
 
     // Inserir perfil na tabela profiles (usar valores sanitizados para evitar "" que vira NULL em UUID)
-    const insertBaseId = role === 'chefe' || role === 'gerente_sci' ? baseIdVal || null : null
-    const insertEquipeId = role === 'chefe' ? equipeIdVal || null : null
+    const insertBaseId = role === 'chefe' || role === 'gerente_sci' || role === 'auxiliar' ? baseIdVal || null : null
+    const insertEquipeId = role === 'chefe' || role === 'auxiliar' ? equipeIdVal || null : null
 
-    // Validar chefe: base e equipe obrigatórios
-    if (role === 'chefe' && (!insertBaseId || !insertEquipeId)) {
+    // Validar chefe e auxiliar (Líder de Resgate): base e equipe obrigatórios
+    if ((role === 'chefe' || role === 'auxiliar') && (!insertBaseId || !insertEquipeId)) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return new Response(
-        JSON.stringify({ error: 'Base e Equipe são obrigatórios para Chefe de Equipe' }),
+        JSON.stringify({ error: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -141,6 +141,7 @@ serve(async (req) => {
       base_id: insertBaseId,
       equipe_id: role === 'gerente_sci' ? null : insertEquipeId,
     }
+    // auxiliar (Líder de Resgate) não tem acesso_gerente_sci; só chefe pode ter
     if (role === 'chefe') {
       insertProfile.acesso_gerente_sci = acessoGerenteSciVal === true
     }

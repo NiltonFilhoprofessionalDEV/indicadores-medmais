@@ -215,7 +215,15 @@ export function ProvaTeoricaForm({
                   <div className="space-y-1">
                     <Label className="text-xs">Status</Label>
                     <Input
-                      value={avaliados[index]?.status || ''}
+                      value={
+                        (() => {
+                          const nota = avaliados[index]?.nota
+                          if (typeof nota === 'number' && !Number.isNaN(nota)) {
+                            return calculateProvaTeoricaStatus(nota)
+                          }
+                          return avaliados[index]?.status || ''
+                        })()
+                      }
                       readOnly
                       className="bg-muted"
                     />

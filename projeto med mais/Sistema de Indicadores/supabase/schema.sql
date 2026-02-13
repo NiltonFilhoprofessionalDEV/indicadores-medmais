@@ -39,14 +39,16 @@ CREATE TABLE public.indicadores_config (
 CREATE TABLE public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     nome TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('geral', 'chefe')),
+    role TEXT NOT NULL CHECK (role IN ('geral', 'chefe', 'gerente_sci', 'auxiliar')),
     base_id UUID REFERENCES public.bases(id) ON DELETE SET NULL,
     equipe_id UUID REFERENCES public.equipes(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT chefe_must_have_base_and_equipe CHECK (
         (role = 'geral' AND base_id IS NULL AND equipe_id IS NULL) OR
-        (role = 'chefe' AND base_id IS NOT NULL AND equipe_id IS NOT NULL)
+        (role = 'chefe' AND base_id IS NOT NULL AND equipe_id IS NOT NULL) OR
+        (role = 'gerente_sci' AND base_id IS NOT NULL AND equipe_id IS NULL) OR
+        (role = 'auxiliar' AND base_id IS NOT NULL AND equipe_id IS NOT NULL)
     )
 );
 
@@ -217,6 +219,49 @@ CREATE POLICY "lancamentos_delete_chefe" ON public.lancamentos
         )
     );
 
+-- Líder de Resgate (role auxiliar): Mesmas permissões que Chefe (leitura base inteira; escrita mesma base)
+CREATE POLICY "lancamentos_select_auxiliar" ON public.lancamentos
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'auxiliar'
+            AND profiles.base_id = lancamentos.base_id
+        )
+    );
+CREATE POLICY "lancamentos_insert_auxiliar" ON public.lancamentos
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'auxiliar'
+            AND profiles.base_id = lancamentos.base_id
+            AND profiles.id = lancamentos.user_id
+        )
+    );
+CREATE POLICY "lancamentos_update_auxiliar" ON public.lancamentos
+    FOR UPDATE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'auxiliar'
+            AND profiles.base_id = lancamentos.base_id
+        )
+    );
+CREATE POLICY "lancamentos_delete_auxiliar" ON public.lancamentos
+    FOR DELETE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'auxiliar'
+            AND profiles.base_id = lancamentos.base_id
+        )
+    );
+
 -- ============================================
 -- FUNÇÃO: Atualizar updated_at automaticamente
 -- ============================================
@@ -317,6 +362,6 @@ COMMENT ON TABLE public.indicadores_config IS 'Configuração dos 14 indicadores
 COMMENT ON TABLE public.profiles IS 'Perfis de usuários vinculados ao auth.users';
 COMMENT ON TABLE public.lancamentos IS 'Tabela central (Single Source of Truth) com dados variáveis em JSONB';
 
-COMMENT ON COLUMN public.profiles.role IS 'Role do usuário: geral (Gerente Geral) ou chefe (Chefe de Equipe)';
+COMMENT ON COLUMN public.profiles.role IS 'Role do usuário: geral (Gerente Geral), chefe (Chefe de Equipe), gerente_sci (Gerente de SCI) ou auxiliar (Líder de Resgate)';
 COMMENT ON COLUMN public.lancamentos.conteudo IS 'Dados variáveis do indicador em formato JSONB';
 COMMENT ON COLUMN public.lancamentos.data_referencia IS 'Data de referência do lançamento (formato DATE)';

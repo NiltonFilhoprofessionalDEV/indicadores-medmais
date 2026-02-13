@@ -22,18 +22,18 @@ const createUserSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Senha é obrigatória'),
-  role: z.enum(['geral', 'chefe', 'gerente_sci'], {
+  role: z.enum(['geral', 'chefe', 'gerente_sci', 'auxiliar'], {
     required_error: 'Selecione um perfil',
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
   acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
-  if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
+  if (data.role === 'chefe' || data.role === 'auxiliar') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
   return true
 }, {
-  message: 'Base e Equipe são obrigatórios para Chefe de Equipe; Base é obrigatória para Gerente de SCI',
+  message: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate; Base é obrigatória para Gerente de SCI',
   path: ['base_id'],
 })
 
@@ -46,18 +46,18 @@ const updateUserSchema = z.object({
     z.literal('N/A'),
   ]).optional(),
   password: z.string().optional().or(z.literal('')),
-  role: z.enum(['geral', 'chefe', 'gerente_sci'], {
+  role: z.enum(['geral', 'chefe', 'gerente_sci', 'auxiliar'], {
     required_error: 'Selecione um perfil',
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
   acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
-  if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
+  if (data.role === 'chefe' || data.role === 'auxiliar') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
   return true
 }, {
-  message: 'Base e Equipe são obrigatórios para Chefe de Equipe; Base é obrigatória para Gerente de SCI',
+  message: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate; Base é obrigatória para Gerente de SCI',
   path: ['base_id'],
 })
 
@@ -68,7 +68,7 @@ interface UsuarioComEmail {
   id: string
   nome: string
   email: string
-  role: 'geral' | 'chefe' | 'gerente_sci'
+  role: 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar'
   base_id: string | null
   equipe_id: string | null
   acesso_gerente_sci: boolean | null
@@ -264,7 +264,7 @@ export function GestaoUsuarios() {
       setValue('equipe_id', '')
       if (!isGerenteSCI) setValue('base_id', '')
       else if (gerenteSCIBaseId) setValue('base_id', gerenteSCIBaseId)
-    } else if (role === 'chefe') {
+    } else if (role === 'chefe' || role === 'auxiliar') {
       if (isGerenteSCI && gerenteSCIBaseId) {
         setValue('base_id', gerenteSCIBaseId)
       } else {
@@ -814,10 +814,12 @@ export function GestaoUsuarios() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : usuario.role === 'gerente_sci'
                                     ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-green-100 text-green-800'
+                                    : usuario.role === 'auxiliar'
+                                      ? 'bg-slate-100 text-slate-800'
+                                      : 'bg-green-100 text-green-800'
                               }`}
                             >
-                              {usuario.role === 'geral' ? 'Administrador' : usuario.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
+                              {usuario.role === 'geral' ? 'Administrador' : usuario.role === 'gerente_sci' ? 'Gerente de SCI' : usuario.role === 'auxiliar' ? 'Líder de Resgate' : 'Chefe de Equipe'}
                             </span>
                           </td>
                           <td className="p-3">
@@ -1014,15 +1016,15 @@ export function GestaoUsuarios() {
                       id="role"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       {...register('role')}
-                      disabled={isGerenteSCI}
                     >
                       {!isGerenteSCI && <option value="geral">Administrador</option>}
                       {!isGerenteSCI && <option value="gerente_sci">Gerente de SCI</option>}
                       <option value="chefe">Chefe de Equipe</option>
+                      <option value="auxiliar">Líder de Resgate</option>
                     </select>
                     {isGerenteSCI && (
                       <p className="text-xs text-muted-foreground">
-                        Gerente de SCI pode cadastrar apenas Chefes de Equipe da sua base
+                        Gerente de SCI pode cadastrar Chefes de Equipe e Líderes de Resgate da sua base
                       </p>
                     )}
                     {errors.role && (
@@ -1079,7 +1081,7 @@ export function GestaoUsuarios() {
                     </div>
                   )}
 
-                  {role === 'chefe' && (
+                  {(role === 'chefe' || role === 'auxiliar') && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="base_id">Base *</Label>
@@ -1125,8 +1127,8 @@ export function GestaoUsuarios() {
                         )}
                       </div>
 
-                      {/* Só Administrador pode conceder acesso ao painel Gerente de SCI (ao cadastrar ou editar chefe) */}
-                      {isGerenteGeral ? (
+                      {/* Só para Chefe: Administrador pode conceder acesso ao painel Gerente de SCI */}
+                      {role === 'chefe' && (isGerenteGeral ? (
                         <div className="flex items-center gap-2 pt-2">
                           <input
                             type="checkbox"
@@ -1142,7 +1144,7 @@ export function GestaoUsuarios() {
                         <p className="text-xs text-muted-foreground pt-2">
                           Apenas administradores podem realizar essa alteração.
                         </p>
-                      )}
+                      ))}
                     </>
                   )}
 

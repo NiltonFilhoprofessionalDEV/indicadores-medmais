@@ -55,7 +55,7 @@ export function BaseFormFields({
     },
   })
 
-  // Se for chefe, usar base e equipe do perfil
+  // Se for chefe ou Líder de Resgate (auxiliar), usar base e equipe do perfil
   const finalBaseId = baseId || authUser?.profile?.base_id || ''
   const finalEquipeId = equipeId || authUser?.profile?.equipe_id || ''
 

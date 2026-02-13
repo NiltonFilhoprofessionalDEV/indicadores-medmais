@@ -20,6 +20,9 @@ Leitura: Vê dados de toda a sua Base (para comparação).
 Escrita: Insere/Edita/Exclui lançamentos de **qualquer equipe da sua base** (não apenas a equipe do perfil). O formulário permite selecionar a equipe no modal (caso de troca de equipe sem atualização do perfil). RLS: migration 016.
 Menu: Lançamentos, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados.
 
+**Líder de Resgate (role='auxiliar'):**
+Por diretriz jurídica, o Líder de Resgate é uma categoria distinta do Chefe de Equipe, com **permissões técnicas idênticas** ao Chefe. Leitura: Vê todos os registros da sua base_id. Escrita/Edição: Insere e edita lançamentos apenas da sua equipe_id e base_id (mesmas regras RLS do Chefe — migration 026). Menu: Lançamentos e Configurações (mesmos menus que o Chefe). No Header do sistema, o cargo exibido é "Líder de Resgate".
+
 4. Estrutura de Dados (Supabase)
 
 A. Tabelas de Catálogo (Dados Estáticos)
@@ -56,10 +59,11 @@ Dados:
 B. Tabelas de Sistema
 
 profiles: Tabela de usuários (vinculada ao auth.users).
-Campos: id (PK, UUID), nome, role ('geral', 'chefe' ou 'gerente_sci'), base_id (FK bases), equipe_id (FK equipes).
+Campos: id (PK, UUID), nome, role ('geral', 'chefe', 'gerente_sci' ou 'auxiliar'), base_id (FK bases), equipe_id (FK equipes).
 - geral: base_id e equipe_id = null.
 - chefe: base_id e equipe_id obrigatórios.
 - gerente_sci: base_id obrigatório, equipe_id = null (gerencia toda a base).
+- auxiliar (Líder de Resgate): base_id e equipe_id obrigatórios (mesmas regras que chefe; categoria distinta por diretriz jurídica).
 
 colaboradores: Tabela de efetivo (colaboradores) das bases.
 Campos: id (PK, UUID), created_at, nome (TEXT), base_id (FK bases), ativo (BOOLEAN, default true).
@@ -82,15 +86,17 @@ C. Segurança (Row Level Security - RLS)
 Profiles: Leitura pública (para o sistema saber quem é quem), Escrita apenas via Admin (Service Role).
 
 Colaboradores: 
-Leitura: Autenticados da mesma base (geral vê tudo, chefe e gerente_sci vêem apenas sua base).
-Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe não escreve em colaboradores.
+Leitura: Autenticados da mesma base (geral vê tudo; chefe, gerente_sci e auxiliar veem apenas sua base).
+Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe e Auxiliar não escrevem em colaboradores.
 
 Lancamentos (Leitura):
 Se role == 'geral': TRUE (Vê tudo).
 Se role == 'chefe': lancamento.base_id == profile.base_id (Vê a base toda).
+Se role == 'auxiliar': lancamento.base_id == profile.base_id (Vê a base toda; mesmas regras que chefe).
 Se role == 'gerente_sci': lancamento.base_id == profile.base_id (Vê a base toda para conferência).
 Lancamentos (Escrita/Edição/Exclusão):
 Se role == 'chefe': lancamento.base_id == profile.base_id (pode inserir/editar/excluir em **qualquer equipe da mesma base**). Implementação: migration 016 (supabase/migrations/016_chefe_equipe_livre_mesma_base.sql). Permite que o chefe registre indicadores na equipe em que está atuando mesmo antes da atualização do perfil (ex.: troca de equipe).
+Se role == 'auxiliar': mesmas regras que chefe (políticas RLS duplicadas para role 'auxiliar'). Implementação: migration 026 (supabase/migrations/026_add_auxiliar_role_and_rls.sql).
 IMPORTANTE: O sistema sempre faz INSERT (não UPDATE) para permitir múltiplos lançamentos no mesmo dia.
 
 Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
@@ -144,10 +150,8 @@ duracao_total: Calculado Automaticamente (Hora Término - Hora Acionamento). For
 3. Atividades Acessórias
 Mensagem de Apoio: "Preenchido sempre que realizado atividade no plantão."
 Campos:
-tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "inspeção área de cessionários", "atividade não prevista").
-Lógica Condicional:
-Se tipo_atividade == "atividade não prevista": Ocultar os campos abaixo e permitir salvar.
-Senão (Outros tipos): Exigir preenchimento de:
+tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "Inspeção em área de cessionários", "Ronda TPS").
+Campos obrigatórios para todos os tipos:
 qtd_equipamentos: Número (Min 0).
 qtd_bombeiros: Número (Min 1).
 tempo_gasto: Texto (Máscara HH:mm).
@@ -251,11 +255,12 @@ Campos: qtd_higienizados_mes, qtd_total_sci (Todos números). Campos iniciam vaz
 Tela 1: Login
 Autenticação via Supabase Auth.
 
-Tela 2: Painel do Chefe (Dashboard & Histórico)
+Tela 2: Painel do Chefe / Líder de Resgate (Dashboard & Histórico)
 
 Navegação:
-- Menu: Lançamentos (histórico operacional), Configurações.
-- **Restrição:** Chefe **não** tem acesso ao Dashboard Analytics nem ao Explorador de Dados. Apenas Gerente Geral (role='geral') pode visualizar essas telas.
+- Menu: Lançamentos (histórico operacional), Configurações. O usuário com role **chefe** ou **auxiliar** (Líder de Resgate) visualiza exatamente os mesmos menus (Lançamentos e Configurações).
+- **Identificação:** No Header do sistema, onde aparece o cargo do usuário, exibir "Chefe de Equipe" para role='chefe' e "Líder de Resgate" para role='auxiliar' (Configurações > Meu Perfil e demais pontos que exibem o perfil).
+- **Restrição:** Chefe e Auxiliar **não** têm acesso ao Dashboard Analytics nem ao Explorador de Dados. Apenas Gerente Geral (role='geral') pode visualizar essas telas.
 
 Histórico: Painel de Controle de Lançamentos Profissional
 
@@ -388,11 +393,11 @@ Formulário de Cadastro (Modal):
 Nome Completo: Texto (obrigatório).
 Email: Email (obrigatório no cadastro, opcional na edição).
 Senha Provisória: Password (min 6 chars no cadastro, opcional na edição).
-Perfil (Role): Select ("Gerente Geral" ou "Chefe de Equipe").
+Perfil (Role): Select ("Gerente Geral", "Gerente de SCI", "Chefe de Equipe" ou "Líder de Resgate").
 - Seleção Automática de Base: Quando o usuário seleciona "Gerente Geral", o campo Base é automaticamente preenchido com "ADMINISTRATIVO" e desabilitado (campo visual apenas, não editável). O campo Equipe não é exibido para Gerentes Gerais.
-- Seleção Manual: Quando o usuário seleciona "Chefe de Equipe", os campos Base e Equipe aparecem normalmente e são obrigatórios para seleção manual.
-Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe, automático se for Gerente Geral.
-Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe, não exibido se for Gerente Geral.
+- Seleção Manual: Quando o usuário seleciona "Chefe de Equipe" ou "Líder de Resgate", os campos Base e Equipe aparecem normalmente e são obrigatórios. Para Gerente de SCI, a Base é preenchida automaticamente com a base do gerente e fica read-only.
+Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe ou Líder de Resgate, automático se for Gerente Geral ou (para Gerente de SCI) travado na base do gerente.
+Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe ou Líder de Resgate, não exibido se for Gerente Geral ou Gerente de SCI.
 
 Modo Edição:
 - Ao clicar em "Editar", o modal abre preenchido com os dados do usuário selecionado.

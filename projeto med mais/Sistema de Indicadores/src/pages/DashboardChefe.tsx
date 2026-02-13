@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Droplets,
 } from 'lucide-react'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import {
@@ -184,7 +185,7 @@ export function DashboardChefe() {
     queryClient.invalidateQueries({ queryKey: ['lancamentos'] })
   }
 
-  const getBaseName = (id: string) => bases?.find((b) => b.id === id)?.nome || 'N/A'
+  const getBaseName = (id: string) => formatBaseName(bases?.find((b) => b.id === id)?.nome ?? '') || 'N/A'
   const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || 'N/A'
 
   const canEdit = (lancamento: Lancamento) => lancamento.equipe_id === equipeId

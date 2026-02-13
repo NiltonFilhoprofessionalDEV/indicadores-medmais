@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getRulesByGrupo, isGrupoA, isGrupoB } from '@/lib/compliance-rules'
 import { formatDateForDisplay } from '@/lib/date-utils'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { format, startOfMonth, parse, isToday, isYesterday, differenceInDays, startOfDay } from 'date-fns'
 import { Info } from 'lucide-react'
@@ -225,7 +226,7 @@ export function Aderencia() {
 
       return {
         baseId: base.id,
-        baseNome: base.nome,
+        baseNome: formatBaseName(base.nome),
         grupoAStatus: {
           atividadesAcessorias: getStatusGrupoA(atividadesAcessorias),
           treinamento: getStatusGrupoA(treinamento),

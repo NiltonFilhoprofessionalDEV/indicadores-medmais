@@ -5,6 +5,7 @@ import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import { flattenLancamento, convertToCSV, downloadCSV, generateFilename } from '@/lib/export-utils'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -131,7 +132,7 @@ export function DataExplorer() {
   const basesMap = useMemo(() => {
     const map = new Map<string, string>()
     bases?.forEach((base) => {
-      map.set(base.id, base.nome)
+      map.set(base.id, formatBaseName(base.nome))
     })
     return map
   }, [bases])
@@ -325,7 +326,7 @@ export function DataExplorer() {
                   <option value="">Todas as Bases</option>
                   {bases?.map((base) => (
                     <option key={base.id} value={base.id}>
-                      {base.nome}
+                      {formatBaseName(base.nome)}
                     </option>
                   ))}
                 </Select>

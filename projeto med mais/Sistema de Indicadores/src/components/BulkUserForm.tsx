@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Copy, Trash2, CheckCircle2, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -114,7 +115,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
   }, [lockedBaseId])
 
   // Buscar base ADMINISTRATIVO para Administradores
-  const baseAdministrativo = bases.find((b) => b.nome === 'ADMINISTRATIVO')
+  const baseAdministrativo = bases.find((b) => b.nome.toUpperCase() === 'ADMINISTRATIVO')
 
   // Função para gerar senha baseada no email ou padrão
   const generateDefaultPassword = (index: number) => {
@@ -669,7 +670,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                             .filter((b) => b.nome !== 'ADMINISTRATIVO')
                             .map((base) => (
                               <option key={base.id} value={base.id}>
-                                {base.nome}
+                                {formatBaseName(base.nome)}
                               </option>
                             ))}
                         </select>

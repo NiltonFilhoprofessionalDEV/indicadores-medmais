@@ -23,6 +23,7 @@ import {
   VerificacaoTPForm,
   HigienizacaoTPForm,
 } from '@/components/forms'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 
@@ -78,7 +79,7 @@ export function LancamentosBase() {
     },
   })
 
-  const getBaseName = (id: string) => bases?.find((b) => b.id === id)?.nome || 'N/A'
+  const getBaseName = (id: string) => formatBaseName(bases?.find((b) => b.id === id)?.nome ?? '') || 'N/A'
   const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || 'N/A'
 
   const { data: indicadores } = useQuery<Indicador[]>({

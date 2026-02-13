@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -168,7 +169,7 @@ export function Settings() {
 
   const getBaseName = (baseId: string | null) => {
     if (!baseId) return '-'
-    return bases?.find((b) => b.id === baseId)?.nome || '-'
+    return formatBaseName(bases?.find((b) => b.id === baseId)?.nome ?? '') || '-'
   }
 
   const getEquipeName = (equipeId: string | null) => {

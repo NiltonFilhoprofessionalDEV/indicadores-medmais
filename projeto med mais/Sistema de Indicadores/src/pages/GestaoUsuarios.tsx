@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BulkUserForm } from '@/components/BulkUserForm'
 import { Eye, EyeOff } from 'lucide-react'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -255,7 +256,7 @@ export function GestaoUsuarios() {
   // Efeito para seleção automática: ADMINISTRATIVO quando role='geral', base travada quando gerente_sci
   useEffect(() => {
     if (role === 'geral' && !isGerenteSCI) {
-      const baseAdministrativo = bases?.find((b) => b.nome === 'ADMINISTRATIVO')
+      const baseAdministrativo = bases?.find((b) => b.nome.toUpperCase() === 'ADMINISTRATIVO')
       if (baseAdministrativo) {
         setValue('base_id', baseAdministrativo.id)
         setValue('equipe_id', '')
@@ -514,7 +515,7 @@ export function GestaoUsuarios() {
     setValue('role', usuario.role)
     setValue('acesso_gerente_sci', usuario.acesso_gerente_sci ?? false)
     if (usuario.role === 'geral') {
-      const baseAdministrativo = bases?.find((b) => b.nome === 'ADMINISTRATIVO')
+      const baseAdministrativo = bases?.find((b) => b.nome.toUpperCase() === 'ADMINISTRATIVO')
       setValue('base_id', baseAdministrativo?.id || usuario.base_id || '')
       setValue('equipe_id', '')
     } else if (usuario.role === 'gerente_sci') {
@@ -750,7 +751,7 @@ export function GestaoUsuarios() {
                 <option value="">Todas as Bases</option>
                 {bases?.map((base) => (
                   <option key={base.id} value={base.id}>
-                    {base.nome}
+                    {formatBaseName(base.nome)}
                   </option>
                 ))}
               </Select>
@@ -799,7 +800,7 @@ export function GestaoUsuarios() {
                           <td className="p-3">{usuario.email}</td>
                           <td className="p-3">
                             {usuario.base_id
-                              ? bases?.find((b) => b.id === usuario.base_id)?.nome || 'N/A'
+                              ? formatBaseName(bases?.find((b) => b.id === usuario.base_id)?.nome ?? '') || 'N/A'
                               : '-'}
                           </td>
                           <td className="p-3">
@@ -1044,7 +1045,7 @@ export function GestaoUsuarios() {
                       >
                         {bases?.map((base) => (
                           <option key={base.id} value={base.id}>
-                            {base.nome}
+                            {formatBaseName(base.nome)}
                           </option>
                         ))}
                       </select>
@@ -1066,9 +1067,9 @@ export function GestaoUsuarios() {
                         {...register('base_id')}
                       >
                         <option value="">Selecione a base</option>
-                        {bases?.filter((b) => b.nome !== 'ADMINISTRATIVO').map((base) => (
+                        {bases?.filter((b) => b.nome.toUpperCase() !== 'ADMINISTRATIVO').map((base) => (
                           <option key={base.id} value={base.id}>
-                            {base.nome}
+                            {formatBaseName(base.nome)}
                           </option>
                         ))}
                       </select>
@@ -1094,7 +1095,7 @@ export function GestaoUsuarios() {
                           <option value="">Selecione a base</option>
                           {bases?.map((base) => (
                             <option key={base.id} value={base.id}>
-                              {base.nome}
+                              {formatBaseName(base.nome)}
                             </option>
                           ))}
                         </select>

@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Button } from '@/components/ui/button'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { validateDateRange, enforceMaxDateRange } from '@/lib/date-utils'
 import { useState, useEffect } from 'react'
@@ -156,7 +157,7 @@ export function AnalyticsFilterBar({
           <option value="">Todas as bases</option>
           {bases?.map((base) => (
             <option key={base.id} value={base.id}>
-              {base.nome}
+              {formatBaseName(base.nome)}
             </option>
           ))}
         </Select>

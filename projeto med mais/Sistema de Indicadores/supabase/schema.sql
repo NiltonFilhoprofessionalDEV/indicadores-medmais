@@ -87,11 +87,23 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lancamentos ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- POLICIES: bases
+-- POLICIES: bases (leitura: autenticados; escrita: apenas role=geral)
 -- ============================================
 CREATE POLICY "bases_select_all" ON public.bases
     FOR SELECT
-    USING (true);
+    USING (auth.uid() IS NOT NULL);
+CREATE POLICY "bases_insert_geral" ON public.bases
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'geral')
+    );
+CREATE POLICY "bases_update_geral" ON public.bases
+    FOR UPDATE
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'geral'))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'geral'));
+CREATE POLICY "bases_delete_geral" ON public.bases
+    FOR DELETE
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'geral'));
 
 -- ============================================
 -- POLICIES: equipes

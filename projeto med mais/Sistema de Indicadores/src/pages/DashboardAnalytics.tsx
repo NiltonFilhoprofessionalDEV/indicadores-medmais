@@ -33,6 +33,7 @@ import { GroupedBarChart } from '@/components/charts/GroupedBarChart'
 import { AnalyticsFilterBar } from '@/components/AnalyticsFilterBar'
 import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown, Menu, X, Monitor, ChevronLeft, ChevronRight } from 'lucide-react'
 import { parseTimeMMSS } from '@/lib/analytics-utils'
+import { formatBaseName } from '@/lib/utils'
 
 type IndicadorConfig = Database['public']['Tables']['indicadores_config']['Row']
 
@@ -695,7 +696,7 @@ export function DashboardAnalytics() {
   }, [isMonitorMode, view, processedData, isLoading])
 
   const baseMonitorLabel = userBaseId && bases?.length
-    ? (bases.find((b) => b.id === userBaseId)?.nome || 'Todas as bases')
+    ? (formatBaseName(bases.find((b) => b.id === userBaseId)?.nome ?? '') || 'Todas as bases')
     : 'Todas as bases'
 
   const MonitorContentWrapper = ({
@@ -1161,7 +1162,7 @@ export function DashboardAnalytics() {
                                     {processedData.listaDetalhada
                                       .slice((ocorrenciaAeroPage - 1) * ocorrenciaAeroPageSize, ocorrenciaAeroPage * ocorrenciaAeroPageSize)
                                       .map((item: any, index: number) => {
-                                        const baseNome = bases?.find((b) => b.id === item.base_id)?.nome || item.base_id
+                                        const baseNome = formatBaseName(bases?.find((b) => b.id === item.base_id)?.nome ?? '') || item.base_id
                                         return (
                                           <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                                             <td className="p-2">{new Date(item.data_referencia).toLocaleDateString('pt-BR')}</td>

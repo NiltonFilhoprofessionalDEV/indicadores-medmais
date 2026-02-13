@@ -10,6 +10,7 @@ const DashboardGerente = lazy(() => import('./pages/DashboardGerente').then(m =>
 const DashboardAnalytics = lazy(() => import('./pages/DashboardAnalytics').then(m => ({ default: m.DashboardAnalytics })))
 const GestaoUsuarios = lazy(() => import('./pages/GestaoUsuarios').then(m => ({ default: m.GestaoUsuarios })))
 const Colaboradores = lazy(() => import('./pages/admin/Colaboradores').then(m => ({ default: m.Colaboradores })))
+const Bases = lazy(() => import('./pages/admin/Bases').then(m => ({ default: m.Bases })))
 const LancamentosBase = lazy(() => import('./pages/LancamentosBase').then(m => ({ default: m.LancamentosBase })))
 const Aderencia = lazy(() => import('./pages/Aderencia').then(m => ({ default: m.Aderencia })))
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
@@ -75,6 +76,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['geral', 'gerente_sci']}>
                 <Colaboradores />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/bases"
+            element={
+              <ProtectedRoute allowedRoles={['geral']}>
+                <Bases />
               </ProtectedRoute>
             }
           />

@@ -11,7 +11,7 @@ Forms: React Hook Form + Zod (Schema Validation).
 
 3. Segurança e Atores
 
-**Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários e Gestão de Efetivo em todas as bases.
+**Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários, Gestão de Efetivo e Gestão de Bases (cadastrar, renomear ou excluir bases aeroportuárias) em todas as bases.
 
 **Gerente de SCI (role='gerente_sci'):** Administrador local de uma base. Gerencia apenas usuários e colaboradores da sua base. Acesso a: Lançamentos (visualização/conferência), Gestão de Usuários, Gestão de Efetivo, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados. O filtro de Base nas telas de gestão vem travado na base dele (desabilitado). No cadastro de usuários/colaboradores, o campo Base é preenchido automaticamente e fica read-only.
 
@@ -25,12 +25,11 @@ Por diretriz jurídica, o Líder de Resgate é uma categoria distinta do Chefe d
 
 4. Estrutura de Dados (Supabase)
 
-A. Tabelas de Catálogo (Dados Estáticos)
+A. Tabelas de Catálogo
 
-O script SQL de inicialização deve criar e popular estas tabelas automaticamente:
-bases: Tabela contendo as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
+O script SQL de inicialização pode criar e popular tabelas de catálogo. **bases** passou a ser gerenciável via interface: o Gerente Geral pode adicionar, renomear ou excluir bases pela tela "Gestão de Bases" (Tela 8), sem alterar código. A carga inicial (quando aplicável) inclui as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
 Bases Aeroportuárias (grafia com acentuação correta em português): "ALTAMIRA", "ARACAJU", "BACACHERI", "BELÉM", "BRASÍLIA", "CAMPO DE MARTE", "CARAJÁS", "CONFINS", "CONGONHAS", "CUIABÁ", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIÂNIA", "IMPERATRIZ", "JACAREPAGUÁ", "JOINVILLE", "LONDRINA", "MACAÉ", "MACAPÁ", "MACEIÓ", "MARABÁ", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTARÉM", "SÃO LUÍS", "SINOP", "TERESINA", "VITÓRIA".
-Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
+Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). RLS: Leitura (SELECT) para todos autenticados; escrita (INSERT, UPDATE, DELETE) apenas para role = 'geral'. Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
 
 equipes: Tabela contendo as 5 equipes padrão:
 
@@ -550,6 +549,25 @@ Interface com sistema de abas (Tabs) contendo três seções principais:
 - Logo MedMais (se disponível).
 - Título: "Configurações" com subtítulo "Gerencie seu perfil e preferências".
 - Botões: "Voltar" (retorna ao dashboard conforme role), "Sair" (logout).
+
+Tela 8: Gestão de Bases (/admin/bases) - Apenas Gerente Geral
+
+**Objetivo:** Permitir que o Gerente Geral gerencie as bases aeroportuárias (adicionar novas, renomear ou excluir) sem depender de alterações no código, tornando o sistema escalável.
+
+**Acesso:**
+- Rota: `/admin/bases`
+- Permissão: Apenas `role === 'geral'` (Gerente Geral).
+- Navegação: Card "Gestão de Bases" no Dashboard Admin (ícone Building2), descrição: "Cadastre novas unidades aeroportuárias ou gerencie as existentes."
+
+**Estrutura da Página:**
+- Barra superior: Título "Gestão de Bases", botão "Voltar" (retorna ao dashboard) e botão "+ Nova Base".
+- Tabela: Listagem de todas as bases cadastradas. Colunas: **Nome** | **Ações** (Editar, Excluir).
+- Modal de Cadastro/Edição: Formulário com um único campo "Nome da Base" (obrigatório). Botões Cancelar e Salvar/Cadastrar.
+- Exclusão: Ao clicar em Excluir, abre modal de confirmação avisando que, se houver lançamentos, colaboradores ou usuários vinculados à base, a exclusão pode ser bloqueada pelo banco de dados (integridade referencial). Botões Cancelar e Excluir.
+
+**Integração:** TanStack Query (queryKey `['bases']`) para listar e mutar. Ao adicionar, editar ou excluir uma base, o cache é invalidado e todos os Selects de Base do sistema (formulários e filtros) são atualizados automaticamente.
+
+**RLS (tabela bases):** SELECT permitido para todos os usuários autenticados; INSERT, UPDATE e DELETE permitidos apenas para `role === 'geral'`. Migration 027.
 
 Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Gerente Geral e Gerente de SCI)
 

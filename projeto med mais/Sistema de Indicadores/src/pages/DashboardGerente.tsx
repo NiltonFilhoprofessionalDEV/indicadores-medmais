@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppShell } from '@/components/AppShell'
-import { FileSpreadsheet, MessageSquare, ClipboardList } from 'lucide-react'
+import { FileSpreadsheet, MessageSquare, ClipboardList, Building2 } from 'lucide-react'
 
 export function DashboardGerente() {
   const { authUser } = useAuth()
@@ -109,6 +109,29 @@ export function DashboardGerente() {
                 </p>
                 <Button onClick={() => navigate('/dashboard/explorer')} className="w-full mt-auto">
                   Acessar Explorador de Dados
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card Gestão de Bases - apenas Administrador */}
+          {!isGerenteSCI && (
+            <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Gestão de Bases</CardTitle>
+                </div>
+                <CardDescription className="text-sm">
+                  Cadastre novas unidades aeroportuárias ou gerencie as existentes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
+                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
+                  Adicione, renomeie ou exclua bases. As bases são usadas em lançamentos, usuários e colaboradores.
+                </p>
+                <Button onClick={() => navigate('/admin/bases')} className="w-full mt-auto">
+                  Acessar Gestão de Bases
                 </Button>
               </CardContent>
             </Card>

@@ -1108,18 +1108,32 @@ Com as otimizações implementadas, o sistema deve suportar:
 **Funcionalidade de Exportação CSV:**
 
 - **Utilitário:** `src/lib/export-utils.ts`
-- **Flattening de Dados:**
-  - Indicadores Simples (ex: Estoque): Uma linha por lançamento com colunas específicas do tipo
-  - Indicadores com Arrays (ex: TAF, Prova Teórica): Uma linha por item do array, repetindo dados do cabeçalho
-  - Campos Comuns: ID, Data/Hora Registro, Data Referência, Usuário, Base, Equipe, Indicador
-  - Campos Específicos: Adicionados conforme o tipo de indicador (ex: `po_quimico_atual`, `nome`, `nota`, etc.)
+- **Unwinding (Expansão de Linhas):**
+  - Indicadores com listas (Grupo B) **não** colocam a lista em uma única célula: cada item da lista vira **uma linha** no CSV.
+  - Em todas as linhas expandidas são repetidas as colunas de cabeçalho: **ID**, **Data/Hora Registro**, **Data Referência**, **Usuário**, **Base**, **Equipe**, **Indicador** (e tipo), para permitir filtros no Excel.
+  - TAF: uma linha por avaliado (nome, idade, tempo, status, nota).
+  - Prova Teórica: uma linha por avaliado (nome, nota, status).
+  - Treinamento (PTR-BA): uma linha por participante (nome, horas, temas_ptr quando existir).
+  - Inspeção de Viaturas: uma linha por viatura (viatura, qtd_inspecoes, qtd_nao_conforme).
+  - Tempo TP/EPR: uma linha por avaliado (nome, tempo, status, tempo_medio).
+  - Tempo Resposta: uma linha por aferição (viatura, motorista, local, tempo).
+  - Controle de EPI: uma linha por colaborador (nome, epi_entregue, epi_previsto, unif_entregue, unif_previsto, total_epi_pct, total_unif_pct).
+- **Mapeamento Completo dos 14 Indicadores:**
+  - **Ocorrência Aeronáutica:** local, acao, hora_acionamento, tempo_chegada_1_cci, tempo_chegada_ult_cci, termino_ocorrencia.
+  - **Ocorrência Não Aeronáutica:** tipo_ocorrencia, local, hora_acionamento, hora_chegada, hora_termino, duracao_total.
+  - **Atividades Acessórias:** tipo_atividade, qtd_bombeiros, tempo_gasto, qtd_equipamentos.
+  - **Logística (Estoque, Trocas, Verificação TP, Higienização TP):** quantidades atuais/exigidas (Pó, LGE, Nitrogênio), qtd_trocas, qtd_conformes, qtd_verificados, qtd_total_equipe, qtd_higienizados_mes, qtd_total_sci.
+  - Demais campos específicos de cada indicador são incluídos sem exceção.
+- **Tratamento de Formatos:**
+  - Campos de tempo (HH:mm ou mm:ss) são exportados como string de texto no Excel (ex.: fórmula `="02:30"`) para evitar conversão para formato científico ou data.
+  - Valores numéricos utilizam representação consistente (decimais).
 - **Formato CSV:**
-  - Encoding: UTF-8 com BOM (para Excel reconhecer acentos)
-  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente
-  - Headers: Primeira linha contém nomes das colunas
+  - **Codificação:** Uso obrigatório do prefixo **UTF-8 BOM** (`\ufeff`) no início do arquivo para o Excel reconhecer acentos e caracteres especiais do português.
+  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente.
+  - Headers: Primeira linha contém nomes das colunas.
 - **Limitações:**
-  - Máximo 1000 registros por exportação (para evitar timeout)
-  - Aviso exibido se total de registros exceder o limite
+  - Máximo 1000 registros por exportação (para evitar timeout).
+  - Aviso exibido se total de registros exceder o limite.
 
 **Modal de Visualização:**
 

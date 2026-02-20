@@ -40,7 +40,7 @@ type Equipe = Database['public']['Tables']['equipes']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 const PAGE_SIZE = 20
-const MAX_EXPORT_ROWS = 1000 // Limite para exportação
+const MAX_EXPORT_ROWS = 3000 // Limite para exportação
 
 export function DataExplorer() {
   const { authUser } = useAuth()

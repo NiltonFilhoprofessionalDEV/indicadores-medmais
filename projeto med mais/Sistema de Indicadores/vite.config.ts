@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -23,6 +23,10 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    // Em produção: remove console.* e debugger do bundle (não exibe logs no navegador)
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -38,4 +42,4 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000, // Aumentar limite para evitar warnings desnecessários
   },
-})
+}))

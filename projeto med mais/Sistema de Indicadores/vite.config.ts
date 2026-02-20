@@ -22,11 +22,17 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: 'esnext',
-    minify: 'esbuild',
-    // Em produção: remove console.* e debugger do bundle (não exibe logs no navegador)
-    esbuild: {
-      drop: mode === 'production' ? ['console', 'debugger'] : [],
-    },
+    // Em produção: usa Terser com drop_console para remover todos os console.* do bundle final
+    minify: mode === 'production' ? 'terser' : 'esbuild',
+    terserOptions:
+      mode === 'production'
+        ? {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+            },
+          }
+        : undefined,
     rollupOptions: {
       output: {
         manualChunks: {

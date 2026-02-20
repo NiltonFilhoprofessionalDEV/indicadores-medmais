@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -114,7 +114,7 @@ export function BaseFormFields({
             <option value="">Selecione a equipe</option>
             {equipes?.map((equipe) => (
               <option key={equipe.id} value={equipe.id}>
-                {equipe.nome}
+                {formatEquipeName(equipe.nome)}
               </option>
             ))}
           </Select>

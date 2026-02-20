@@ -156,6 +156,7 @@ function flattenConteudo(
 
     case 'ocorrencia_nao_aero':
       row.tipo_ocorrencia = conteudo.tipo_ocorrencia ?? ''
+      row.observacoes = conteudo.observacoes ?? ''
       row.local = conteudo.local ?? ''
       row.hora_acionamento = toExportValue(conteudo.hora_acionamento) as string
       row.hora_chegada = toExportValue(conteudo.hora_chegada) as string

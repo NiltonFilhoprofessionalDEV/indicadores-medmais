@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Copy, Trash2, CheckCircle2, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -696,7 +696,7 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                           <option value="">Selecione</option>
                           {equipes.map((equipe) => (
                             <option key={equipe.id} value={equipe.id}>
-                              {equipe.nome}
+                              {formatEquipeName(equipe.nome)}
                             </option>
                           ))}
                         </select>

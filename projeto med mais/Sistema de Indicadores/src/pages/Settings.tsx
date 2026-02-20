@@ -14,7 +14,9 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { formatBaseName } from '@/lib/utils'
+import { Eye, EyeOff, Check } from 'lucide-react'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
+import { renderTextWithBold, type UpdateInfo } from '@/components/UpdateModal'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -57,10 +59,12 @@ export function Settings() {
   const { authUser } = useAuth()
   const queryClient = useQueryClient()
   const tabParam = searchParams.get('tab')
-  const [activeTab, setActiveTab] = useState(tabParam === 'feedback' || tabParam === 'seguranca' ? tabParam : 'perfil')
+  const [activeTab, setActiveTab] = useState(tabParam === 'feedback' || tabParam === 'seguranca' || tabParam === 'atualizacoes' ? tabParam : 'perfil')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
-    if (tabParam === 'feedback' || tabParam === 'seguranca') {
+    if (tabParam === 'feedback' || tabParam === 'seguranca' || tabParam === 'atualizacoes') {
       setActiveTab(tabParam)
     }
   }, [tabParam])
@@ -86,7 +90,7 @@ export function Settings() {
 
   // Buscar feedbacks do usuário
   const { data: feedbacks } = useQuery<Feedback[]>({
-    queryKey: ['feedbacks', authUser?.user.id],
+    queryKey: ['feedbacks', authUser?.user?.id],
     queryFn: async () => {
       if (!authUser?.user.id) return []
       const { data, error } = await supabase
@@ -97,7 +101,21 @@ export function Settings() {
       if (error) throw error
       return data || []
     },
-    enabled: !!authUser?.user.id,
+    enabled: !!authUser?.user?.id,
+  })
+
+  // Carregar últimas atualizações do sistema (mesmo conteúdo do pop-up)
+  const { data: updateInfo, isLoading: loadingUpdates, isError: errorUpdates } = useQuery<UpdateInfo | null>({
+    queryKey: ['updates-json'],
+    queryFn: async () => {
+      try {
+        const data = await import('@/data/updates.json')
+        const info = data.default as UpdateInfo
+        return info?.version ? info : null
+      } catch {
+        return null
+      }
+    },
   })
 
   // Formulário de troca de senha
@@ -174,7 +192,7 @@ export function Settings() {
 
   const getEquipeName = (equipeId: string | null) => {
     if (!equipeId) return '-'
-    return equipes?.find((e) => e.id === equipeId)?.nome || '-'
+    return formatEquipeName(equipes?.find((e) => e.id === equipeId)?.nome || '-')
   }
 
   const getTipoLabel = (tipo: string) => {
@@ -275,9 +293,10 @@ export function Settings() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
                 <TabsTrigger value="perfil">Meu Perfil</TabsTrigger>
                 <TabsTrigger value="seguranca">Segurança</TabsTrigger>
+                <TabsTrigger value="atualizacoes">Atualizações</TabsTrigger>
                 <TabsTrigger value="feedback">Suporte / Feedback</TabsTrigger>
               </TabsList>
 
@@ -360,12 +379,30 @@ export function Settings() {
                   <form onSubmit={handleSubmitPassword((data) => changePasswordMutation.mutate(data))} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="newPassword">Nova Senha *</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        placeholder="Digite sua nova senha"
-                        {...registerPassword('newPassword')}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="newPassword"
+                          type={showNewPassword ? 'text' : 'password'}
+                          placeholder="Digite sua nova senha"
+                          className="pr-10"
+                          {...registerPassword('newPassword')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowNewPassword((v) => !v)}
+                          aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                          tabIndex={-1}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
                       {errorsPassword.newPassword && (
                         <p className="text-sm text-destructive">{errorsPassword.newPassword.message}</p>
                       )}
@@ -373,12 +410,30 @@ export function Settings() {
 
                     <div className="space-y-2">
                       <Label htmlFor="confirmPassword">Confirmar Nova Senha *</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="Confirme sua nova senha"
-                        {...registerPassword('confirmPassword')}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="Confirme sua nova senha"
+                          className="pr-10"
+                          {...registerPassword('confirmPassword')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword((v) => !v)}
+                          aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                          tabIndex={-1}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
                       {errorsPassword.confirmPassword && (
                         <p className="text-sm text-destructive">{errorsPassword.confirmPassword.message}</p>
                       )}
@@ -392,6 +447,56 @@ export function Settings() {
                       {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar Senha'}
                     </Button>
                   </form>
+                </div>
+              </TabsContent>
+
+              {/* Aba: Atualizações do sistema */}
+              <TabsContent value="atualizacoes" className="space-y-6 mt-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">O que há de novo</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Consulte as últimas alterações e melhorias do sistema.
+                    </p>
+                  </div>
+                  {loadingUpdates ? (
+                    <p className="text-sm text-muted-foreground py-6">Carregando...</p>
+                  ) : errorUpdates || !updateInfo ? (
+                    <p className="text-sm text-muted-foreground py-6">
+                      Não foi possível carregar as atualizações no momento.
+                    </p>
+                  ) : (
+                    <Card className="border-primary/20">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2 text-[#fc4d00]">
+                          <span className="text-2xl" aria-hidden>✨</span>
+                        </div>
+                        <CardTitle className="text-lg">
+                          {renderTextWithBold(updateInfo.titulo, 'upd-titulo')}
+                        </CardTitle>
+                        <CardDescription>
+                          Versão {updateInfo.version} · {updateInfo.data}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-2">
+                        <ul className="space-y-3">
+                          {updateInfo.novidades.map((item, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                              <span
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-600 dark:bg-green-500/30 dark:text-green-400 mt-0.5"
+                                aria-hidden
+                              >
+                                <Check className="h-3 w-3" strokeWidth={2.5} />
+                              </span>
+                              <span className="break-words min-w-0 whitespace-pre-line">
+                                {renderTextWithBold(item, `upd-nov-${i}`)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 

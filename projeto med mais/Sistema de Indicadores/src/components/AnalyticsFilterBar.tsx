@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Button } from '@/components/ui/button'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { validateDateRange, enforceMaxDateRange } from '@/lib/date-utils'
 import { useState, useEffect } from 'react'
@@ -170,7 +170,7 @@ export function AnalyticsFilterBar({
             <option value="">Todas as equipes</option>
             {equipes?.map((equipe) => (
               <option key={equipe.id} value={equipe.id}>
-                {equipe.nome}
+                {formatEquipeName(equipe.nome)}
               </option>
             ))}
           </Select>
@@ -236,6 +236,7 @@ export function AnalyticsFilterBar({
             <option value="Incêndios Florestais">Incêndios Florestais</option>
             <option value="Emergências Médicas em Geral">Emergências Médicas em Geral</option>
             <option value="Iluminação de Emergência em Pista">Iluminação de Emergência em Pista</option>
+            <option value="Outras">Outras</option>
           </Select>
         </div>
       )}

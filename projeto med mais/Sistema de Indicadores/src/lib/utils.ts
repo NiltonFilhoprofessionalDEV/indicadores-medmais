@@ -11,3 +11,10 @@ export function formatBaseName(name: string): string {
   if (!t) return ''
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
+
+/** Primeira letra de cada palavra maiúscula e demais minúsculas (para nomes de equipes). */
+export function formatEquipeName(name: string): string {
+  const t = name.trim().toLowerCase()
+  if (!t) return ''
+  return t.replace(/\b\w/g, (c) => c.toUpperCase())
+}

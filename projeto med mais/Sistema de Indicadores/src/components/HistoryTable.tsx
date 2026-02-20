@@ -5,6 +5,7 @@ import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import { getIndicatorBadgeVariant, getResumoLancamento } from '@/lib/history-utils'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
+import { formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,16 +16,16 @@ import { FileX2 } from 'lucide-react'
 
 type Equipe = Database['public']['Tables']['equipes']['Row']
 
-type Lancamento = Database['public']['Tables']['lancamentos']['Row']
+type LancamentoWithUser = import('@/hooks/useLancamentos').LancamentoWithUser
 type Indicador = Database['public']['Tables']['indicadores_config']['Row']
 
 interface HistoryTableProps {
   baseId: string | undefined
   equipeId: string | undefined // Usado apenas para canEdit, não para filtrar
-  onView: (lancamento: Lancamento, indicador: Indicador) => void
-  onEdit: (lancamento: Lancamento, indicador: Indicador) => void
-  onDelete: (lancamento: Lancamento) => void
-  canEdit: (lancamento: Lancamento) => boolean
+  onView: (lancamento: LancamentoWithUser, indicador: Indicador) => void
+  onEdit: (lancamento: LancamentoWithUser, indicador: Indicador) => void
+  onDelete: (lancamento: LancamentoWithUser) => void
+  canEdit: (lancamento: LancamentoWithUser) => boolean
   getBaseName: (baseId: string) => string
   getEquipeName: (equipeId: string) => string
 }
@@ -114,6 +115,32 @@ export function HistoryTable({
     })
   }, [data?.data])
 
+  // Fallback: buscar nomes em profiles quando o join não retorna (ex.: FK com outro nome no Supabase)
+  const userIds = useMemo(() => {
+    const ids = new Set<string>()
+    lancamentosOrdenados.forEach((l) => {
+      if (l.user_id) ids.add(l.user_id)
+    })
+    return [...ids]
+  }, [lancamentosOrdenados])
+
+  const { data: profilesList } = useQuery({
+    queryKey: ['profiles-nomes', userIds],
+    queryFn: async () => {
+      if (userIds.length === 0) return []
+      const { data, error } = await supabase.from('profiles').select('id, nome').in('id', userIds)
+      if (error) throw error
+      return (data ?? []) as { id: string; nome: string }[]
+    },
+    enabled: userIds.length > 0,
+  })
+
+  const profilesNomeMap = useMemo(() => {
+    const map = new Map<string, string>()
+    profilesList?.forEach((p) => map.set(p.id, p.nome))
+    return map
+  }, [profilesList])
+
   // Criar mapa de indicadores por ID
   const indicadoresMap = useMemo(() => {
     const map = new Map<string, Indicador>()
@@ -145,8 +172,6 @@ export function HistoryTable({
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
-    // Scroll para o topo da tabela
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (error) {
@@ -235,7 +260,7 @@ export function HistoryTable({
                 <option value="">Todas as equipes</option>
                 {equipes?.map((equipe) => (
                   <option key={equipe.id} value={equipe.id}>
-                    {equipe.nome}
+                    {formatEquipeName(equipe.nome)}
                   </option>
                 ))}
               </Select>
@@ -320,6 +345,7 @@ export function HistoryTable({
                 <thead>
                   <tr className="border-b border-primary bg-muted/50 dark:bg-slate-700/50">
                     <th className="text-left p-3 font-semibold text-sm">Data</th>
+                    <th className="text-left p-3 font-semibold text-sm">Lançado por</th>
                     <th className="text-left p-3 font-semibold text-sm">
                       Indicador
                     </th>
@@ -333,6 +359,9 @@ export function HistoryTable({
                   {lancamentosOrdenados.map((lancamento) => {
                     const indicador = indicadoresMap.get(lancamento.indicador_id)
                     if (!indicador) return null
+                    const userName =
+                      (lancamento as LancamentoWithUser).profiles?.nome ??
+                      (lancamento.user_id ? profilesNomeMap.get(lancamento.user_id) ?? lancamento.user_id.slice(0, 8) + '…' : '—')
 
                     return (
                       <tr
@@ -341,6 +370,9 @@ export function HistoryTable({
                       >
                         <td className="p-3">
                           {formatDateForDisplay(lancamento.data_referencia)}
+                        </td>
+                        <td className="p-3 text-sm">
+                          {userName}
                         </td>
                         <td className="p-3">
                           <Badge
@@ -355,7 +387,7 @@ export function HistoryTable({
                           {getResumoLancamento(lancamento, indicador)}
                         </td>
                         <td className="p-3">{getBaseName(lancamento.base_id)}</td>
-                        <td className="p-3">{getEquipeName(lancamento.equipe_id)}</td>
+                        <td className="p-3">{formatEquipeName(getEquipeName(lancamento.equipe_id))}</td>
                         <td className="p-3">
                           <div className="flex gap-2">
                             <Button

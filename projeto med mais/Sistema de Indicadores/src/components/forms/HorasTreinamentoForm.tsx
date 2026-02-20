@@ -15,17 +15,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
-const participanteSchema = z.object({
-  nome: z.string().min(1, 'Nome é obrigatório'),
-  horas: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
+const participanteSchemaLax = z.object({
+  nome: z.string().optional().default(''),
+  horas: z.string().optional().default(''),
 })
 
-const horasTreinamentoSchema = z.object({
-  participantes: z.array(participanteSchema).min(1, 'Adicione pelo menos um participante'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+function isTreinamentoRowEmpty(r: { nome?: string; horas?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const horas = String(r.horas ?? '').trim()
+  return !nome && !horas
+}
+
+function isTreinamentoRowComplete(r: { nome?: string; horas?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const horas = String(r.horas ?? '').trim()
+  return !!nome && !!horas && validateHHMM(horas)
+}
+
+const horasTreinamentoSchema = z
+  .object({
+    participantes: z.array(participanteSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.participantes.some((r) => isTreinamentoRowComplete(r)),
+    { message: 'Preencha pelo menos um participante completamente para salvar.', path: ['participantes'] }
+  )
+  .refine(
+    (data) => data.participantes.every((r) => isTreinamentoRowEmpty(r) || isTreinamentoRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (nome e horas) ou deixe a linha em branco.',
+      path: ['participantes'],
+    }
+  )
 
 type HorasTreinamentoFormData = z.infer<typeof horasTreinamentoSchema>
 
@@ -88,7 +112,11 @@ export function HorasTreinamentoForm({
 
   const onSubmit = async (data: HorasTreinamentoFormData) => {
     try {
-      const participantesFiltrados = data.participantes.filter((p) => p.nome.trim() !== '')
+      const participantesFiltrados = data.participantes.filter((p) => isTreinamentoRowComplete(p))
+      if (participantesFiltrados.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
 
       const conteudo = {
         participantes: participantesFiltrados,
@@ -100,6 +128,7 @@ export function HorasTreinamentoForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

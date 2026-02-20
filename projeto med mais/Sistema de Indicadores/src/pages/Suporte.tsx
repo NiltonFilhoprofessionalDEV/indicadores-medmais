@@ -8,12 +8,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Eye, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 
 type FeedbackRow = Database['public']['Tables']['feedbacks']['Row']
 type FeedbackStatus = FeedbackRow['status']
-type FeedbackWithAuthor = FeedbackRow & { author_nome: string | null }
+
+/** Resposta do Supabase com join: feedbacks + profiles(nome, bases(nome)) */
+type FeedbackJoinRow = FeedbackRow & {
+  profiles: { nome: string; bases: { nome: string } | null } | null
+}
+
+type FeedbackWithAuthor = FeedbackRow & {
+  author_nome: string | null
+  base_nome: string
+}
 
 function getTipoLabel(tipo: string) {
   switch (tipo) {
@@ -80,40 +89,47 @@ export function Suporte() {
   const [filtroStatus, setFiltroStatus] = React.useState<string>('todos')
   const [feedbackDetalhe, setFeedbackDetalhe] = React.useState<FeedbackWithAuthor | null>(null)
   const [respostaTexto, setRespostaTexto] = React.useState('')
+  const PAGE_SIZE = 10
   const [paginaAtual, setPaginaAtual] = React.useState(1)
-  const [itensPorPagina, setItensPorPagina] = React.useState(10)
+  const [itensPorPagina, setItensPorPagina] = React.useState(PAGE_SIZE)
 
   React.useEffect(() => {
     setRespostaTexto(feedbackDetalhe?.resposta_suporte ?? '')
   }, [feedbackDetalhe])
 
-  const { data: feedbacks, isLoading, isError, error } = useQuery({
-    queryKey: ['suporte-feedbacks'],
-    queryFn: async (): Promise<FeedbackWithAuthor[]> => {
-      const { data: feedbacksData, error: errFeedbacks } = await supabase
+  const {
+    data: feedbacksPayload,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['suporte-feedbacks', paginaAtual, itensPorPagina, filtroStatus],
+    queryFn: async (): Promise<{ list: FeedbackWithAuthor[]; total: number }> => {
+      const from = (paginaAtual - 1) * itensPorPagina
+      const to = from + itensPorPagina - 1
+      let query = supabase
         .from('feedbacks')
-        .select('*')
+        .select('*, profiles(nome, bases(nome))', { count: 'exact' })
         .order('created_at', { ascending: false })
-      if (errFeedbacks) throw errFeedbacks
-      const list: FeedbackRow[] = feedbacksData ?? []
-      const userIds = [...new Set(list.map((f) => f.user_id))]
-      let profileMap = new Map<string, string>()
-      if (userIds.length > 0) {
-        const { data: profilesData, error: errProfiles } = await supabase
-          .from('profiles')
-          .select('id, nome')
-          .in('id', userIds)
-        if (errProfiles) throw errProfiles
-        const profiles = (profilesData ?? []) as { id: string; nome: string }[]
-        profileMap = new Map(profiles.map((p) => [p.id, p.nome]))
+      if (filtroStatus !== 'todos') {
+        query = query.eq('status', filtroStatus)
       }
-      return list.map((f) => ({
-        ...f,
-        author_nome: profileMap.get(f.user_id) ?? null,
+      const { data, error: err, count } = await query.range(from, to)
+      if (err) throw err
+      const rows = (data ?? []) as FeedbackJoinRow[]
+      const list: FeedbackWithAuthor[] = rows.map((row) => ({
+        ...row,
+        author_nome: row.profiles?.nome ?? null,
+        base_nome: row.profiles?.bases?.nome ?? '—',
       }))
+      return { list, total: count ?? 0 }
     },
     enabled: !!authUser?.user?.id,
   })
+
+  const feedbacks = feedbacksPayload?.list ?? []
+  const totalItens = feedbacksPayload?.total ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(totalItens / itensPorPagina))
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: FeedbackStatus }) => {
@@ -183,17 +199,6 @@ export function Suporte() {
       alert(`Erro ao salvar resposta: ${err.message}\n\nSe a coluna "resposta_suporte" não existir, execute a migration 025 no Supabase.`)
     },
   })
-
-  const filteredFeedbacks =
-    feedbacks && filtroStatus !== 'todos'
-      ? feedbacks.filter((f) => f.status === filtroStatus)
-      : feedbacks || []
-
-  const totalItens = filteredFeedbacks.length
-  const totalPaginas = Math.max(1, Math.ceil(totalItens / itensPorPagina))
-  const paginaInicio = (paginaAtual - 1) * itensPorPagina
-  const paginaFim = Math.min(paginaInicio + itensPorPagina, totalItens)
-  const feedbacksPagina = filteredFeedbacks.slice(paginaInicio, paginaFim)
 
   React.useEffect(() => {
     setPaginaAtual(1)
@@ -274,8 +279,24 @@ export function Suporte() {
                 feedbacks. Detalhe: {error instanceof Error ? error.message : String(error)}
               </p>
             ) : isLoading ? (
-              <p className="text-muted-foreground py-8">Carregando feedbacks...</p>
-            ) : filteredFeedbacks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
+                <p className="text-muted-foreground text-sm">Carregando feedbacks...</p>
+                <div className="w-full max-w-2xl rounded-md border overflow-hidden">
+                  <div className="animate-pulse space-y-0">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex gap-4 p-3 border-t first:border-t-0">
+                        <div className="h-5 w-20 bg-muted rounded" />
+                        <div className="h-5 w-24 bg-muted rounded" />
+                        <div className="h-5 w-16 bg-muted rounded" />
+                        <div className="h-5 flex-1 max-w-xs bg-muted rounded" />
+                        <div className="h-5 w-12 bg-muted rounded" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : feedbacks.length === 0 ? (
               <p className="text-muted-foreground py-8">
                 Nenhum feedback encontrado com o filtro selecionado.
               </p>
@@ -288,6 +309,7 @@ export function Suporte() {
                       <tr>
                         <th className="text-left p-3 font-semibold">Data</th>
                         <th className="text-left p-3 font-semibold">Usuário</th>
+                        <th className="text-left p-3 font-semibold">Unidade/Base</th>
                         <th className="text-left p-3 font-semibold">Tipo</th>
                         <th className="text-left p-3 font-semibold">Mensagem</th>
                         <th className="text-left p-3 font-semibold w-20">Ação</th>
@@ -296,7 +318,7 @@ export function Suporte() {
                       </tr>
                     </thead>
                     <tbody>
-                      {feedbacksPagina.map((feedback) => (
+                      {feedbacks.map((feedback) => (
                         <tr key={feedback.id} className="border-t">
                           <td className="p-3 whitespace-nowrap text-muted-foreground">
                             {new Date(feedback.created_at).toLocaleDateString('pt-BR', {
@@ -309,6 +331,9 @@ export function Suporte() {
                           </td>
                           <td className="p-3 font-medium">
                             {feedback.author_nome ?? feedback.user_id.slice(0, 8) + '…'}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {feedback.base_nome}
                           </td>
                           <td className="p-3">{getTipoLabel(feedback.tipo)}</td>
                           <td className="p-3 max-w-xs">
@@ -378,7 +403,11 @@ export function Suporte() {
               <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t">
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-muted-foreground">
-                    Mostrando {totalItens === 0 ? 0 : paginaInicio + 1} a {paginaFim} de {totalItens}{' '}
+                    Mostrando{' '}
+                    {totalItens === 0
+                      ? 0
+                      : (paginaAtual - 1) * itensPorPagina + 1}{' '}
+                    a {Math.min(paginaAtual * itensPorPagina, totalItens)} de {totalItens}{' '}
                     feedback{totalItens !== 1 ? 's' : ''}
                   </span>
                   <Label htmlFor="itens-pagina" className="text-sm font-medium whitespace-nowrap">

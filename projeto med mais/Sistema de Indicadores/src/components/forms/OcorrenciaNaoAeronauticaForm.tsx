@@ -24,21 +24,30 @@ const TIPOS_OCORRENCIA = [
   'Incêndios Florestais',
   'Emergências Médicas em Geral',
   'Iluminação de Emergência em Pista',
+  'Outras',
 ] as const
 
-const ocorrenciaNaoAeronauticaSchema = z.object({
-  tipo_ocorrencia: z.enum(TIPOS_OCORRENCIA, {
-    required_error: 'Selecione o tipo de ocorrência',
-  }),
-  local: z.string().min(1, 'Local é obrigatório'),
-  hora_acionamento: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
-  hora_chegada: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
-  hora_termino: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
-  duracao_total: z.string().optional(),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+const ocorrenciaNaoAeronauticaSchema = z
+  .object({
+    tipo_ocorrencia: z.enum(TIPOS_OCORRENCIA, {
+      required_error: 'Selecione o tipo de ocorrência',
+    }),
+    especificacao_outras: z.string().optional(),
+    local: z.string().min(1, 'Local é obrigatório'),
+    hora_acionamento: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
+    hora_chegada: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
+    hora_termino: z.string().refine(validateHHMM, 'Formato inválido (HH:mm)'),
+    duracao_total: z.string().optional(),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      data.tipo_ocorrencia !== 'Outras' ||
+      (typeof data.especificacao_outras === 'string' && data.especificacao_outras.trim().length > 0),
+    { message: 'Especifique o tipo de ocorrência', path: ['especificacao_outras'] }
+  )
 
 type OcorrenciaNaoAeronauticaFormData = z.infer<typeof ocorrenciaNaoAeronauticaSchema>
 
@@ -78,6 +87,10 @@ export function OcorrenciaNaoAeronauticaForm({
     resolver: zodResolver(ocorrenciaNaoAeronauticaSchema),
     defaultValues: {
       tipo_ocorrencia: (initialData?.tipo_ocorrencia as typeof TIPOS_OCORRENCIA[number]) || undefined,
+      especificacao_outras:
+        initialData?.tipo_ocorrencia === 'Outras'
+          ? String(initialData?.observacoes ?? '').trim()
+          : '',
       local: (initialData?.local as string) || '',
       hora_acionamento: (initialData?.hora_acionamento as string) || '',
       hora_chegada: (initialData?.hora_chegada as string) || '',
@@ -90,6 +103,15 @@ export function OcorrenciaNaoAeronauticaForm({
 
   const horaAcionamento = watch('hora_acionamento')
   const horaTermino = watch('hora_termino')
+  const tipoOcorrencia = watch('tipo_ocorrencia')
+  const isOutras = tipoOcorrencia === 'Outras'
+
+  // Limpar especificação quando o usuário trocar de "Outras" para outro tipo
+  useEffect(() => {
+    if (!isOutras) {
+      setValue('especificacao_outras', '')
+    }
+  }, [isOutras, setValue])
 
   // Calcular duração total automaticamente
   useEffect(() => {
@@ -103,13 +125,21 @@ export function OcorrenciaNaoAeronauticaForm({
 
   const onSubmit = async (data: OcorrenciaNaoAeronauticaFormData) => {
     try {
-      const conteudo = {
+      const conteudo: Record<string, unknown> = {
         tipo_ocorrencia: data.tipo_ocorrencia,
         local: data.local,
         hora_acionamento: data.hora_acionamento,
         hora_chegada: data.hora_chegada,
         hora_termino: data.hora_termino,
         duracao_total: data.duracao_total,
+      }
+      // Quando "Outras" está selecionado, mesclar especificação no campo observacoes
+      if (data.tipo_ocorrencia === 'Outras' && data.especificacao_outras?.trim()) {
+        const especificacao = data.especificacao_outras.trim()
+        const observacoesExistentes = (initialData?.observacoes as string)?.trim() || ''
+        conteudo.observacoes = observacoesExistentes
+          ? `${especificacao} | ${observacoesExistentes}`
+          : especificacao
       }
 
       // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
@@ -118,6 +148,7 @@ export function OcorrenciaNaoAeronauticaForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,
@@ -180,6 +211,22 @@ export function OcorrenciaNaoAeronauticaForm({
               <p className="text-sm text-destructive">{errors.tipo_ocorrencia.message}</p>
             )}
           </div>
+
+          {isOutras && (
+            <div className="space-y-2">
+              <Label htmlFor="especificacao_outras">Especifique o tipo de ocorrência *</Label>
+              <Input
+                id="especificacao_outras"
+                {...register('especificacao_outras')}
+                placeholder="Ex.: Resgate em área de difícil acesso"
+                disabled={readOnly}
+                className={readOnly ? 'bg-muted' : ''}
+              />
+              {errors.especificacao_outras && (
+                <p className="text-sm text-destructive">{errors.especificacao_outras.message}</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="local">Local *</Label>

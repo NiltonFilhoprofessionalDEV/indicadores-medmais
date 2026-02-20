@@ -32,21 +32,48 @@ const VIATURAS = [
   'CA 02',
 ] as const
 
-const afericaoSchema = z.object({
-  viatura: z.enum(VIATURAS, {
-    required_error: 'Selecione uma viatura',
-  }),
-  motorista: z.string().min(1, 'Nome do motorista é obrigatório'),
-  local: z.string().min(1, 'Local é obrigatório'),
-  tempo: z.string().refine((val) => validateMMSS(val, 4), 'Formato inválido (mm:ss, máx 04:59)'),
+const afericaoSchemaLax = z.object({
+  viatura: z.enum(VIATURAS).optional(),
+  motorista: z.string().optional().default(''),
+  local: z.string().optional().default(''),
+  tempo: z.string().optional().default(''),
 })
 
-const tempoRespostaSchema = z.object({
-  afericoes: z.array(afericaoSchema).min(1, 'Adicione pelo menos uma aferição'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+function isAfericaoRowEmpty(r: { viatura?: string; motorista?: string; local?: string; tempo?: string }) {
+  const v = r.viatura
+  const motorista = String(r.motorista ?? '').trim()
+  const local = String(r.local ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !v && !motorista && !local && !tempo
+}
+
+function isAfericaoRowComplete(r: { viatura?: string; motorista?: string; local?: string; tempo?: string }) {
+  const viatura = r.viatura
+  const motorista = String(r.motorista ?? '').trim()
+  const local = String(r.local ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !!viatura && !!motorista && !!local && !!tempo && validateMMSS(tempo, 4)
+}
+
+const tempoRespostaSchema = z
+  .object({
+    afericoes: z.array(afericaoSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.afericoes.some((r) => isAfericaoRowComplete(r)),
+    { message: 'Preencha pelo menos uma aferição completamente para salvar.', path: ['afericoes'] }
+  )
+  .refine(
+    (data) =>
+      data.afericoes.every((r) => isAfericaoRowEmpty(r) || isAfericaoRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (viatura, motorista, local e tempo) ou deixe a linha em branco.',
+      path: ['afericoes'],
+    }
+  )
 
 type TempoRespostaFormData = z.infer<typeof tempoRespostaSchema>
 
@@ -111,7 +138,11 @@ export function TempoRespostaForm({
 
   const onSubmit = async (data: TempoRespostaFormData) => {
     try {
-      const afericoesFiltradas = data.afericoes.filter((a) => a.viatura)
+      const afericoesFiltradas = data.afericoes.filter((a) => isAfericaoRowComplete(a))
+      if (afericoesFiltradas.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
 
       const conteudo = {
         afericoes: afericoesFiltradas,
@@ -123,6 +154,7 @@ export function TempoRespostaForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

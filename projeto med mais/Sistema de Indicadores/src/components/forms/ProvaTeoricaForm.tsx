@@ -15,18 +15,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
-const avaliadoSchema = z.object({
-  nome: z.string().min(1, 'Nome é obrigatório'),
-  nota: z.number().min(0, 'Nota mínima é 0').max(10, 'Nota máxima é 10'),
+const avaliadoSchemaLax = z.object({
+  nome: z.string().optional().default(''),
+  nota: z.union([z.number(), z.undefined(), z.nan()]).optional(),
   status: z.string().optional(),
 })
 
-const provaTeoricaSchema = z.object({
-  avaliados: z.array(avaliadoSchema).min(1, 'Adicione pelo menos um avaliado'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+function isProvaTeoricaRowEmpty(r: { nome?: string; nota?: number }) {
+  const nome = String(r.nome ?? '').trim()
+  const nota = r.nota
+  return !nome && (nota == null || Number.isNaN(nota))
+}
+
+function isProvaTeoricaRowComplete(r: { nome?: string; nota?: number }) {
+  const nome = String(r.nome ?? '').trim()
+  const nota = r.nota != null && !Number.isNaN(r.nota) ? r.nota : null
+  return !!nome && nota != null && nota >= 0 && nota <= 10
+}
+
+const provaTeoricaSchema = z
+  .object({
+    avaliados: z.array(avaliadoSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.avaliados.some((r) => isProvaTeoricaRowComplete(r)),
+    { message: 'Preencha pelo menos um avaliado completamente para salvar.', path: ['avaliados'] }
+  )
+  .refine(
+    (data) => data.avaliados.every((r) => isProvaTeoricaRowEmpty(r) || isProvaTeoricaRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (nome e nota) ou deixe a linha em branco.',
+      path: ['avaliados'],
+    }
+  )
 
 type ProvaTeoricaFormData = z.infer<typeof provaTeoricaSchema>
 
@@ -102,7 +126,11 @@ export function ProvaTeoricaForm({
 
   const onSubmit = async (data: ProvaTeoricaFormData) => {
     try {
-      const avaliadosFiltrados = data.avaliados.filter((a) => a.nome.trim() !== '')
+      const avaliadosFiltrados = data.avaliados.filter((a) => isProvaTeoricaRowComplete(a))
+      if (avaliadosFiltrados.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
 
       const conteudo = {
         avaliados: avaliadosFiltrados,
@@ -114,6 +142,7 @@ export function ProvaTeoricaForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

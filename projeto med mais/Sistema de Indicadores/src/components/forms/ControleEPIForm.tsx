@@ -24,62 +24,75 @@ const optionalNumber = z
   ])
   .optional()
 
-const colaboradorSchema = z.object({
-  nome: z.string(),
+const colaboradorSchemaLax = z.object({
+  nome: z.string().optional().default(''),
   epi_entregue: optionalNumber,
   epi_previsto: optionalNumber,
   unif_entregue: optionalNumber,
   unif_previsto: optionalNumber,
   total_epi_pct: z.number().optional(),
   total_unif_pct: z.number().optional(),
-}).refine(
-  (data) => {
-    // Se nome está vazio, não validar os outros campos
-    if (!data.nome || data.nome.trim() === '') {
-      return true
-    }
-    // Se nome está preenchido, validar todos os campos obrigatórios (não undefined, não NaN)
-    const epiEnt = data.epi_entregue
-    const epiPrev = data.epi_previsto
-    const unifEnt = data.unif_entregue
-    const unifPrev = data.unif_previsto
-    return (
-      epiEnt !== undefined &&
-      epiPrev !== undefined &&
-      unifEnt !== undefined &&
-      unifPrev !== undefined &&
-      !Number.isNaN(epiEnt) &&
-      !Number.isNaN(epiPrev) &&
-      !Number.isNaN(unifEnt) &&
-      !Number.isNaN(unifPrev) &&
-      epiEnt >= 0 &&
-      epiPrev >= 1 &&
-      unifEnt >= 0 &&
-      unifPrev >= 1
-    )
-  },
-  {
-    message: 'Preencha todos os campos obrigatórios (EPI e Unif. entregues/previstos) para cada colaborador',
-    path: ['nome'],
-  }
-)
+})
 
-const controleEPISchema = z.object({
-  colaboradores: z.array(colaboradorSchema).min(1, 'Adicione pelo menos um colaborador'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-}).refine(
-  (data) => {
-    // Filtrar colaboradores com nome preenchido
-    const colaboradoresComNome = data.colaboradores.filter((c) => c.nome.trim() !== '')
-    return colaboradoresComNome.length > 0
-  },
-  {
-    message: 'Adicione pelo menos um colaborador com nome preenchido',
-    path: ['colaboradores'],
-  }
-)
+function isEPIRowEmpty(r: {
+  nome?: string
+  epi_entregue?: number
+  epi_previsto?: number
+  unif_entregue?: number
+  unif_previsto?: number
+}) {
+  const nome = String(r.nome ?? '').trim()
+  return !nome
+}
+
+function isEPIRowComplete(r: {
+  nome?: string
+  epi_entregue?: number
+  epi_previsto?: number
+  unif_entregue?: number
+  unif_previsto?: number
+}) {
+  const nome = String(r.nome ?? '').trim()
+  if (!nome) return false
+  const epiEnt = r.epi_entregue
+  const epiPrev = r.epi_previsto
+  const unifEnt = r.unif_entregue
+  const unifPrev = r.unif_previsto
+  return (
+    epiEnt !== undefined &&
+    epiPrev !== undefined &&
+    unifEnt !== undefined &&
+    unifPrev !== undefined &&
+    !Number.isNaN(epiEnt) &&
+    !Number.isNaN(epiPrev) &&
+    !Number.isNaN(unifEnt) &&
+    !Number.isNaN(unifPrev) &&
+    epiEnt >= 0 &&
+    epiPrev >= 1 &&
+    unifEnt >= 0 &&
+    unifPrev >= 1
+  )
+}
+
+const controleEPISchema = z
+  .object({
+    colaboradores: z.array(colaboradorSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.colaboradores.some((r) => isEPIRowComplete(r)),
+    { message: 'Preencha pelo menos um colaborador completamente para salvar.', path: ['colaboradores'] }
+  )
+  .refine(
+    (data) => data.colaboradores.every((r) => isEPIRowEmpty(r) || isEPIRowComplete(r)),
+    {
+      message:
+        'Preencha todos os campos da linha (nome, EPI e Unif. entregues/previstos) ou deixe a linha em branco.',
+      path: ['colaboradores'],
+    }
+  )
 
 type ControleEPIFormData = z.infer<typeof controleEPISchema>
 
@@ -173,40 +186,19 @@ export function ControleEPIForm({
 
   const onSubmit = async (data: ControleEPIFormData) => {
     try {
-      // Filtrar apenas colaboradores com nome preenchido
-      const colaboradoresFiltrados = data.colaboradores
-        .filter((c) => c.nome && c.nome.trim() !== '')
-        .map((c) => ({
-          nome: c.nome.trim(),
-          epi_entregue: c.epi_entregue ?? 0,
-          epi_previsto: c.epi_previsto ?? 1,
-          unif_entregue: c.unif_entregue ?? 0,
-          unif_previsto: c.unif_previsto ?? 1,
-          total_epi_pct: c.total_epi_pct ?? 0,
-          total_unif_pct: c.total_unif_pct ?? 0,
-        }))
+      // Salvar apenas linhas completamente preenchidas (linhas vazias ou parciais são ignoradas)
+      const colaboradoresFiltrados = data.colaboradores.filter((c) => isEPIRowComplete(c)).map((c) => ({
+        nome: (c.nome ?? '').trim(),
+        epi_entregue: c.epi_entregue ?? 0,
+        epi_previsto: c.epi_previsto ?? 1,
+        unif_entregue: c.unif_entregue ?? 0,
+        unif_previsto: c.unif_previsto ?? 1,
+        total_epi_pct: c.total_epi_pct ?? 0,
+        total_unif_pct: c.total_unif_pct ?? 0,
+      }))
 
-      // Validar se há pelo menos um colaborador válido
       if (colaboradoresFiltrados.length === 0) {
-        alert('Adicione pelo menos um colaborador com nome preenchido')
-        return
-      }
-
-      // Validar se todos os colaboradores filtrados têm todos os campos obrigatórios válidos
-      const colaboradoresInvalidos = colaboradoresFiltrados.filter(
-        (c) =>
-          isNaN(c.epi_entregue) ||
-          isNaN(c.epi_previsto) ||
-          isNaN(c.unif_entregue) ||
-          isNaN(c.unif_previsto) ||
-          c.epi_entregue < 0 ||
-          c.epi_previsto < 1 ||
-          c.unif_entregue < 0 ||
-          c.unif_previsto < 1
-      )
-
-      if (colaboradoresInvalidos.length > 0) {
-        alert('Preencha todos os campos obrigatórios corretamente para cada colaborador')
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
         return
       }
 
@@ -220,6 +212,7 @@ export function ControleEPIForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

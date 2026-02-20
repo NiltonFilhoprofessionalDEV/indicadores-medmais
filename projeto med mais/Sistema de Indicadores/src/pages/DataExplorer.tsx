@@ -5,7 +5,7 @@ import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
 import { flattenLancamento, convertToCSV, downloadCSV, generateFilename } from '@/lib/export-utils'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -140,7 +140,7 @@ export function DataExplorer() {
   const equipesMap = useMemo(() => {
     const map = new Map<string, string>()
     equipes?.forEach((equipe) => {
-      map.set(equipe.id, equipe.nome)
+      map.set(equipe.id, formatEquipeName(equipe.nome))
     })
     return map
   }, [equipes])
@@ -338,7 +338,7 @@ export function DataExplorer() {
                   <option value="">Todas as Equipes</option>
                   {equipes?.map((equipe) => (
                     <option key={equipe.id} value={equipe.id}>
-                      {equipe.nome}
+                      {formatEquipeName(equipe.nome)}
                     </option>
                   ))}
                 </Select>

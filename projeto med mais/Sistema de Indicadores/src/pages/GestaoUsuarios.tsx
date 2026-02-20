@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BulkUserForm } from '@/components/BulkUserForm'
 import { Eye, EyeOff } from 'lucide-react'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -1119,7 +1119,7 @@ export function GestaoUsuarios() {
                           <option value="">Selecione a equipe</option>
                           {equipes?.map((equipe) => (
                             <option key={equipe.id} value={equipe.id}>
-                              {equipe.nome}
+                              {formatEquipeName(equipe.nome)}
                             </option>
                           ))}
                         </select>

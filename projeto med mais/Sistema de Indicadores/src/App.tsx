@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 import { Login } from './pages/Login'
 import { Logout } from './pages/Logout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { UpdateModalGate } from './components/UpdateModalGate'
 
 // Lazy loading das páginas para reduzir bundle inicial
 const DashboardChefe = lazy(() => import('./pages/DashboardChefe').then(m => ({ default: m.DashboardChefe })))
@@ -35,6 +36,7 @@ function PageLoader() {
 function App() {
   return (
     <BrowserRouter>
+      <UpdateModalGate />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />

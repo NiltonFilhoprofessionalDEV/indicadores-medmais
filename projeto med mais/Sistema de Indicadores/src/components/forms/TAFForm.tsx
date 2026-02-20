@@ -17,20 +17,47 @@ import { BaseFormFields } from './BaseFormFields'
 import { Trash2, CheckCircle2 } from 'lucide-react'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
-const avaliadoSchema = z.object({
-  nome: z.string().min(1, 'Nome é obrigatório'),
-  idade: z.number().min(1, 'Idade deve ser maior que 0'),
-  tempo: z.string().refine((val) => validateMMSS(val, 4), 'Formato inválido (mm:ss, máx 04:59)'),
+// Linhas vazias são ignoradas; se qualquer campo for preenchido, a linha inteira é obrigatória (preenchimento completo ou nada)
+const avaliadoSchemaLax = z.object({
+  nome: z.string().optional().default(''),
+  idade: z.union([z.number(), z.undefined(), z.nan()]).optional(),
+  tempo: z.string().optional().default(''),
   status: z.string().optional(),
-  nota: z.number().optional(),
+  nota: z.union([z.number(), z.undefined(), z.nan()]).optional(),
 })
 
-const tafSchema = z.object({
-  avaliados: z.array(avaliadoSchema).min(1, 'Adicione pelo menos um avaliado'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+function isTAFRowEmpty(r: { nome?: string; idade?: number; tempo?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const idade = r.idade
+  const tempo = String(r.tempo ?? '').trim()
+  return !nome && (idade == null || Number.isNaN(idade)) && !tempo
+}
+
+function isTAFRowComplete(r: { nome?: string; idade?: number; tempo?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const idade = r.idade != null && !Number.isNaN(r.idade) ? r.idade : null
+  const tempo = String(r.tempo ?? '').trim()
+  return !!nome && idade != null && idade >= 1 && !!tempo && validateMMSS(tempo, 4)
+}
+
+const tafSchema = z
+  .object({
+    avaliados: z.array(avaliadoSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.avaliados.some((r) => isTAFRowComplete(r)),
+    { message: 'Preencha pelo menos um avaliado completamente para salvar.', path: ['avaliados'] }
+  )
+  .refine(
+    (data) => data.avaliados.every((r) => isTAFRowEmpty(r) || isTAFRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (nome, idade e tempo) ou deixe a linha em branco.',
+      path: ['avaliados'],
+    }
+  )
 
 type TAFFormData = z.infer<typeof tafSchema>
 
@@ -112,8 +139,12 @@ export function TAFForm({
 
   const onSubmit = async (data: TAFFormData) => {
     try {
-      // Filtrar apenas avaliados com nome preenchido
-      const avaliadosFiltrados = data.avaliados.filter((a) => a.nome.trim() !== '')
+      // Salvar apenas linhas completamente preenchidas (linhas vazias ou parciais são ignoradas)
+      const avaliadosFiltrados = data.avaliados.filter((a) => isTAFRowComplete(a))
+      if (avaliadosFiltrados.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
 
       const conteudo = {
         avaliados: avaliadosFiltrados,
@@ -125,6 +156,7 @@ export function TAFForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

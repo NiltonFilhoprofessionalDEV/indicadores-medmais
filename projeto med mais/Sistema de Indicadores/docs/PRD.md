@@ -78,7 +78,7 @@ RLS:
 lancamentos: Tabela central (Single Source of Truth).
 Estratégia: Uso de JSONB para dados variáveis.
 Campos: id, created_at, updated_at, data_referencia (DATE), base_id (FK), equipe_id (FK), user_id (FK), indicador_id (FK), conteudo (JSONB).
-IMPORTANTE: Permite múltiplos lançamentos para o mesmo indicador no mesmo dia (sem constraint UNIQUE). O salvamento é sempre um novo INSERT.
+IMPORTANTE: Permite múltiplos lançamentos para o mesmo indicador no mesmo dia (sem constraint UNIQUE). O sistema realiza INSERT para novos lançamentos e UPDATE quando um registro existente é editado via seu ID exclusivo, mantendo a integridade e evitando duplicidade.
 
 C. Segurança (Row Level Security - RLS)
 
@@ -96,7 +96,7 @@ Se role == 'gerente_sci': lancamento.base_id == profile.base_id (Vê a base toda
 Lancamentos (Escrita/Edição/Exclusão):
 Se role == 'chefe': lancamento.base_id == profile.base_id (pode inserir/editar/excluir em **qualquer equipe da mesma base**). Implementação: migration 016 (supabase/migrations/016_chefe_equipe_livre_mesma_base.sql). Permite que o chefe registre indicadores na equipe em que está atuando mesmo antes da atualização do perfil (ex.: troca de equipe).
 Se role == 'auxiliar': mesmas regras que chefe (políticas RLS duplicadas para role 'auxiliar'). Implementação: migration 026 (supabase/migrations/026_add_auxiliar_role_and_rls.sql).
-IMPORTANTE: O sistema sempre faz INSERT (não UPDATE) para permitir múltiplos lançamentos no mesmo dia.
+IMPORTANTE: O sistema realiza INSERT para novos lançamentos e UPDATE quando um registro existente é editado via seu ID exclusivo, mantendo a integridade e evitando duplicidade. Múltiplos lançamentos no mesmo dia continuam permitidos (novos inserts).
 
 Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
 
@@ -139,7 +139,8 @@ hora_termino_ocorrencia: Texto (Máscara HH:mm) - Label: "Hora do término da oc
 2. Ocorrência Não Aeronáutica
 Mensagem de Apoio: "Preenchido sempre que tiver uma ocorrência."
 Campos:
-tipo_ocorrencia: Select (Opções Exatas: "Incêndios ou Vazamentos de Combustíveis no PAA", "Condições de Baixa Visibilidade", "Atendimento a Aeronave Presidencial", "Incêndio em Instalações Aeroportuárias", "Ocorrências com Artigos Perigosos", "Remoção de Animais e Dispersão de Avifauna", "Incêndios Florestais", "Emergências Médicas em Geral", "Iluminação de Emergência em Pista").
+tipo_ocorrencia: Select (Opções Exatas: "Incêndios ou Vazamentos de Combustíveis no PAA", "Condições de Baixa Visibilidade", "Atendimento a Aeronave Presidencial", "Incêndio em Instalações Aeroportuárias", "Ocorrências com Artigos Perigosos", "Remoção de Animais e Dispersão de Avifauna", "Incêndios Florestais", "Emergências Médicas em Geral", "Iluminação de Emergência em Pista", "Outras").
+Regra condicional: Quando selecionado "Outras", um campo de texto obrigatório é exibido ("Especifique o tipo de ocorrência"). O conteúdo deste campo é mesclado ao campo de observações no momento do salvamento (formato: [especificação] | [observações originais], ou apenas a especificação se observações estiver vazio), mantendo o tipo principal como "Outras" para fins de estatística.
 local: Texto.
 hora_acionamento: Texto (Máscara HH:mm).
 hora_chegada: Texto (Máscara HH:mm).
@@ -157,6 +158,8 @@ tempo_gasto: Texto (Máscara HH:mm).
 
 GRUPO B: Listas Dinâmicas (Uso de useFieldArray)
 Nestes formulários, o usuário pode clicar em "Adicionar Linha" para inserir múltiplos itens.
+
+Validação Flexível: O sistema permite salvar formulários com linhas vazias, ignorando-as automaticamente no envio. É obrigatório o preenchimento completo de pelo menos uma linha para validar o lançamento. Regra "Preenchimento Completo ou Nada": se qualquer campo de uma linha for preenchido, todos os campos obrigatórios daquela linha devem ser preenchidos; caso contrário, a linha deve ficar totalmente em branco.
 
 4. Teste de Aptidão Física (TAF)
 Estrutura: Lista de Avaliados. Iniciar com 10 linhas vazias.
@@ -479,6 +482,7 @@ Tela: Suporte / Feedback (/suporte) - Apenas Gerente Geral
 - Tabela de feedbacks (colunas):
   - Data (data/hora de criação, formato pt-BR).
   - Usuário (nome do perfil; fallback: primeiros 8 caracteres do user_id).
+  - **Base:** Exibe a unidade aeroportuária de origem do usuário que enviou o feedback. Quando o usuário não possui base vinculada (ex.: Admin Geral), exibe "—".
   - Tipo (Bug, Sugestão, Outros).
   - Mensagem (resumo com line-clamp-2).
   - Ação: Botão "Ver" (ícone Eye) que abre modal com detalhe completo do feedback.
@@ -637,7 +641,7 @@ Integração:
     - Select com lista de colaboradores ativos da base selecionada
     - Lógica: Se um colaborador for selecionado, os gráficos filtram os dados JSONB para mostrar apenas o histórico dele
   - **Filtro por Tipo de Ocorrência (Não Aeronáutica):** Aparece quando a visão é Ocorrência Não Aeronáutica
-    - Select com opções: "Todos os tipos" + lista completa de tipos de ocorrência (9 opções)
+    - Select com opções: "Todos os tipos" + lista completa de tipos de ocorrência (10 opções)
     - Filtra dados por `conteudo.tipo_ocorrencia`
   - **Filtro por Tipo de Ocorrência (Aeronáutica):** Aparece quando a visão é Ocorrência Aeronáutica
     - Select com opções: "Todos os tipos", "Posicionamento", "Intervenção"
@@ -755,7 +759,7 @@ Dividido em dois painéis lado a lado:
     *   Exibe todas as ocorrências do período filtrado com informações detalhadas para análise operacional.
 
 #### 2. Ocorrência Não Aeronáutica
-*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com 9 opções específicas)
+*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com 10 opções específicas)
     *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.tipo_ocorrencia`
 *   **KPIs:**
     *   Total de Ocorrências
@@ -1045,6 +1049,11 @@ Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group
 - `src/hooks/useLancamentos.ts` (queries otimizadas com `.select()`)
 - `src/pages/DashboardAnalytics.tsx` (query de Analytics otimizada)
 
+#### Tela de Suporte
+- **Carregamento otimizado:** A tela de Suporte (`src/pages/Suporte.tsx`) utiliza uma única consulta com **Joins relacionais** (Supabase): `feedbacks` + `profiles(nome, bases(nome))`, evitando múltiplas requisições e N+1.
+- **Paginação no banco:** A listagem de feedbacks usa paginação real no servidor (`.range()`), carregando apenas a página atual, com contagem exata para "Mostrando X a Y de Z".
+- **UX:** Estado de carregamento com Skeleton/Spinner centralizado enquanto os dados são processados.
+
 ### 9.4. Métricas de Performance Esperadas
 
 Com as otimizações implementadas, o sistema deve suportar:
@@ -1192,8 +1201,8 @@ Com as otimizações implementadas, o sistema deve suportar:
 
 ### 9.2. Correção de Bug Crítico: Sobrescrita de Dados
 - PROBLEMA: Sistema sobrescrevia registros do mesmo dia (Upsert incorreto).
-- SOLUÇÃO: Removida constraint UNIQUE da tabela lancamentos. O sistema agora sempre faz INSERT, permitindo múltiplos lançamentos para o mesmo indicador no mesmo dia.
-- Arquivo modificado: supabase/schema.sql (removida constraint), src/hooks/useLancamento.ts (removida lógica de UPDATE).
+- SOLUÇÃO: Removida constraint UNIQUE da tabela lancamentos. O sistema faz INSERT para novos lançamentos e UPDATE (por ID) quando o usuário edita um registro existente, evitando duplicidade na edição e permitindo múltiplos lançamentos no mesmo dia quando forem novos.
+- Arquivo modificado: supabase/schema.sql (removida constraint), src/hooks/useLancamento.ts (lógica de INSERT quando sem id, UPDATE quando id presente).
 
 ### 9.3. Correção de Bug Crítico: Datas (D-1) - Timezone Offset
 - PROBLEMA: Usuário seleciona dia 27/01, mas sistema salva e exibe 26/01. Isso acontece porque ao converter Date para string usando .toISOString(), o JavaScript converte para UTC. Como Brasil é UTC-3, a meia-noite do dia 27 vira 21h do dia 26, e o Supabase salva o dia 26.
@@ -1400,8 +1409,9 @@ Com as otimizações implementadas, o sistema deve suportar:
   7. Incêndios Florestais
   8. Emergências Médicas em Geral
   9. Iluminação de Emergência em Pista
+  10. Outras
 - Arquivos modificados:
-  - src/components/forms/OcorrenciaNaoAeroForm.tsx (lista de opções atualizada)
+  - src/components/forms/OcorrenciaNaoAeronauticaForm.tsx (lista de opções atualizada)
   - src/components/AnalyticsFilterBar.tsx (lista de opções no filtro)
 
 ### 9.19. Refinamento Visual: Dashboard de Ocorrência Aeronáutica
@@ -1646,3 +1656,22 @@ Com as otimizações implementadas, o sistema deve suportar:
 - **Arquivos modificados:**
   - src/pages/GestaoUsuarios.tsx (uso de supabase.rpc('update_user_profile', ...) em vez de update direto; filtro de lista por role/base quando isGerenteSCI)
   - docs/PRD.md (item 9.30)
+
+## 12. Comunicação
+
+### 12.1. Modal de Boas-Vindas / Atualização (Pop-up de Versão)
+
+**Objetivo:** Exibir, após o login, um modal elegante com as últimas melhorias do sistema, uma única vez por atualização.
+
+**Comportamento:**
+- Após o usuário estar autenticado, o sistema verifica se há uma nova versão de destaque.
+- O controle de exibição é feito via **localStorage**: chave `medmais_last_version_seen` armazena a última versão que o usuário já viu.
+- A versão e o conteúdo do modal vêm de um arquivo estático de configuração: **`src/data/updates.json`** (campos: `version`, `data`, `titulo`, `novidades`).
+- **Condição de abertura:** Se a `version` do JSON for **diferente** do valor salvo no localStorage, o modal é aberto automaticamente.
+- **Fechamento:** Ao clicar no botão de ação ("Entendi, vamos lá!"), a versão atual do JSON é salva no localStorage; o modal não será exibido novamente até que o arquivo `updates.json` seja alterado com uma nova `version`.
+
+**Implementação:**
+- **Arquivo de configuração:** `src/data/updates.json` — define versão, data, título e lista de novidades.
+- **Componente:** `src/components/UpdateModal.tsx` — Dialog (shadcn/Radix), cabeçalho com ícone de destaque (✨) em laranja, lista com checkmarks verdes, botão "Entendi, vamos lá!".
+- **Gatilho:** `src/components/UpdateModalGate.tsx` — montado no layout principal (`App.tsx`); em `useEffect`, ao detectar usuário autenticado, carrega o JSON, compara `version` com `localStorage.getItem('medmais_last_version_seen')` e abre o modal quando forem diferentes.
+- **Animação:** Entrada do modal com efeito suave (framer-motion: spring/bounce ou fade-in); modo escuro respeitado via classes `bg-background` e `text-foreground`.

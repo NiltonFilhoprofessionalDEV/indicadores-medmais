@@ -33,7 +33,7 @@ import { GroupedBarChart } from '@/components/charts/GroupedBarChart'
 import { AnalyticsFilterBar } from '@/components/AnalyticsFilterBar'
 import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown, Menu, X, Monitor, ChevronLeft, ChevronRight } from 'lucide-react'
 import { parseTimeMMSS } from '@/lib/analytics-utils'
-import { formatBaseName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 
 type IndicadorConfig = Database['public']['Tables']['indicadores_config']['Row']
 
@@ -443,7 +443,7 @@ export function DashboardAnalytics() {
     },
   })
 
-  const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || id
+  const getEquipeName = (id: string) => formatEquipeName(equipes?.find((e) => e.id === id)?.nome || id)
 
   // Determinar qual indicador buscar baseado na view
   const getIndicadorId = (): string | undefined => {

@@ -4,6 +4,11 @@ import type { Database } from '@/lib/database.types'
 
 type Lancamento = Database['public']['Tables']['lancamentos']['Row']
 
+/** Lançamento com nome do usuário (join com profiles). */
+export type LancamentoWithUser = Lancamento & {
+  profiles: { nome: string } | null
+}
+
 interface UseLancamentosParams {
   baseId?: string
   equipeId?: string
@@ -19,7 +24,7 @@ interface UseLancamentosParams {
 }
 
 interface UseLancamentosResult {
-  data: Lancamento[]
+  data: LancamentoWithUser[]
   total: number
   page: number
   pageSize: number
@@ -68,10 +73,10 @@ export function useLancamentos({
         dataFim?: string
       ): Promise<UseLancamentosResult> => {
         // Buscar TODOS os registros (sem paginação) para filtrar corretamente
-        // Otimização: buscar apenas colunas necessárias
+        // Otimização: buscar apenas colunas necessárias + nome do usuário
         let allQuery = supabase
           .from('lancamentos')
-          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at')
+          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
           .order('data_referencia', { ascending: false })
           .order('created_at', { ascending: false })
         
@@ -86,7 +91,7 @@ export function useLancamentos({
         
         if (allError) throw allError
         
-        const allLancamentos = (allData || []) as Lancamento[]
+        const allLancamentos = (allData || []) as LancamentoWithUser[]
         
         // Filtrar por texto no cliente
         const searchLower = searchText.toLowerCase()
@@ -129,10 +134,10 @@ export function useLancamentos({
         .from('lancamentos')
         .select('*', { count: 'exact', head: true })
 
-      // Query para buscar dados (com paginação): data (mais recente primeiro), depois ordem de salvamento (created_at)
+      // Query para buscar dados (com paginação) + nome do usuário
       let dataQuery = supabase
         .from('lancamentos')
-        .select('*')
+        .select('*, profiles!lancamentos_user_id_fkey(nome)')
         .order('data_referencia', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -179,10 +184,10 @@ export function useLancamentos({
           }
 
           // Construir query com filtros + IDs da busca
-          // Otimização: buscar apenas colunas necessárias
+          // Otimização: buscar apenas colunas necessárias + nome do usuário
           let filteredQuery = supabase
             .from('lancamentos')
-            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at', { count: 'exact' })
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)', { count: 'exact' })
             .in('id', ids)
             .order('data_referencia', { ascending: false })
             .order('created_at', { ascending: false })
@@ -212,10 +217,10 @@ export function useLancamentos({
           const total = countResult.count || 0
 
           // Buscar dados com paginação
-          // Otimização: buscar apenas colunas necessárias
+          // Otimização: buscar apenas colunas necessárias + nome do usuário
           let dataQuery = supabase
             .from('lancamentos')
-            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at')
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
             .in('id', ids)
             .order('data_referencia', { ascending: false })
             .order('created_at', { ascending: false })
@@ -232,7 +237,7 @@ export function useLancamentos({
 
           if (dataResult.error) throw dataResult.error
 
-          const lancamentos = (dataResult.data || []) as Lancamento[]
+          const lancamentos = (dataResult.data || []) as LancamentoWithUser[]
           const totalPages = Math.ceil(total / pageSize)
 
           return {
@@ -294,7 +299,7 @@ export function useLancamentos({
       if (countResult.error) throw countResult.error
       if (dataResult.error) throw dataResult.error
 
-      const lancamentos = (dataResult.data || []) as Lancamento[]
+      const lancamentos = (dataResult.data || []) as LancamentoWithUser[]
       const total = countResult.count || 0
       const totalPages = Math.ceil(total / pageSize)
 

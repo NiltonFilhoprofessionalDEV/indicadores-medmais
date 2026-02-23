@@ -266,3 +266,139 @@ export function generateFilename(prefix: string = 'relatorio'): string {
   const ano = hoje.getFullYear()
   return `${prefix}_${dia}${mes}${ano}.csv`
 }
+
+// --- Exportação consolidada de treinamento (PTR-BA) ---
+
+const META_ANAC_MINUTOS = 16 * 60 // 16h em minutos
+
+/**
+ * Converte "HH:mm" para minutos totais
+ */
+export function hhMmToMinutes(hhmm: string): number {
+  if (!hhmm || typeof hhmm !== 'string') return 0
+  const parts = hhmm.trim().split(':')
+  const h = parseInt(parts[0], 10) || 0
+  const m = parseInt(parts[1], 10) || 0
+  return h * 60 + m
+}
+
+/**
+ * Converte minutos totais para "HH:mm"
+ */
+export function minutesToHHmm(totalMinutes: number): string {
+  if (totalMinutes < 0 || !Number.isFinite(totalMinutes)) return '00:00'
+  const h = Math.floor(totalMinutes / 60)
+  const m = Math.round(totalMinutes % 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+export interface ConsolidadoTreinamentoRow {
+  Colaborador: string
+  Base: string
+  'Total de Horas Acumuladas': string
+  'Meta ANAC (16h)': string
+  'Qtd. de Plantões Treinados': number
+}
+
+export interface ExportConsolidadoTreinamentoParams {
+  lancamentos: Lancamento[]
+  indicadoresMap: Map<string, Indicador>
+  basesMap: Map<string, string>
+  /** Lista de colaboradores (nome, base_id) para resolver Base por nome */
+  colaboradores: Array<{ nome: string; base_id: string }>
+}
+
+/**
+ * Processa todos os lançamentos de "Horas de Treinamento Mensal" no período,
+ * agrupa por colaborador, soma as horas e gera linhas para CSV (visão de auditoria).
+ * Nenhum colaborador é deixado de fora da soma.
+ */
+export function exportConsolidadoTreinamento(
+  params: ExportConsolidadoTreinamentoParams
+): ConsolidadoTreinamentoRow[] {
+  const { lancamentos, indicadoresMap, basesMap, colaboradores } = params
+
+  // Mapa: nome do colaborador -> { totalMinutos, diasComRegistro }
+  const mapa = new Map<string, { totalMinutos: number; dias: Set<string> }>()
+  // Mapa auxiliar: nome -> base_id (primeira ocorrência no lançamento, para quem não estiver no cadastro)
+  const basePorNomeFallback = new Map<string, string>()
+
+  for (const lancamento of lancamentos) {
+    const indicador = indicadoresMap.get(lancamento.indicador_id)
+    if (!indicador || indicador.schema_type !== 'treinamento') continue
+
+    const conteudo = lancamento.conteudo as Record<string, unknown> | null
+    const participantes =
+      (Array.isArray(conteudo?.participantes) ? conteudo.participantes : null) ??
+      (Array.isArray(conteudo?.colaboradores) ? conteudo.colaboradores : null) ??
+      []
+
+    const dataRef = lancamento.data_referencia ?? ''
+
+    for (const p of participantes as Array<{ nome?: string; horas?: string }>) {
+      const nome = (p.nome ?? '').trim()
+      if (!nome) continue
+
+      const minutos = hhMmToMinutes(p.horas ?? '00:00')
+
+      if (!mapa.has(nome)) {
+        mapa.set(nome, { totalMinutos: 0, dias: new Set() })
+      }
+      const entry = mapa.get(nome)!
+      entry.totalMinutos += minutos
+      entry.dias.add(dataRef)
+      if (!basePorNomeFallback.has(nome)) {
+        basePorNomeFallback.set(nome, lancamento.base_id ?? '')
+      }
+    }
+  }
+
+  // Nome -> base_id (cadastro tem prioridade)
+  const nomeToBaseId = new Map<string, string>()
+  for (const c of colaboradores) {
+    const n = (c.nome ?? '').trim()
+    if (n) nomeToBaseId.set(n, c.base_id)
+  }
+
+  const rows: ConsolidadoTreinamentoRow[] = []
+  for (const [nome, { totalMinutos, dias }] of mapa.entries()) {
+    const baseId = nomeToBaseId.get(nome) ?? basePorNomeFallback.get(nome) ?? ''
+    const baseNome = (basesMap.get(baseId) ?? baseId) || 'N/A'
+    const totalHHmm = minutesToHHmm(totalMinutos)
+    const metaANAC = totalMinutos >= META_ANAC_MINUTOS ? 'Atingida' : 'Pendente'
+    rows.push({
+      Colaborador: nome,
+      Base: baseNome,
+      'Total de Horas Acumuladas': totalHHmm,
+      'Meta ANAC (16h)': metaANAC,
+      'Qtd. de Plantões Treinados': dias.size,
+    })
+  }
+
+  // Ordenar por nome do colaborador
+  rows.sort((a, b) => a.Colaborador.localeCompare(b.Colaborador, 'pt-BR'))
+  return rows
+}
+
+/**
+ * Converte linhas do consolidado de treinamento para CSV e faz download
+ */
+export function convertConsolidadoToCSV(rows: ConsolidadoTreinamentoRow[]): string {
+  if (rows.length === 0) {
+    return 'Colaborador,Base,Total de Horas Acumuladas,Meta ANAC (16h),Qtd. de Plantões Treinados\n'
+  }
+  const headers = ['Colaborador', 'Base', 'Total de Horas Acumuladas', 'Meta ANAC (16h)', 'Qtd. de Plantões Treinados']
+  const headerRow = headers.map((h) => escapeCSVValue(h)).join(',')
+  const dataRows = rows.map((row) =>
+    [
+      row.Colaborador,
+      row.Base,
+      row['Total de Horas Acumuladas'],
+      row['Meta ANAC (16h)'],
+      String(row['Qtd. de Plantões Treinados']),
+    ]
+      .map((v) => escapeCSVValue(String(v)))
+      .join(',')
+  )
+  return [headerRow, ...dataRows].join('\n')
+}

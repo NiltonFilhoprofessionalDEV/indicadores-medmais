@@ -265,29 +265,50 @@ export function DataExplorer() {
   const isTreinamentoSelected =
     !!indicadorId && indicadoresMap.get(indicadorId)?.schema_type === 'treinamento'
 
+  // Tamanho máximo por página no Supabase (PostgREST limita a 1000 por requisição)
+  const SUPABASE_PAGE_SIZE = 1000
+
   // Exportar Fechamento Coletivo de Treinamento (soma total por colaborador)
   const handleExportConsolidadoTreinamento = async () => {
     if (!indicadorId || !dataInicio || !dataFim) return
     setIsExportingConsolidado(true)
     try {
-      let query = supabase
-        .from('lancamentos')
-        .select('*')
-        .eq('indicador_id', indicadorId)
-        .gte('data_referencia', dataInicio)
-        .lte('data_referencia', dataFim)
-        .order('data_referencia', { ascending: true })
-      if (baseId) query = query.eq('base_id', baseId)
-      if (equipeId) query = query.eq('equipe_id', equipeId)
+      // Busca exaustiva em páginas: Supabase retorna no máx. 1000 por request, então fazemos até 3 requests (0–999, 1000–1999, 2000–2999)
+      const lancamentos: Lancamento[] = []
+      let offset = 0
+      let hasMore = true
 
-      const { data: allLancamentos, error: queryError } = await query
+      while (hasMore && lancamentos.length < MAX_EXPORT_ROWS_TREINAMENTO) {
+        const from = offset
+        const to = offset + SUPABASE_PAGE_SIZE - 1
 
-      if (queryError) {
-        alert(`Erro ao buscar lançamentos: ${queryError.message}`)
-        return
+        let query = supabase
+          .from('lancamentos')
+          .select('*')
+          .eq('indicador_id', indicadorId)
+          .gte('data_referencia', dataInicio)
+          .lte('data_referencia', dataFim)
+          .order('data_referencia', { ascending: true })
+          .range(from, to)
+
+        if (baseId) query = query.eq('base_id', baseId)
+        if (equipeId) query = query.eq('equipe_id', equipeId)
+
+        const { data: pageData, error: queryError } = await query
+
+        if (queryError) {
+          alert(`Erro ao buscar lançamentos: ${queryError.message}`)
+          return
+        }
+
+        const page = (pageData || []) as Lancamento[]
+        lancamentos.push(...page)
+        offset += SUPABASE_PAGE_SIZE
+        hasMore = page.length >= SUPABASE_PAGE_SIZE
       }
 
-      const lancamentos = (allLancamentos || []) as Lancamento[]
+      console.log('Lançamentos recuperados do banco:', lancamentos.length)
+
       const colaboradores = colaboradoresAll ?? []
 
       const rows = exportConsolidadoTreinamento({
@@ -296,6 +317,8 @@ export function DataExplorer() {
         basesMap,
         colaboradores,
       })
+
+      console.log('Total de colaboradores únicos identificados:', rows.length)
 
       if (rows.length === 0) {
         alert('Nenhum participante encontrado nos lançamentos de treinamento do período.')

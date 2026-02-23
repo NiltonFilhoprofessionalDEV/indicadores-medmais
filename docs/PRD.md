@@ -1005,6 +1005,7 @@ Com as otimizações implementadas, o sistema deve suportar:
 - **100k+ registros:** Queries de Analytics devem completar em < 2 segundos com índices adequados.
 - **Intervalo de 12 meses:** Processamento de Analytics deve ser responsivo (< 3 segundos).
 - **Memória do Cliente:** Uso de memória reduzido em ~40% com select parcial e limitação de intervalo.
+- **Exportação e Fechamento Coletivo:** O sistema deve gerenciar buscas de até 3000 registros de forma performática para evitar truncamento de dados (ex.: fechamento coletivo de treinamento para auditoria ANAC).
 
 ### 9.5. Manutenção de Índices
 

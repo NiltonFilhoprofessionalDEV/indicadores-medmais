@@ -335,10 +335,12 @@ export function exportConsolidadoTreinamento(
 
     const dataRef = lancamento.data_referencia ?? ''
 
-    for (const p of participantes as Array<{ nome?: string; horas?: string }>) {
+    for (const p of participantes as Array<{ nome?: string; horas?: string } | null | undefined>) {
+      if (p == null || typeof p !== 'object') continue
       const nome = (p.nome ?? '').trim()
       if (!nome) continue
 
+      // Fallback 0 minutos se horas ausente, nula ou mal formatada (evita travar e garante contagem)
       const minutos = hhMmToMinutes(p.horas ?? '00:00')
 
       if (!mapa.has(nome)) {

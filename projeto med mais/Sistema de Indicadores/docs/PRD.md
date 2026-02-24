@@ -1144,6 +1144,20 @@ Com as otimizações implementadas, o sistema deve suportar:
   - Máximo 1000 registros por exportação (para evitar timeout).
   - Aviso exibido se total de registros exceder o limite.
 
+- **Relatório Consolidado Mensal PTR-BA (Horas de Treinamento):**
+  - **Objetivo:** Exportação específica para o indicador "PTR-BA - Horas treinamento diário", com dados já somados por colaborador por mês, para facilitar a auditoria da meta de 16h da ANAC.
+  - **Disponibilidade:** Quando o indicador de Treinamento estiver selecionado nos filtros do Explorador, é exibido um botão de ação secundário: **"Exportar Fechamento Mensal (Somado)"**.
+  - **Lógica:** O sistema varre todos os lançamentos de treinamento do período filtrado; agrupa por **Mês/Ano + Nome do Colaborador + Base**; converte as strings "HH:mm" de cada lançamento em minutos, soma os treinos do colaborador no mês e converte o total de volta para "HH:mm".
+  - **Data de Referência (regra crítica):** Para cada linha consolidada, a coluna **Data de Referência** deve conter obrigatoriamente o **último dia do mês** correspondente aos dados somados (ex.: treinos em 05, 12 e 20/01/2026 → data exibida 31/01/2026; fevereiro/2026 → 28/02/2026).
+  - **Colunas do CSV consolidado:**
+    - Data de Referência (DD/MM/YYYY, último dia do mês)
+    - Base
+    - Nome do Colaborador
+    - Carga Horária Total (Mês) (formato HH:mm, string simples)
+    - Status Compliance (16h) ("CONFORME" se total ≥ 16:00, senão "PENDENTE")
+    - Qtd. de Plantões (quantidade de lançamentos individuais somados para aquele colaborador no mês)
+  - O arquivo utiliza o mesmo padrão UTF-8 BOM e escape CSV do restante do módulo; nome do arquivo: `fechamento_mensal_ptr_ba_[DDMMAAAA].csv`.
+
 **Modal de Visualização:**
 
 - Ao clicar em "Ver Detalhes", abre modal com:

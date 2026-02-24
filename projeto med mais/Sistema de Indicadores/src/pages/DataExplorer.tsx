@@ -3,7 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
-import { flattenLancamento, convertToCSV, downloadCSV, generateFilename } from '@/lib/export-utils'
+import {
+  flattenLancamento,
+  convertToCSV,
+  downloadCSV,
+  generateFilename,
+  buildTreinamentoConsolidadoRows,
+  buildTreinamentoConsolidadoCSV,
+} from '@/lib/export-utils'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
@@ -52,6 +59,7 @@ export function DataExplorer() {
   const [dataInicio, setDataInicio] = useState<string>('')
   const [dataFim, setDataFim] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
+  const [isExportingConsolidado, setIsExportingConsolidado] = useState(false)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
@@ -242,6 +250,55 @@ export function DataExplorer() {
     }
   }
 
+  // Exportação consolidada mensal PTR-BA (somado por colaborador/mês)
+  const handleExportFechamentoMensal = async () => {
+    if (!indicadorId) return
+    const indicador = indicadoresMap.get(indicadorId)
+    if (!indicador || indicador.schema_type !== 'treinamento') return
+
+    setIsExportingConsolidado(true)
+    try {
+      let exportQuery = supabase
+        .from('lancamentos')
+        .select('*')
+        .eq('indicador_id', indicadorId)
+        .order('data_referencia', { ascending: false })
+        .limit(MAX_EXPORT_ROWS)
+
+      if (baseId) exportQuery = exportQuery.eq('base_id', baseId)
+      if (equipeId) exportQuery = exportQuery.eq('equipe_id', equipeId)
+      if (dataInicio) exportQuery = exportQuery.gte('data_referencia', dataInicio)
+      if (dataFim) exportQuery = exportQuery.lte('data_referencia', dataFim)
+
+      const { data: allLancamentos, error: exportError } = await exportQuery
+
+      if (exportError) {
+        alert(`Erro ao exportar: ${exportError.message}`)
+        return
+      }
+
+      if (!allLancamentos || allLancamentos.length === 0) {
+        alert('Nenhum lançamento de treinamento encontrado para o período e filtros selecionados.')
+        return
+      }
+
+      const rows = buildTreinamentoConsolidadoRows(allLancamentos as Lancamento[], basesMap)
+      const csvContent = buildTreinamentoConsolidadoCSV(rows)
+      const filename = generateFilename('fechamento_mensal_ptr_ba')
+      downloadCSV(csvContent, filename)
+
+      alert(`Fechamento mensal exportado! ${rows.length} linha(s) consolidada(s).`)
+    } catch (error) {
+      console.error('Erro ao exportar fechamento mensal:', error)
+      alert(`Erro ao exportar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setIsExportingConsolidado(false)
+    }
+  }
+
+  const isTreinamentoSelected =
+    !!indicadorId && indicadoresMap.get(indicadorId)?.schema_type === 'treinamento'
+
   // Função para visualizar detalhes
   const handleViewDetails = (lancamento: Lancamento) => {
     const indicador = indicadoresMap.get(lancamento.indicador_id)
@@ -390,14 +447,27 @@ export function DataExplorer() {
         {/* Botão de Exportação */}
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <Button
-              onClick={handleExportCSV}
-              disabled={isExporting || !lancamentosData || lancamentosData.total === 0}
-              className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white shadow-orange-sm"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isExporting ? 'Exportando...' : 'Exportar Resultados (.csv)'}
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleExportCSV}
+                disabled={isExporting || !lancamentosData || lancamentosData.total === 0}
+                className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white shadow-orange-sm"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar Resultados (.csv)'}
+              </Button>
+              {isTreinamentoSelected && (
+                <Button
+                  onClick={handleExportFechamentoMensal}
+                  disabled={isExportingConsolidado || !lancamentosData || lancamentosData.total === 0}
+                  variant="outline"
+                  className="w-full border-[#fc4d00] text-[#fc4d00] hover:bg-orange-50 hover:text-[#e04400]"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExportingConsolidado ? 'Exportando...' : 'Exportar Fechamento Mensal (Somado)'}
+                </Button>
+              )}
+            </div>
             {lancamentosData && (
               <p className="text-sm text-muted-foreground mt-2 text-center">
                 {lancamentosData.total} lançamento(s) encontrado(s)

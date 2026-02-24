@@ -286,3 +286,148 @@ export function generateFilename(prefix: string = 'relatorio'): string {
   const ano = hoje.getFullYear()
   return `${prefix}_${dia}${mes}${ano}.csv`
 }
+
+// --- Exportação consolidada mensal PTR-BA (Horas de Treinamento) ---
+
+const CONSOLIDATED_HEADERS = [
+  'Data de Referência',
+  'Base',
+  'Nome do Colaborador',
+  'Carga Horária Total (Mês)',
+  'Status Compliance (16h)',
+  'Qtd. de Plantões',
+] as const
+
+export interface TreinamentoConsolidadoRow {
+  dataReferencia: string
+  base: string
+  nomeColaborador: string
+  cargaHorariaTotal: string
+  statusCompliance: string
+  qtdPlantoes: number
+}
+
+/** Converte string "HH:mm" em minutos totais */
+export function hhmmToMinutes(hhmm: string): number {
+  const trimmed = String(hhmm ?? '').trim()
+  if (!trimmed) return 0
+  const parts = trimmed.split(':')
+  const h = parseInt(parts[0], 10)
+  const m = parts.length > 1 ? parseInt(parts[1], 10) : 0
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0
+  return h * 60 + m
+}
+
+/** Converte minutos totais em string "HH:mm" */
+export function minutesToHHmm(totalMinutes: number): string {
+  if (totalMinutes < 0 || !Number.isFinite(totalMinutes)) return '00:00'
+  const h = Math.floor(totalMinutes / 60)
+  const m = Math.round(totalMinutes % 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Retorna o último dia do mês no formato DD/MM/YYYY (month 1-12) */
+export function getLastDayOfMonthFormatted(year: number, month: number): string {
+  const lastDay = new Date(year, month, 0)
+  const d = String(lastDay.getDate()).padStart(2, '0')
+  const m = String(lastDay.getMonth() + 1).padStart(2, '0')
+  const y = lastDay.getFullYear()
+  return `${d}/${m}/${y}`
+}
+
+const COMPLIANCE_MINUTES = 16 * 60 // 16h em minutos
+
+/**
+ * Agrupa lançamentos de treinamento (PTR-BA) por Mês/Ano + Nome do Colaborador + Base,
+ * soma as horas e gera linhas consolidadas com data de referência = último dia do mês.
+ */
+export function buildTreinamentoConsolidadoRows(
+  lancamentos: Lancamento[],
+  basesMap: Map<string, string>
+): TreinamentoConsolidadoRow[] {
+  type Key = string
+  const sumMinutes = new Map<Key, number>()
+  const countPlantoes = new Map<Key, number>()
+  const keyToMeta = new Map<Key, { base: string; nomeColaborador: string; year: number; month: number }>()
+
+  for (const lancamento of lancamentos) {
+    const conteudo = lancamento.conteudo as Record<string, unknown> | null
+    const participantes = Array.isArray(conteudo?.participantes) ? conteudo.participantes as Array<{ nome?: string; horas?: string }> : []
+    const baseName = basesMap.get(lancamento.base_id) ?? lancamento.base_id
+
+    const ref = lancamento.data_referencia
+    if (!ref) continue
+    const [yStr, mStr] = ref.split('-')
+    const year = parseInt(yStr, 10)
+    const month = parseInt(mStr, 10)
+    if (Number.isNaN(year) || Number.isNaN(month)) continue
+
+    for (const p of participantes) {
+      const nome = String(p.nome ?? '').trim()
+      if (!nome) continue
+      const minutos = hhmmToMinutes(p.horas ?? '')
+
+      const key: Key = `${year}-${String(month).padStart(2, '0')}|${baseName}|${nome}`
+
+      sumMinutes.set(key, (sumMinutes.get(key) ?? 0) + minutos)
+      countPlantoes.set(key, (countPlantoes.get(key) ?? 0) + 1)
+      if (!keyToMeta.has(key)) {
+        keyToMeta.set(key, { base: baseName, nomeColaborador: nome, year, month })
+      }
+    }
+  }
+
+  const rows: TreinamentoConsolidadoRow[] = []
+  for (const key of sumMinutes.keys()) {
+    const totalMin = sumMinutes.get(key) ?? 0
+    const qtd = countPlantoes.get(key) ?? 0
+    const meta = keyToMeta.get(key)
+    if (!meta) continue
+
+    const dataReferencia = getLastDayOfMonthFormatted(meta.year, meta.month)
+    const cargaHorariaTotal = minutesToHHmm(totalMin)
+    const statusCompliance = totalMin >= COMPLIANCE_MINUTES ? 'CONFORME' : 'PENDENTE'
+
+    rows.push({
+      dataReferencia,
+      base: meta.base,
+      nomeColaborador: meta.nomeColaborador,
+      cargaHorariaTotal,
+      statusCompliance,
+      qtdPlantoes: qtd,
+    })
+  }
+
+  rows.sort((a, b) => {
+    const da = a.dataReferencia.split('/')
+    const db = b.dataReferencia.split('/')
+    const dateA = `${da[2]}-${da[1]}-${da[0]}`
+    const dateB = `${db[2]}-${db[1]}-${db[0]}`
+    if (dateA !== dateB) return dateA.localeCompare(dateB)
+    if (a.base !== b.base) return a.base.localeCompare(b.base)
+    return a.nomeColaborador.localeCompare(b.nomeColaborador)
+  })
+
+  return rows
+}
+
+/**
+ * Gera o conteúdo CSV do relatório consolidado mensal PTR-BA (sem BOM; o download adiciona BOM).
+ */
+export function buildTreinamentoConsolidadoCSV(rows: TreinamentoConsolidadoRow[]): string {
+  if (rows.length === 0) return ''
+
+  const headerRow = CONSOLIDATED_HEADERS.map((h) => escapeCSVValue(h)).join(',')
+  const dataRows = rows.map((row) => {
+    return [
+      escapeCSVValue(row.dataReferencia),
+      escapeCSVValue(row.base),
+      escapeCSVValue(row.nomeColaborador),
+      escapeCSVValue(row.cargaHorariaTotal),
+      escapeCSVValue(row.statusCompliance),
+      String(row.qtdPlantoes),
+    ].join(',')
+  })
+
+  return [headerRow, ...dataRows].join('\n')
+}

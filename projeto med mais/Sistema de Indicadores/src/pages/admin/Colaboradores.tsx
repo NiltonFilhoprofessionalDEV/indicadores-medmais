@@ -16,6 +16,7 @@ import {
   useUpdateColaborador,
   useDeleteColaborador,
 } from '@/hooks/useColaboradores'
+import { formatBaseName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -224,7 +225,7 @@ export function Colaboradores() {
                 <option value="">Selecione uma base</option>
                 {bases?.map((base) => (
                   <option key={base.id} value={base.id}>
-                    {base.nome}
+                    {formatBaseName(base.nome)}
                   </option>
                 ))}
               </Select>

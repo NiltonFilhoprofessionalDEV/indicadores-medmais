@@ -47,7 +47,8 @@ export function Login() {
         roleNorm === 'geral' ||
         roleNorm === 'gerente_sci' ||
         (roleNorm === 'chefe' && acessoGerenteSci)
-      const dest = temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe'
+      // Líder de Resgate (auxiliar) sempre vai para dashboard-chefe; demais seguem temAcessoPainelGerente
+      const dest = roleNorm === 'auxiliar' ? '/dashboard-chefe' : (temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe')
       console.log('[LOGIN_DEBUG] Redirecionando (já logado):', { roleNorm, temAcessoPainelGerente, destino: dest })
       navigate(dest, { replace: true })
     }
@@ -181,7 +182,8 @@ export function Login() {
           roleNormalized === 'geral' ||
           roleNormalized === 'gerente_sci' ||
           (roleNormalized === 'chefe' && acessoGerenteSci)
-        const destino = temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe'
+        // Líder de Resgate (auxiliar) sempre vai para dashboard-chefe; demais seguem temAcessoPainelGerente
+        const destino = roleNormalized === 'auxiliar' ? '/dashboard-chefe' : (temAcessoPainelGerente ? '/dashboard-gerente' : '/dashboard-chefe')
         console.log('[LOGIN_DEBUG] ANTES DO REDIRECT:', {
           roleOriginal: role,
           roleNormalized,

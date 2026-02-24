@@ -16,18 +16,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
 
-const avaliadoSchema = z.object({
-  nome: z.string().min(1, 'Nome é obrigatório'),
-  tempo: z.string().refine((val) => validateMMSS(val, 4), 'Formato inválido (mm:ss, máx 04:59)'),
+const avaliadoSchemaLax = z.object({
+  nome: z.string().optional().default(''),
+  tempo: z.string().optional().default(''),
   status: z.string().optional(),
 })
 
-const tempoTPEPRSchema = z.object({
-  avaliados: z.array(avaliadoSchema).min(1, 'Adicione pelo menos um avaliado'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+function isTempoTPEPRRowEmpty(r: { nome?: string; tempo?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !nome && !tempo
+}
+
+function isTempoTPEPRRowComplete(r: { nome?: string; tempo?: string }) {
+  const nome = String(r.nome ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !!nome && !!tempo && validateMMSS(tempo, 4)
+}
+
+const tempoTPEPRSchema = z
+  .object({
+    avaliados: z.array(avaliadoSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.avaliados.some((r) => isTempoTPEPRRowComplete(r)),
+    { message: 'Preencha pelo menos um avaliado completamente para salvar.', path: ['avaliados'] }
+  )
+  .refine(
+    (data) => data.avaliados.every((r) => isTempoTPEPRRowEmpty(r) || isTempoTPEPRRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (nome e tempo) ou deixe a linha em branco.',
+      path: ['avaliados'],
+    }
+  )
 
 type TempoTPEPRFormData = z.infer<typeof tempoTPEPRSchema>
 
@@ -103,7 +127,11 @@ export function TempoTPEPRForm({
 
   const onSubmit = async (data: TempoTPEPRFormData) => {
     try {
-      const avaliadosFiltrados = data.avaliados.filter((a) => a.nome.trim() !== '')
+      const avaliadosFiltrados = data.avaliados.filter((a) => isTempoTPEPRRowComplete(a))
+      if (avaliadosFiltrados.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
 
       const conteudo = {
         avaliados: avaliadosFiltrados,
@@ -115,6 +143,7 @@ export function TempoTPEPRForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

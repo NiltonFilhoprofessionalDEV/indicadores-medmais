@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Droplets,
 } from 'lucide-react'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { getIndicadorDisplayName } from '@/lib/indicadores-display'
 import {
@@ -184,8 +185,8 @@ export function DashboardChefe() {
     queryClient.invalidateQueries({ queryKey: ['lancamentos'] })
   }
 
-  const getBaseName = (id: string) => bases?.find((b) => b.id === id)?.nome || 'N/A'
-  const getEquipeName = (id: string) => equipes?.find((e) => e.id === id)?.nome || 'N/A'
+  const getBaseName = (id: string) => formatBaseName(bases?.find((b) => b.id === id)?.nome ?? '') || 'N/A'
+  const getEquipeName = (id: string) => formatEquipeName(equipes?.find((e) => e.id === id)?.nome || 'N/A')
 
   const canEdit = (lancamento: Lancamento) => lancamento.equipe_id === equipeId
 
@@ -196,9 +197,14 @@ export function DashboardChefe() {
   const baseEquipe =
     baseId && equipeId ? `${getBaseName(baseId)} | ${getEquipeName(equipeId)}` : undefined
 
+  const dashboardTitle =
+    authUser?.profile?.role === 'auxiliar'
+      ? 'Dashboard - Líder de Resgate'
+      : 'Dashboard - Chefe de Equipe'
+
   return (
     <AppShell
-      title="Dashboard - Chefe"
+      title={dashboardTitle}
       subtitle={authUser?.profile?.nome}
       baseEquipe={baseEquipe}
       extraActions={
@@ -295,6 +301,7 @@ export function DashboardChefe() {
                 initialData={
                   selectedLancamento
                     ? {
+                        id: selectedLancamento.id,
                         data_referencia: selectedLancamento.data_referencia,
                         base_id: selectedLancamento.base_id,
                         equipe_id: selectedLancamento.equipe_id,

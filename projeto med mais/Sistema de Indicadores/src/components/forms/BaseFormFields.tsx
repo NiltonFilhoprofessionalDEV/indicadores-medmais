@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,7 +56,7 @@ export function BaseFormFields({
     },
   })
 
-  // Se for chefe, usar base e equipe do perfil
+  // Se for chefe ou Líder de Resgate (auxiliar), usar base e equipe do perfil
   const finalBaseId = baseId || authUser?.profile?.base_id || ''
   const finalEquipeId = equipeId || authUser?.profile?.equipe_id || ''
 
@@ -66,7 +67,7 @@ export function BaseFormFields({
         {readOnly ? (
           <Input
             id="base"
-            value={bases?.find((b) => b.id === finalBaseId)?.nome || ''}
+            value={formatBaseName(bases?.find((b) => b.id === finalBaseId)?.nome ?? '')}
             readOnly
             className="bg-muted py-2.5"
           />
@@ -84,7 +85,7 @@ export function BaseFormFields({
             <option value="">Selecione a base</option>
             {bases?.map((base) => (
               <option key={base.id} value={base.id}>
-                {base.nome}
+                {formatBaseName(base.nome)}
               </option>
             ))}
           </Select>
@@ -113,7 +114,7 @@ export function BaseFormFields({
             <option value="">Selecione a equipe</option>
             {equipes?.map((equipe) => (
               <option key={equipe.id} value={equipe.id}>
-                {equipe.nome}
+                {formatEquipeName(equipe.nome)}
               </option>
             ))}
           </Select>

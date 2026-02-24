@@ -5,6 +5,7 @@ import type { Database } from '@/lib/database.types'
 import { formatDateForStorage } from '@/lib/date-utils'
 
 type LancamentoInsert = Database['public']['Tables']['lancamentos']['Insert']
+type LancamentoUpdate = Database['public']['Tables']['lancamentos']['Update']
 
 /** Mensagem lançada quando a sessão está expirada (para fechar modal e redirecionar) */
 export const SESSION_EXPIRED_MESSAGE = 'Sessão expirada. Faça login novamente.'
@@ -30,6 +31,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 interface SaveLancamentoParams {
+  id?: string // quando presente, faz UPDATE no registro existente; caso contrário, INSERT
   dataReferencia: string // formato YYYY-MM-DD
   indicadorId: string
   conteudo: Record<string, unknown>
@@ -60,7 +62,7 @@ export function useLancamento() {
   const saveMutation = useMutation({
     mutationFn: async (params: SaveLancamentoParams) => {
       const doSave = async () => {
-        const { dataReferencia, indicadorId, conteudo, baseId, equipeId } = params
+        const { id, dataReferencia, indicadorId, conteudo, baseId, equipeId } = params
 
         if (!authUser?.user?.id) {
           throw new Error('Usuário não autenticado')
@@ -93,17 +95,41 @@ export function useLancamento() {
           normalizedDate = formatDateForStorage(new Date(dataReferencia))
         }
 
+        const conteudoTyped = conteudo as Database['public']['Tables']['lancamentos']['Row']['conteudo']
+        const table = supabase.from('lancamentos')
+
+        if (id) {
+          // Edição: atualizar registro existente pelo ID (evita duplicidade)
+          const updatePayload: LancamentoUpdate = {
+            data_referencia: normalizedDate,
+            base_id: finalBaseId,
+            equipe_id: finalEquipeId,
+            user_id: authUser.user.id,
+            indicador_id: indicadorId,
+            conteudo: conteudoTyped,
+          }
+          const { data, error } = await (table as any).update(updatePayload).eq('id', id).select().single()
+          if (error) {
+            const msg = error.message || 'Erro ao atualizar no servidor.'
+            const code = (error as { code?: string }).code
+            if (code === 'PGRST301' || code === '401' || /jwt|session|unauthorized|expired/i.test(msg)) {
+              throw new Error(SESSION_EXPIRED_MESSAGE)
+            }
+            throw new Error(msg)
+          }
+          return data
+        }
+
+        // Novo lançamento: INSERT
         const lancamentoData: LancamentoInsert = {
           data_referencia: normalizedDate,
           base_id: finalBaseId,
           equipe_id: finalEquipeId,
           user_id: authUser.user.id,
           indicador_id: indicadorId,
-          conteudo: conteudo as Database['public']['Tables']['lancamentos']['Row']['conteudo'],
+          conteudo: conteudoTyped,
         }
-
-        const table = supabase.from('lancamentos') as any
-        const { data, error } = await table.insert(lancamentoData).select().single()
+        const { data, error } = await (table as any).insert(lancamentoData).select().single()
 
         if (error) {
           const msg = error.message || 'Erro ao salvar no servidor.'

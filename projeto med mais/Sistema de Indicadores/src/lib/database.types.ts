@@ -90,7 +90,7 @@ export interface Database {
         Row: {
           id: string
           nome: string
-          role: 'geral' | 'chefe' | 'gerente_sci'
+          role: 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar'
           base_id: string | null
           equipe_id: string | null
           acesso_gerente_sci: boolean | null
@@ -100,7 +100,7 @@ export interface Database {
         Insert: {
           id: string
           nome: string
-          role: 'geral' | 'chefe' | 'gerente_sci'
+          role: 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar'
           base_id?: string | null
           equipe_id?: string | null
           acesso_gerente_sci?: boolean | null
@@ -110,7 +110,7 @@ export interface Database {
         Update: {
           id?: string
           nome?: string
-          role?: 'geral' | 'chefe' | 'gerente_sci'
+          role?: 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar'
           base_id?: string | null
           equipe_id?: string | null
           acesso_gerente_sci?: boolean | null

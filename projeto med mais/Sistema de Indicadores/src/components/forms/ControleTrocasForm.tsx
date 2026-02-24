@@ -74,6 +74,7 @@ export function ControleTrocasForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

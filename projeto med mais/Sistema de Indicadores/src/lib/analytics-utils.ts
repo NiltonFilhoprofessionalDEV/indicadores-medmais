@@ -267,7 +267,6 @@ export function processOcorrenciaNaoAeronautica(lancamentos: Lancamento[]) {
       hora_chegada: string
       hora_termino: string
       duracao_total?: string
-      observacoes?: string
     },
   }))
 

@@ -1,6 +1,7 @@
 /**
  * Utilitários para exportação de dados para CSV
- * Implementa flattening de dados JSONB para formato tabular compatível com Excel
+ * Implementa unwinding (expansão) de listas e mapeamento completo dos 14 indicadores
+ * para formato tabular compatível com Excel (UTF-8 BOM).
  */
 
 import type { Database } from './database.types'
@@ -12,9 +13,17 @@ interface FlattenedRow {
   [key: string]: string | number | null | undefined
 }
 
+/** Converte valor para exportação: string simples (tempos como "02:02") ou número */
+function toExportValue(value: unknown): string | number {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object') return JSON.stringify(value)
+  if (typeof value === 'number') return value
+  return String(value).trim()
+}
+
 /**
- * Achata (flatten) um lançamento em uma ou mais linhas CSV
- * Se o indicador contém arrays (ex: TAF com avaliados), cria uma linha por item
+ * Achata (flatten) um lançamento em uma ou mais linhas CSV.
+ * Indicadores com listas (Grupo B): cada item vira uma linha; cabeçalho repetido em todas.
  */
 export function flattenLancamento(
   lancamento: Lancamento,
@@ -26,7 +35,6 @@ export function flattenLancamento(
   const conteudo = lancamento.conteudo as Record<string, any>
   const schemaType = indicador.schema_type
 
-  // Campos comuns para todas as linhas
   const baseRow: FlattenedRow = {
     id: lancamento.id,
     data_hora_registro: lancamento.created_at ? new Date(lancamento.created_at).toLocaleString('pt-BR') : '',
@@ -38,55 +46,94 @@ export function flattenLancamento(
     indicador_tipo: schemaType,
   }
 
-  // Verificar se o conteúdo tem arrays que precisam ser "unwinded"
-  const hasArray = 
-    Array.isArray(conteudo?.avaliados) || 
+  const hasArray =
+    Array.isArray(conteudo?.avaliados) ||
+    Array.isArray(conteudo?.participantes) ||
+    Array.isArray(conteudo?.afericoes) ||
     Array.isArray(conteudo?.colaboradores) ||
     Array.isArray(conteudo?.inspecoes)
 
   if (hasArray) {
-    // Indicadores com arrays: criar uma linha por item
     let arrayKey = 'avaliados'
     if (conteudo?.avaliados) arrayKey = 'avaliados'
+    else if (conteudo?.participantes) arrayKey = 'participantes'
+    else if (conteudo?.afericoes) arrayKey = 'afericoes'
     else if (conteudo?.colaboradores) arrayKey = 'colaboradores'
     else if (conteudo?.inspecoes) arrayKey = 'inspecoes'
-    
+
     const items = conteudo[arrayKey] as Array<Record<string, any>>
 
     if (!items || items.length === 0) {
-      // Se não há itens, retornar linha base com campos do conteúdo
       return [flattenConteudo(baseRow, conteudo, schemaType)]
     }
 
     return items.map((item) => {
-      const row = { ...baseRow }
-      
-      // Adicionar campos do item do array
-      Object.keys(item).forEach((key) => {
-        const value = item[key]
-        if (value !== null && value !== undefined) {
-          row[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
-        }
-      })
+      const row = { ...baseRow } as FlattenedRow
 
-      // Adicionar campos do conteúdo principal (fora do array)
-      Object.keys(conteudo).forEach((key) => {
-        if (key !== arrayKey && conteudo[key] !== null && conteudo[key] !== undefined) {
-          const value = conteudo[key]
-          row[`conteudo_${key}`] = typeof value === 'object' ? JSON.stringify(value) : String(value)
+      switch (schemaType) {
+        case 'taf':
+          row.nome = item.nome ?? ''
+          row.idade = item.idade != null ? item.idade : ''
+          row.tempo = toExportValue(item.tempo) as string
+          row.status = item.status ?? ''
+          row.nota = item.nota != null ? item.nota : ''
+          break
+        case 'prova_teorica':
+          row.nome = item.nome ?? ''
+          row.nota = item.nota != null ? item.nota : ''
+          row.status = item.status ?? ''
+          break
+        case 'treinamento': {
+          row.nome = item.nome ?? ''
+          row.horas = toExportValue(item.horas) as string
+          const temas = conteudo.temas_ptr ?? conteudo.temas
+          row.temas_ptr = Array.isArray(temas) ? (temas as string[]).join(', ') : (temas ? String(temas) : '')
+          break
         }
-      })
+        case 'inspecao_viaturas':
+          row.viatura = item.viatura ?? ''
+          row.qtd_inspecoes = item.qtd_inspecoes != null ? item.qtd_inspecoes : ''
+          row.qtd_nao_conforme = item.qtd_nao_conforme != null ? item.qtd_nao_conforme : ''
+          break
+        case 'tempo_tp_epr':
+          row.nome = item.nome ?? ''
+          row.tempo = toExportValue(item.tempo) as string
+          row.status = item.status ?? ''
+          row.tempo_medio = toExportValue(conteudo.tempo_medio) as string
+          break
+        case 'tempo_resposta':
+          row.viatura = item.viatura ?? ''
+          row.motorista = item.motorista ?? ''
+          row.local = item.local ?? ''
+          row.tempo = toExportValue(item.tempo) as string
+          break
+        case 'controle_epi':
+          row.nome = item.nome ?? ''
+          row.epi_entregue = item.epi_entregue != null ? item.epi_entregue : ''
+          row.epi_previsto = item.epi_previsto != null ? item.epi_previsto : ''
+          row.unif_entregue = item.unif_entregue != null ? item.unif_entregue : ''
+          row.unif_previsto = item.unif_previsto != null ? item.unif_previsto : ''
+          row.total_epi_pct = item.total_epi_pct != null ? item.total_epi_pct : ''
+          row.total_unif_pct = item.total_unif_pct != null ? item.total_unif_pct : ''
+          break
+        default:
+          Object.keys(item).forEach((key) => {
+            const value = item[key]
+            if (value !== null && value !== undefined) {
+              row[key] = toExportValue(value) as string | number
+            }
+          })
+      }
 
       return row
     })
-  } else {
-    // Indicadores simples: uma linha por lançamento
-    return [flattenConteudo(baseRow, conteudo, schemaType)]
   }
+
+  return [flattenConteudo(baseRow, conteudo, schemaType)]
 }
 
 /**
- * Achata campos do conteúdo para uma linha CSV
+ * Mapeamento completo dos campos específicos por indicador (sem listas)
  */
 function flattenConteudo(
   baseRow: FlattenedRow,
@@ -95,174 +142,292 @@ function flattenConteudo(
 ): FlattenedRow {
   const row = { ...baseRow }
 
-  if (!conteudo) {
-    return row
-  }
+  if (!conteudo) return row
 
-  // Mapear campos específicos por tipo de indicador
   switch (schemaType) {
     case 'ocorrencia_aero':
-      row.local = conteudo.local || ''
-      row.acao = conteudo.acao || ''
-      row.tempo_chegada_1_cci = conteudo.tempo_chegada_1_cci || ''
-      row.tempo_chegada_ult_cci = conteudo.tempo_chegada_ult_cci || ''
+      row.local = conteudo.local ?? ''
+      row.acao = conteudo.acao ?? ''
+      row.hora_acionamento = toExportValue(conteudo.hora_acionamento) as string
+      row.tempo_chegada_1_cci = toExportValue(conteudo.tempo_chegada_1_cci) as string
+      row.tempo_chegada_ult_cci = toExportValue(conteudo.tempo_chegada_ult_cci) as string
+      row.termino_ocorrencia = toExportValue(conteudo.termino_ocorrencia) as string
       break
 
     case 'ocorrencia_nao_aero':
-      row.tipo_ocorrencia = conteudo.tipo_ocorrencia || ''
-      row.local = conteudo.local || ''
-      row.duracao = conteudo.duracao || ''
-      row.hora_acionamento = conteudo.hora_acionamento || ''
-      row.hora_chegada = conteudo.hora_chegada || ''
+      row.tipo_ocorrencia = conteudo.tipo_ocorrencia ?? ''
+      row.observacoes = conteudo.observacoes ?? ''
+      row.local = conteudo.local ?? ''
+      row.hora_acionamento = toExportValue(conteudo.hora_acionamento) as string
+      row.hora_chegada = toExportValue(conteudo.hora_chegada) as string
+      row.hora_termino = toExportValue(conteudo.hora_termino) as string
+      row.duracao_total = toExportValue(conteudo.duracao_total) as string
       break
 
     case 'atividades_acessorias':
-      row.tipo_atividade = conteudo.tipo_atividade || ''
-      row.qtd_bombeiros = conteudo.qtd_bombeiros || ''
-      row.tempo_gasto = conteudo.tempo_gasto || ''
-      row.qtd_equipamentos = conteudo.qtd_equipamentos || ''
+      row.tipo_atividade = conteudo.tipo_atividade ?? ''
+      row.qtd_bombeiros = conteudo.qtd_bombeiros ?? ''
+      row.tempo_gasto = toExportValue(conteudo.tempo_gasto) as string
+      row.qtd_equipamentos = conteudo.qtd_equipamentos ?? ''
       break
 
     case 'taf':
-      // TAF já é tratado no flattenLancamento (tem array avaliados)
-      break
-
     case 'prova_teorica':
-      // Prova Teórica já é tratado no flattenLancamento (tem array avaliados)
-      break
-
     case 'treinamento':
-      // Treinamento já é tratado no flattenLancamento (tem array colaboradores)
+    case 'inspecao_viaturas':
+    case 'controle_epi':
+      // Tratados no unwinding
       break
 
     case 'tempo_tp_epr':
-      row.tempo_medio = conteudo.tempo_medio || ''
+      row.tempo_medio = toExportValue(conteudo.tempo_medio) as string
       break
 
     case 'tempo_resposta':
-      row.tempo_medio = conteudo.tempo_medio || ''
-      row.viatura = conteudo.viatura || ''
-      break
-
-    case 'inspecao_viaturas':
-      // Inspeção já é tratado no flattenLancamento (tem array inspecoes)
-      // Campos adicionais podem ser adicionados aqui se necessário
+      // Tratado no unwinding (afericoes)
       break
 
     case 'estoque':
-      row.po_quimico_atual = conteudo.po_quimico_atual || ''
-      row.po_quimico_exigido = conteudo.po_quimico_exigido || ''
-      row.lge_atual = conteudo.lge_atual || ''
-      row.lge_exigido = conteudo.lge_exigido || ''
-      row.nitrogenio_atual = conteudo.nitrogenio_atual || ''
-      row.nitrogenio_exigido = conteudo.nitrogenio_exigido || ''
-      break
-
-    case 'controle_epi':
-      // EPI já é tratado no flattenLancamento (tem array colaboradores)
+      row.po_quimico_atual = conteudo.po_quimico_atual ?? ''
+      row.po_quimico_exigido = conteudo.po_quimico_exigido ?? ''
+      row.lge_atual = conteudo.lge_atual ?? ''
+      row.lge_exigido = conteudo.lge_exigido ?? ''
+      row.nitrogenio_atual = conteudo.nitrogenio_atual ?? ''
+      row.nitrogenio_exigido = conteudo.nitrogenio_exigido ?? ''
       break
 
     case 'controle_trocas':
-      row.qtd_trocas = conteudo.qtd_trocas || ''
+      row.qtd_trocas = conteudo.qtd_trocas ?? ''
       break
 
     case 'verificacao_tp':
-      row.qtd_conformes = conteudo.qtd_conformes || ''
-      row.qtd_verificados = conteudo.qtd_verificados || ''
-      row.qtd_total_equipe = conteudo.qtd_total_equipe || ''
+      row.qtd_conformes = conteudo.qtd_conformes ?? ''
+      row.qtd_verificados = conteudo.qtd_verificados ?? ''
+      row.qtd_total_equipe = conteudo.qtd_total_equipe ?? ''
       break
 
     case 'higienizacao_tp':
-      row.qtd_higienizados_mes = conteudo.qtd_higienizados_mes || ''
-      row.qtd_total_sci = conteudo.qtd_total_sci || ''
+      row.qtd_higienizados_mes = conteudo.qtd_higienizados_mes ?? ''
+      row.qtd_total_sci = conteudo.qtd_total_sci ?? ''
       break
 
     default:
-      // Para tipos desconhecidos, adicionar todos os campos do conteúdo
       Object.keys(conteudo).forEach((key) => {
         const value = conteudo[key]
         if (value !== null && value !== undefined && !Array.isArray(value)) {
-          row[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
+          row[key] = toExportValue(value) as string | number
         }
       })
-  }
-
-  // Adicionar observações se existir
-  if (conteudo.observacoes) {
-    row.observacoes = String(conteudo.observacoes)
   }
 
   return row
 }
 
 /**
- * Converte array de objetos para CSV
+ * Converte array de linhas achatadas em string CSV
  */
 export function convertToCSV(rows: FlattenedRow[]): string {
-  if (rows.length === 0) {
-    return ''
-  }
+  if (rows.length === 0) return ''
 
-  // Obter todas as chaves únicas de todas as linhas
   const allKeys = new Set<string>()
-  rows.forEach((row) => {
-    Object.keys(row).forEach((key) => allKeys.add(key))
-  })
-
+  rows.forEach((row) => Object.keys(row).forEach((key) => allKeys.add(key)))
   const headers = Array.from(allKeys).sort()
 
-  // Criar linha de cabeçalho
   const headerRow = headers.map((key) => escapeCSVValue(String(key))).join(',')
-
-  // Criar linhas de dados
-  const dataRows = rows.map((row) => {
-    return headers
+  const dataRows = rows.map((row) =>
+    headers
       .map((key) => {
         const value = row[key]
-        return escapeCSVValue(value !== null && value !== undefined ? String(value) : '')
+        const str = value !== null && value !== undefined ? String(value) : ''
+        return escapeCSVValue(str)
       })
       .join(',')
-  })
+  )
 
   return [headerRow, ...dataRows].join('\n')
 }
 
-/**
- * Escapa valores CSV (trata vírgulas, aspas e quebras de linha)
- */
+/** Padrão hora (HH:mm ou MM:SS) — envolver em aspas no CSV para Excel preservar dois pontos */
+const TIME_PATTERN = /^\d{1,2}:\d{2}(:\d{2})?$/
+
 function escapeCSVValue(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+  const trimmed = value.trim()
+  const needsQuotes =
+    value.includes(',') ||
+    value.includes('"') ||
+    value.includes('\n') ||
+    TIME_PATTERN.test(trimmed)
+  if (needsQuotes) {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
 }
 
 /**
- * Faz download do CSV
+ * Download do CSV com UTF-8 BOM para Excel reconhecer acentos e caracteres especiais
  */
 export function downloadCSV(csvContent: string, filename: string): void {
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' }) // BOM para Excel
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   const url = URL.createObjectURL(blob)
-
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.visibility = 'hidden'
-
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-
   URL.revokeObjectURL(url)
 }
 
-/**
- * Gera nome de arquivo com data atual
- */
 export function generateFilename(prefix: string = 'relatorio'): string {
   const hoje = new Date()
   const dia = String(hoje.getDate()).padStart(2, '0')
   const mes = String(hoje.getMonth() + 1).padStart(2, '0')
   const ano = hoje.getFullYear()
   return `${prefix}_${dia}${mes}${ano}.csv`
+}
+
+// --- Exportação consolidada mensal PTR-BA (Horas de Treinamento) ---
+
+const CONSOLIDATED_HEADERS = [
+  'Data de Referência',
+  'Base',
+  'Nome do Colaborador',
+  'Carga Horária Total (Mês)',
+  'Status Compliance (16h)',
+  'Qtd. de Plantões',
+] as const
+
+export interface TreinamentoConsolidadoRow {
+  dataReferencia: string
+  base: string
+  nomeColaborador: string
+  cargaHorariaTotal: string
+  statusCompliance: string
+  qtdPlantoes: number
+}
+
+/** Converte string "HH:mm" em minutos totais */
+export function hhmmToMinutes(hhmm: string): number {
+  const trimmed = String(hhmm ?? '').trim()
+  if (!trimmed) return 0
+  const parts = trimmed.split(':')
+  const h = parseInt(parts[0], 10)
+  const m = parts.length > 1 ? parseInt(parts[1], 10) : 0
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0
+  return h * 60 + m
+}
+
+/** Converte minutos totais em string "HH:mm" */
+export function minutesToHHmm(totalMinutes: number): string {
+  if (totalMinutes < 0 || !Number.isFinite(totalMinutes)) return '00:00'
+  const h = Math.floor(totalMinutes / 60)
+  const m = Math.round(totalMinutes % 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Retorna o último dia do mês no formato DD/MM/YYYY (month 1-12) */
+export function getLastDayOfMonthFormatted(year: number, month: number): string {
+  const lastDay = new Date(year, month, 0)
+  const d = String(lastDay.getDate()).padStart(2, '0')
+  const m = String(lastDay.getMonth() + 1).padStart(2, '0')
+  const y = lastDay.getFullYear()
+  return `${d}/${m}/${y}`
+}
+
+const COMPLIANCE_MINUTES = 16 * 60 // 16h em minutos
+
+/**
+ * Agrupa lançamentos de treinamento (PTR-BA) por Mês/Ano + Nome do Colaborador + Base,
+ * soma as horas e gera linhas consolidadas com data de referência = último dia do mês.
+ */
+export function buildTreinamentoConsolidadoRows(
+  lancamentos: Lancamento[],
+  basesMap: Map<string, string>
+): TreinamentoConsolidadoRow[] {
+  type Key = string
+  const sumMinutes = new Map<Key, number>()
+  const countPlantoes = new Map<Key, number>()
+  const keyToMeta = new Map<Key, { base: string; nomeColaborador: string; year: number; month: number }>()
+
+  for (const lancamento of lancamentos) {
+    const conteudo = lancamento.conteudo as Record<string, unknown> | null
+    const participantes = Array.isArray(conteudo?.participantes) ? conteudo.participantes as Array<{ nome?: string; horas?: string }> : []
+    const baseName = basesMap.get(lancamento.base_id) ?? lancamento.base_id
+
+    const ref = lancamento.data_referencia
+    if (!ref) continue
+    const [yStr, mStr] = ref.split('-')
+    const year = parseInt(yStr, 10)
+    const month = parseInt(mStr, 10)
+    if (Number.isNaN(year) || Number.isNaN(month)) continue
+
+    for (const p of participantes) {
+      const nome = String(p.nome ?? '').trim()
+      if (!nome) continue
+      const minutos = hhmmToMinutes(p.horas ?? '')
+
+      const key: Key = `${year}-${String(month).padStart(2, '0')}|${baseName}|${nome}`
+
+      sumMinutes.set(key, (sumMinutes.get(key) ?? 0) + minutos)
+      countPlantoes.set(key, (countPlantoes.get(key) ?? 0) + 1)
+      if (!keyToMeta.has(key)) {
+        keyToMeta.set(key, { base: baseName, nomeColaborador: nome, year, month })
+      }
+    }
+  }
+
+  const rows: TreinamentoConsolidadoRow[] = []
+  for (const key of sumMinutes.keys()) {
+    const totalMin = sumMinutes.get(key) ?? 0
+    const qtd = countPlantoes.get(key) ?? 0
+    const meta = keyToMeta.get(key)
+    if (!meta) continue
+
+    const dataReferencia = getLastDayOfMonthFormatted(meta.year, meta.month)
+    const cargaHorariaTotal = minutesToHHmm(totalMin)
+    const statusCompliance = totalMin >= COMPLIANCE_MINUTES ? 'CONFORME' : 'PENDENTE'
+
+    rows.push({
+      dataReferencia,
+      base: meta.base,
+      nomeColaborador: meta.nomeColaborador,
+      cargaHorariaTotal,
+      statusCompliance,
+      qtdPlantoes: qtd,
+    })
+  }
+
+  rows.sort((a, b) => {
+    const da = a.dataReferencia.split('/')
+    const db = b.dataReferencia.split('/')
+    const dateA = `${da[2]}-${da[1]}-${da[0]}`
+    const dateB = `${db[2]}-${db[1]}-${db[0]}`
+    if (dateA !== dateB) return dateA.localeCompare(dateB)
+    if (a.base !== b.base) return a.base.localeCompare(b.base)
+    return a.nomeColaborador.localeCompare(b.nomeColaborador)
+  })
+
+  return rows
+}
+
+/**
+ * Gera o conteúdo CSV do relatório consolidado mensal PTR-BA (sem BOM; o download adiciona BOM).
+ */
+export function buildTreinamentoConsolidadoCSV(rows: TreinamentoConsolidadoRow[]): string {
+  if (rows.length === 0) return ''
+
+  const headerRow = CONSOLIDATED_HEADERS.map((h) => escapeCSVValue(h)).join(',')
+  const dataRows = rows.map((row) => {
+    return [
+      escapeCSVValue(row.dataReferencia),
+      escapeCSVValue(row.base),
+      escapeCSVValue(row.nomeColaborador),
+      escapeCSVValue(row.cargaHorariaTotal),
+      escapeCSVValue(row.statusCompliance),
+      String(row.qtdPlantoes),
+    ].join(',')
+  })
+
+  return [headerRow, ...dataRows].join('\n')
 }

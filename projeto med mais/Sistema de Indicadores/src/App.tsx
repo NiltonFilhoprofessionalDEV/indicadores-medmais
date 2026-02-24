@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 import { Login } from './pages/Login'
 import { Logout } from './pages/Logout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { UpdateModalGate } from './components/UpdateModalGate'
 
 // Lazy loading das páginas para reduzir bundle inicial
 const DashboardChefe = lazy(() => import('./pages/DashboardChefe').then(m => ({ default: m.DashboardChefe })))
@@ -10,6 +11,7 @@ const DashboardGerente = lazy(() => import('./pages/DashboardGerente').then(m =>
 const DashboardAnalytics = lazy(() => import('./pages/DashboardAnalytics').then(m => ({ default: m.DashboardAnalytics })))
 const GestaoUsuarios = lazy(() => import('./pages/GestaoUsuarios').then(m => ({ default: m.GestaoUsuarios })))
 const Colaboradores = lazy(() => import('./pages/admin/Colaboradores').then(m => ({ default: m.Colaboradores })))
+const Bases = lazy(() => import('./pages/admin/Bases').then(m => ({ default: m.Bases })))
 const LancamentosBase = lazy(() => import('./pages/LancamentosBase').then(m => ({ default: m.LancamentosBase })))
 const Aderencia = lazy(() => import('./pages/Aderencia').then(m => ({ default: m.Aderencia })))
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
@@ -34,6 +36,7 @@ function PageLoader() {
 function App() {
   return (
     <BrowserRouter>
+      <UpdateModalGate />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -41,7 +44,7 @@ function App() {
           <Route
             path="/dashboard-chefe"
             element={
-              <ProtectedRoute allowedRoles={['chefe']}>
+              <ProtectedRoute allowedRoles={['chefe', 'auxiliar']}>
                 <DashboardChefe />
               </ProtectedRoute>
             }
@@ -79,6 +82,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/bases"
+            element={
+              <ProtectedRoute allowedRoles={['geral']}>
+                <Bases />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/lancamentos-base"
             element={
               <ProtectedRoute allowedRoles={['gerente_sci']}>
@@ -97,7 +108,7 @@ function App() {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute allowedRoles={['geral', 'chefe', 'gerente_sci']}>
+              <ProtectedRoute allowedRoles={['geral', 'chefe', 'gerente_sci', 'auxiliar']}>
                 <Settings />
               </ProtectedRoute>
             }

@@ -11,7 +11,7 @@ Forms: React Hook Form + Zod (Schema Validation).
 
 3. Segurança e Atores
 
-**Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários e Gestão de Efetivo em todas as bases.
+**Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários, Gestão de Efetivo e Gestão de Bases (cadastrar, renomear ou excluir bases aeroportuárias) em todas as bases.
 
 **Gerente de SCI (role='gerente_sci'):** Administrador local de uma base. Gerencia apenas usuários e colaboradores da sua base. Acesso a: Lançamentos (visualização/conferência), Gestão de Usuários, Gestão de Efetivo, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados. O filtro de Base nas telas de gestão vem travado na base dele (desabilitado). No cadastro de usuários/colaboradores, o campo Base é preenchido automaticamente e fica read-only.
 
@@ -20,14 +20,16 @@ Leitura: Vê dados de toda a sua Base (para comparação).
 Escrita: Insere/Edita/Exclui lançamentos de **qualquer equipe da sua base** (não apenas a equipe do perfil). O formulário permite selecionar a equipe no modal (caso de troca de equipe sem atualização do perfil). RLS: migration 016.
 Menu: Lançamentos, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados.
 
+**Líder de Resgate (role='auxiliar'):**
+Por diretriz jurídica, o Líder de Resgate é uma categoria distinta do Chefe de Equipe, com **permissões técnicas idênticas** ao Chefe. Leitura: Vê todos os registros da sua base_id. Escrita/Edição: Insere e edita lançamentos apenas da sua equipe_id e base_id (mesmas regras RLS do Chefe — migration 026). Menu: Lançamentos e Configurações (mesmos menus que o Chefe). No Header do sistema, o cargo exibido é "Líder de Resgate".
+
 4. Estrutura de Dados (Supabase)
 
-A. Tabelas de Catálogo (Dados Estáticos)
+A. Tabelas de Catálogo
 
-O script SQL de inicialização deve criar e popular estas tabelas automaticamente:
-bases: Tabela contendo as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
+O script SQL de inicialização pode criar e popular tabelas de catálogo. **bases** passou a ser gerenciável via interface: o Gerente Geral pode adicionar, renomear ou excluir bases pela tela "Gestão de Bases" (Tela 8), sem alterar código. A carga inicial (quando aplicável) inclui as 34 bases aeroportuárias + 1 base administrativa (total: 35 bases):
 Bases Aeroportuárias (grafia com acentuação correta em português): "ALTAMIRA", "ARACAJU", "BACACHERI", "BELÉM", "BRASÍLIA", "CAMPO DE MARTE", "CARAJÁS", "CONFINS", "CONGONHAS", "CUIABÁ", "CURITIBA", "FLORIANÓPOLIS", "FOZ do IGUAÇU", "GOIÂNIA", "IMPERATRIZ", "JACAREPAGUÁ", "JOINVILLE", "LONDRINA", "MACAÉ", "MACAPÁ", "MACEIÓ", "MARABÁ", "NAVEGANTES", "PALMAS", "PAMPULHA", "PELOTAS", "PETROLINA", "PORTO ALEGRE", "SALVADOR", "SANTARÉM", "SÃO LUÍS", "SINOP", "TERESINA", "VITÓRIA".
-Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
+Base Administrativa: "ADMINISTRATIVO" (usada para organizar usuários com perfil de Gerente Geral). RLS: Leitura (SELECT) para todos autenticados; escrita (INSERT, UPDATE, DELETE) apenas para role = 'geral'. Obs: A migration 010 corrige a acentuação em ambientes já existentes; o schema.sql já insere com a grafia correta.
 
 equipes: Tabela contendo as 5 equipes padrão:
 
@@ -56,10 +58,11 @@ Dados:
 B. Tabelas de Sistema
 
 profiles: Tabela de usuários (vinculada ao auth.users).
-Campos: id (PK, UUID), nome, role ('geral', 'chefe' ou 'gerente_sci'), base_id (FK bases), equipe_id (FK equipes).
+Campos: id (PK, UUID), nome, role ('geral', 'chefe', 'gerente_sci' ou 'auxiliar'), base_id (FK bases), equipe_id (FK equipes).
 - geral: base_id e equipe_id = null.
 - chefe: base_id e equipe_id obrigatórios.
 - gerente_sci: base_id obrigatório, equipe_id = null (gerencia toda a base).
+- auxiliar (Líder de Resgate): base_id e equipe_id obrigatórios (mesmas regras que chefe; categoria distinta por diretriz jurídica).
 
 colaboradores: Tabela de efetivo (colaboradores) das bases.
 Campos: id (PK, UUID), created_at, nome (TEXT), base_id (FK bases), ativo (BOOLEAN, default true).
@@ -75,23 +78,25 @@ RLS:
 lancamentos: Tabela central (Single Source of Truth).
 Estratégia: Uso de JSONB para dados variáveis.
 Campos: id, created_at, updated_at, data_referencia (DATE), base_id (FK), equipe_id (FK), user_id (FK), indicador_id (FK), conteudo (JSONB).
-IMPORTANTE: Permite múltiplos lançamentos para o mesmo indicador no mesmo dia (sem constraint UNIQUE). O salvamento é sempre um novo INSERT.
+IMPORTANTE: Permite múltiplos lançamentos para o mesmo indicador no mesmo dia (sem constraint UNIQUE). O sistema realiza INSERT para novos lançamentos e UPDATE quando um registro existente é editado via seu ID exclusivo, mantendo a integridade e evitando duplicidade.
 
 C. Segurança (Row Level Security - RLS)
 
 Profiles: Leitura pública (para o sistema saber quem é quem), Escrita apenas via Admin (Service Role).
 
 Colaboradores: 
-Leitura: Autenticados da mesma base (geral vê tudo, chefe e gerente_sci vêem apenas sua base).
-Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe não escreve em colaboradores.
+Leitura: Autenticados da mesma base (geral vê tudo; chefe, gerente_sci e auxiliar veem apenas sua base).
+Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe e Auxiliar não escrevem em colaboradores.
 
 Lancamentos (Leitura):
 Se role == 'geral': TRUE (Vê tudo).
 Se role == 'chefe': lancamento.base_id == profile.base_id (Vê a base toda).
+Se role == 'auxiliar': lancamento.base_id == profile.base_id (Vê a base toda; mesmas regras que chefe).
 Se role == 'gerente_sci': lancamento.base_id == profile.base_id (Vê a base toda para conferência).
 Lancamentos (Escrita/Edição/Exclusão):
 Se role == 'chefe': lancamento.base_id == profile.base_id (pode inserir/editar/excluir em **qualquer equipe da mesma base**). Implementação: migration 016 (supabase/migrations/016_chefe_equipe_livre_mesma_base.sql). Permite que o chefe registre indicadores na equipe em que está atuando mesmo antes da atualização do perfil (ex.: troca de equipe).
-IMPORTANTE: O sistema sempre faz INSERT (não UPDATE) para permitir múltiplos lançamentos no mesmo dia.
+Se role == 'auxiliar': mesmas regras que chefe (políticas RLS duplicadas para role 'auxiliar'). Implementação: migration 026 (supabase/migrations/026_add_auxiliar_role_and_rls.sql).
+IMPORTANTE: O sistema realiza INSERT para novos lançamentos e UPDATE quando um registro existente é editado via seu ID exclusivo, mantendo a integridade e evitando duplicidade. Múltiplos lançamentos no mesmo dia continuam permitidos (novos inserts).
 
 Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
 
@@ -134,27 +139,27 @@ hora_termino_ocorrencia: Texto (Máscara HH:mm) - Label: "Hora do término da oc
 2. Ocorrência Não Aeronáutica
 Mensagem de Apoio: "Preenchido sempre que tiver uma ocorrência."
 Campos:
-tipo_ocorrencia: Select (Opções Exatas: "Incêndios ou Vazamentos de Combustíveis no PAA", "Condições de Baixa Visibilidade", "Atendimento a Aeronave Presidencial", "Incêndio em Instalações Aeroportuárias", "Ocorrências com Artigos Perigosos", "Remoção de Animais e Dispersão de Avifauna", "Incêndios Florestais", "Emergências Médicas em Geral", "Iluminação de Emergência em Pista").
+tipo_ocorrencia: Select (Opções Exatas: "Incêndios ou Vazamentos de Combustíveis no PAA", "Condições de Baixa Visibilidade", "Atendimento a Aeronave Presidencial", "Incêndio em Instalações Aeroportuárias", "Ocorrências com Artigos Perigosos", "Remoção de Animais e Dispersão de Avifauna", "Incêndios Florestais", "Emergências Médicas em Geral", "Iluminação de Emergência em Pista", "Outras").
+Regra condicional: Quando selecionado "Outras", um campo de texto obrigatório é exibido ("Especifique o tipo de ocorrência"). O conteúdo deste campo é mesclado ao campo de observações no momento do salvamento (formato: [especificação] | [observações originais], ou apenas a especificação se observações estiver vazio), mantendo o tipo principal como "Outras" para fins de estatística.
 local: Texto.
 hora_acionamento: Texto (Máscara HH:mm).
 hora_chegada: Texto (Máscara HH:mm).
 hora_termino: Texto (Máscara HH:mm).
 duracao_total: Calculado Automaticamente (Hora Término - Hora Acionamento). Formato HH:mm. Read-only.
-observacoes: Textarea (Opcional).
 
 3. Atividades Acessórias
 Mensagem de Apoio: "Preenchido sempre que realizado atividade no plantão."
 Campos:
-tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "inspeção área de cessionários", "atividade não prevista").
-Lógica Condicional:
-Se tipo_atividade == "atividade não prevista": Ocultar os campos abaixo e permitir salvar.
-Senão (Outros tipos): Exigir preenchimento de:
+tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "Inspeção em área de cessionários", "Ronda TPS").
+Campos obrigatórios para todos os tipos:
 qtd_equipamentos: Número (Min 0).
 qtd_bombeiros: Número (Min 1).
 tempo_gasto: Texto (Máscara HH:mm).
 
 GRUPO B: Listas Dinâmicas (Uso de useFieldArray)
 Nestes formulários, o usuário pode clicar em "Adicionar Linha" para inserir múltiplos itens.
+
+Validação Flexível: O sistema permite salvar formulários com linhas vazias, ignorando-as automaticamente no envio. É obrigatório o preenchimento completo de pelo menos uma linha para validar o lançamento. Regra "Preenchimento Completo ou Nada": se qualquer campo de uma linha for preenchido, todos os campos obrigatórios daquela linha devem ser preenchidos; caso contrário, a linha deve ficar totalmente em branco.
 
 4. Teste de Aptidão Física (TAF)
 Estrutura: Lista de Avaliados. Iniciar com 10 linhas vazias.
@@ -252,17 +257,18 @@ Campos: qtd_higienizados_mes, qtd_total_sci (Todos números). Campos iniciam vaz
 Tela 1: Login
 Autenticação via Supabase Auth.
 
-Tela 2: Painel do Chefe (Dashboard & Histórico)
+Tela 2: Painel do Chefe / Líder de Resgate (Dashboard & Histórico)
 
 Navegação:
-- Menu: Lançamentos (histórico operacional), Configurações.
-- **Restrição:** Chefe **não** tem acesso ao Dashboard Analytics nem ao Explorador de Dados. Apenas Gerente Geral (role='geral') pode visualizar essas telas.
+- Menu: Lançamentos (histórico operacional), Configurações. O usuário com role **chefe** ou **auxiliar** (Líder de Resgate) visualiza exatamente os mesmos menus (Lançamentos e Configurações).
+- **Identificação:** No Header do sistema, onde aparece o cargo do usuário, exibir "Chefe de Equipe" para role='chefe' e "Líder de Resgate" para role='auxiliar' (Configurações > Meu Perfil e demais pontos que exibem o perfil).
+- **Restrição:** Chefe e Auxiliar **não** têm acesso ao Dashboard Analytics nem ao Explorador de Dados. Apenas Gerente Geral (role='geral') pode visualizar essas telas.
 
 Histórico: Painel de Controle de Lançamentos Profissional
 
 Estrutura:
 - Barra de Ferramentas (Toolbar) com filtros dinâmicos:
-  - Input de Busca: Busca por texto em campos como local, observações, tipo de ocorrência (busca no JSONB conteudo).
+  - Input de Busca: Busca por texto em campos como local, tipo de ocorrência (busca no JSONB conteudo).
   - Select "Filtrar por Indicador": Lista todos os 14 indicadores disponíveis.
   - Select "Mês/Ano": Filtro por período (últimos 12 meses disponíveis).
   - Botão "Limpar Filtros": Reseta todos os filtros e retorna à primeira página.
@@ -389,11 +395,11 @@ Formulário de Cadastro (Modal):
 Nome Completo: Texto (obrigatório).
 Email: Email (obrigatório no cadastro, opcional na edição).
 Senha Provisória: Password (min 6 chars no cadastro, opcional na edição).
-Perfil (Role): Select ("Gerente Geral" ou "Chefe de Equipe").
+Perfil (Role): Select ("Gerente Geral", "Gerente de SCI", "Chefe de Equipe" ou "Líder de Resgate").
 - Seleção Automática de Base: Quando o usuário seleciona "Gerente Geral", o campo Base é automaticamente preenchido com "ADMINISTRATIVO" e desabilitado (campo visual apenas, não editável). O campo Equipe não é exibido para Gerentes Gerais.
-- Seleção Manual: Quando o usuário seleciona "Chefe de Equipe", os campos Base e Equipe aparecem normalmente e são obrigatórios para seleção manual.
-Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe, automático se for Gerente Geral.
-Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe, não exibido se for Gerente Geral.
+- Seleção Manual: Quando o usuário seleciona "Chefe de Equipe" ou "Líder de Resgate", os campos Base e Equipe aparecem normalmente e são obrigatórios. Para Gerente de SCI, a Base é preenchida automaticamente com a base do gerente e fica read-only.
+Base: Select (Carregar lista da tabela bases). Obrigatório se for Chefe ou Líder de Resgate, automático se for Gerente Geral ou (para Gerente de SCI) travado na base do gerente.
+Equipe: Select (Carregar lista da tabela equipes). Obrigatório se for Chefe ou Líder de Resgate, não exibido se for Gerente Geral ou Gerente de SCI.
 
 Modo Edição:
 - Ao clicar em "Editar", o modal abre preenchido com os dados do usuário selecionado.
@@ -476,6 +482,7 @@ Tela: Suporte / Feedback (/suporte) - Apenas Gerente Geral
 - Tabela de feedbacks (colunas):
   - Data (data/hora de criação, formato pt-BR).
   - Usuário (nome do perfil; fallback: primeiros 8 caracteres do user_id).
+  - **Base:** Exibe a unidade aeroportuária de origem do usuário que enviou o feedback. Quando o usuário não possui base vinculada (ex.: Admin Geral), exibe "—".
   - Tipo (Bug, Sugestão, Outros).
   - Mensagem (resumo com line-clamp-2).
   - Ação: Botão "Ver" (ícone Eye) que abre modal com detalhe completo do feedback.
@@ -547,6 +554,25 @@ Interface com sistema de abas (Tabs) contendo três seções principais:
 - Título: "Configurações" com subtítulo "Gerencie seu perfil e preferências".
 - Botões: "Voltar" (retorna ao dashboard conforme role), "Sair" (logout).
 
+Tela 8: Gestão de Bases (/admin/bases) - Apenas Gerente Geral
+
+**Objetivo:** Permitir que o Gerente Geral gerencie as bases aeroportuárias (adicionar novas, renomear ou excluir) sem depender de alterações no código, tornando o sistema escalável.
+
+**Acesso:**
+- Rota: `/admin/bases`
+- Permissão: Apenas `role === 'geral'` (Gerente Geral).
+- Navegação: Card "Gestão de Bases" no Dashboard Admin (ícone Building2), descrição: "Cadastre novas unidades aeroportuárias ou gerencie as existentes."
+
+**Estrutura da Página:**
+- Barra superior: Título "Gestão de Bases", botão "Voltar" (retorna ao dashboard) e botão "+ Nova Base".
+- Tabela: Listagem de todas as bases cadastradas. Colunas: **Nome** | **Ações** (Editar, Excluir).
+- Modal de Cadastro/Edição: Formulário com um único campo "Nome da Base" (obrigatório). Botões Cancelar e Salvar/Cadastrar.
+- Exclusão: Ao clicar em Excluir, abre modal de confirmação avisando que, se houver lançamentos, colaboradores ou usuários vinculados à base, a exclusão pode ser bloqueada pelo banco de dados (integridade referencial). Botões Cancelar e Excluir.
+
+**Integração:** TanStack Query (queryKey `['bases']`) para listar e mutar. Ao adicionar, editar ou excluir uma base, o cache é invalidado e todos os Selects de Base do sistema (formulários e filtros) são atualizados automaticamente.
+
+**RLS (tabela bases):** SELECT permitido para todos os usuários autenticados; INSERT, UPDATE e DELETE permitidos apenas para `role === 'geral'`. Migration 027.
+
 Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Gerente Geral e Gerente de SCI)
 
 **Para Gerente de SCI:** O Select de Base vem travado na base dele e desabilitado — gerencia apenas os colaboradores da sua base.
@@ -615,7 +641,7 @@ Integração:
     - Select com lista de colaboradores ativos da base selecionada
     - Lógica: Se um colaborador for selecionado, os gráficos filtram os dados JSONB para mostrar apenas o histórico dele
   - **Filtro por Tipo de Ocorrência (Não Aeronáutica):** Aparece quando a visão é Ocorrência Não Aeronáutica
-    - Select com opções: "Todos os tipos" + lista completa de tipos de ocorrência (9 opções)
+    - Select com opções: "Todos os tipos" + lista completa de tipos de ocorrência (10 opções)
     - Filtra dados por `conteudo.tipo_ocorrencia`
   - **Filtro por Tipo de Ocorrência (Aeronáutica):** Aparece quando a visão é Ocorrência Aeronáutica
     - Select com opções: "Todos os tipos", "Posicionamento", "Intervenção"
@@ -733,7 +759,7 @@ Dividido em dois painéis lado a lado:
     *   Exibe todas as ocorrências do período filtrado com informações detalhadas para análise operacional.
 
 #### 2. Ocorrência Não Aeronáutica
-*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com 9 opções específicas)
+*   **Filtro Crítico:** **Tipo de Ocorrência** (Select com 10 opções específicas)
     *   *Comportamento:* Filtra ocorrências pelo campo `conteudo.tipo_ocorrencia`
 *   **KPIs:**
     *   Total de Ocorrências
@@ -1023,6 +1049,11 @@ Dashboards: Implementar src/lib/analytics-utils.ts para processar (flatten/group
 - `src/hooks/useLancamentos.ts` (queries otimizadas com `.select()`)
 - `src/pages/DashboardAnalytics.tsx` (query de Analytics otimizada)
 
+#### Tela de Suporte
+- **Carregamento otimizado:** A tela de Suporte (`src/pages/Suporte.tsx`) utiliza uma única consulta com **Joins relacionais** (Supabase): `feedbacks` + `profiles(nome, bases(nome))`, evitando múltiplas requisições e N+1.
+- **Paginação no banco:** A listagem de feedbacks usa paginação real no servidor (`.range()`), carregando apenas a página atual, com contagem exata para "Mostrando X a Y de Z".
+- **UX:** Estado de carregamento com Skeleton/Spinner centralizado enquanto os dados são processados.
+
 ### 9.4. Métricas de Performance Esperadas
 
 Com as otimizações implementadas, o sistema deve suportar:
@@ -1086,18 +1117,46 @@ Com as otimizações implementadas, o sistema deve suportar:
 **Funcionalidade de Exportação CSV:**
 
 - **Utilitário:** `src/lib/export-utils.ts`
-- **Flattening de Dados:**
-  - Indicadores Simples (ex: Estoque): Uma linha por lançamento com colunas específicas do tipo
-  - Indicadores com Arrays (ex: TAF, Prova Teórica): Uma linha por item do array, repetindo dados do cabeçalho
-  - Campos Comuns: ID, Data/Hora Registro, Data Referência, Usuário, Base, Equipe, Indicador
-  - Campos Específicos: Adicionados conforme o tipo de indicador (ex: `po_quimico_atual`, `nome`, `nota`, etc.)
+- **Unwinding (Expansão de Linhas):**
+  - Indicadores com listas (Grupo B) **não** colocam a lista em uma única célula: cada item da lista vira **uma linha** no CSV.
+  - Em todas as linhas expandidas são repetidas as colunas de cabeçalho: **ID**, **Data/Hora Registro**, **Data Referência**, **Usuário**, **Base**, **Equipe**, **Indicador** (e tipo), para permitir filtros no Excel.
+  - TAF: uma linha por avaliado (nome, idade, tempo, status, nota).
+  - Prova Teórica: uma linha por avaliado (nome, nota, status).
+  - Treinamento (PTR-BA): uma linha por participante (nome, horas, temas_ptr quando existir).
+  - Inspeção de Viaturas: uma linha por viatura (viatura, qtd_inspecoes, qtd_nao_conforme).
+  - Tempo TP/EPR: uma linha por avaliado (nome, tempo, status, tempo_medio).
+  - Tempo Resposta: uma linha por aferição (viatura, motorista, local, tempo).
+  - Controle de EPI: uma linha por colaborador (nome, epi_entregue, epi_previsto, unif_entregue, unif_previsto, total_epi_pct, total_unif_pct).
+- **Mapeamento Completo dos 14 Indicadores:**
+  - **Ocorrência Aeronáutica:** local, acao, hora_acionamento, tempo_chegada_1_cci, tempo_chegada_ult_cci, termino_ocorrencia.
+  - **Ocorrência Não Aeronáutica:** tipo_ocorrencia, local, hora_acionamento, hora_chegada, hora_termino, duracao_total.
+  - **Atividades Acessórias:** tipo_atividade, qtd_bombeiros, tempo_gasto, qtd_equipamentos.
+  - **Logística (Estoque, Trocas, Verificação TP, Higienização TP):** quantidades atuais/exigidas (Pó, LGE, Nitrogênio), qtd_trocas, qtd_conformes, qtd_verificados, qtd_total_equipe, qtd_higienizados_mes, qtd_total_sci.
+  - Demais campos específicos de cada indicador são incluídos sem exceção.
+- **Tratamento de Formatos:**
+  - Campos de tempo (HH:mm ou mm:ss) são exportados como string de texto no Excel (ex.: fórmula `="02:30"`) para evitar conversão para formato científico ou data.
+  - Valores numéricos utilizam representação consistente (decimais).
 - **Formato CSV:**
-  - Encoding: UTF-8 com BOM (para Excel reconhecer acentos)
-  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente
-  - Headers: Primeira linha contém nomes das colunas
+  - **Codificação:** Uso obrigatório do prefixo **UTF-8 BOM** (`\ufeff`) no início do arquivo para o Excel reconhecer acentos e caracteres especiais do português.
+  - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente.
+  - Headers: Primeira linha contém nomes das colunas.
 - **Limitações:**
-  - Máximo 1000 registros por exportação (para evitar timeout)
-  - Aviso exibido se total de registros exceder o limite
+  - Máximo 1000 registros por exportação (para evitar timeout).
+  - Aviso exibido se total de registros exceder o limite.
+
+- **Relatório Consolidado Mensal PTR-BA (Horas de Treinamento):**
+  - **Objetivo:** Exportação específica para o indicador "PTR-BA - Horas treinamento diário", com dados já somados por colaborador por mês, para facilitar a auditoria da meta de 16h da ANAC.
+  - **Disponibilidade:** Quando o indicador de Treinamento estiver selecionado nos filtros do Explorador, é exibido um botão de ação secundário: **"Exportar Fechamento Mensal (Somado)"**.
+  - **Lógica:** O sistema varre todos os lançamentos de treinamento do período filtrado; agrupa por **Mês/Ano + Nome do Colaborador + Base**; converte as strings "HH:mm" de cada lançamento em minutos, soma os treinos do colaborador no mês e converte o total de volta para "HH:mm".
+  - **Data de Referência (regra crítica):** Para cada linha consolidada, a coluna **Data de Referência** deve conter obrigatoriamente o **último dia do mês** correspondente aos dados somados (ex.: treinos em 05, 12 e 20/01/2026 → data exibida 31/01/2026; fevereiro/2026 → 28/02/2026).
+  - **Colunas do CSV consolidado:**
+    - Data de Referência (DD/MM/YYYY, último dia do mês)
+    - Base
+    - Nome do Colaborador
+    - Carga Horária Total (Mês) (formato HH:mm, string simples)
+    - Status Compliance (16h) ("CONFORME" se total ≥ 16:00, senão "PENDENTE")
+    - Qtd. de Plantões (quantidade de lançamentos individuais somados para aquele colaborador no mês)
+  - O arquivo utiliza o mesmo padrão UTF-8 BOM e escape CSV do restante do módulo; nome do arquivo: `fechamento_mensal_ptr_ba_[DDMMAAAA].csv`.
 
 **Modal de Visualização:**
 
@@ -1156,8 +1215,8 @@ Com as otimizações implementadas, o sistema deve suportar:
 
 ### 9.2. Correção de Bug Crítico: Sobrescrita de Dados
 - PROBLEMA: Sistema sobrescrevia registros do mesmo dia (Upsert incorreto).
-- SOLUÇÃO: Removida constraint UNIQUE da tabela lancamentos. O sistema agora sempre faz INSERT, permitindo múltiplos lançamentos para o mesmo indicador no mesmo dia.
-- Arquivo modificado: supabase/schema.sql (removida constraint), src/hooks/useLancamento.ts (removida lógica de UPDATE).
+- SOLUÇÃO: Removida constraint UNIQUE da tabela lancamentos. O sistema faz INSERT para novos lançamentos e UPDATE (por ID) quando o usuário edita um registro existente, evitando duplicidade na edição e permitindo múltiplos lançamentos no mesmo dia quando forem novos.
+- Arquivo modificado: supabase/schema.sql (removida constraint), src/hooks/useLancamento.ts (lógica de INSERT quando sem id, UPDATE quando id presente).
 
 ### 9.3. Correção de Bug Crítico: Datas (D-1) - Timezone Offset
 - PROBLEMA: Usuário seleciona dia 27/01, mas sistema salva e exibe 26/01. Isso acontece porque ao converter Date para string usando .toISOString(), o JavaScript converte para UTC. Como Brasil é UTC-3, a meia-noite do dia 27 vira 21h do dia 26, e o Supabase salva o dia 26.
@@ -1364,8 +1423,9 @@ Com as otimizações implementadas, o sistema deve suportar:
   7. Incêndios Florestais
   8. Emergências Médicas em Geral
   9. Iluminação de Emergência em Pista
+  10. Outras
 - Arquivos modificados:
-  - src/components/forms/OcorrenciaNaoAeroForm.tsx (lista de opções atualizada)
+  - src/components/forms/OcorrenciaNaoAeronauticaForm.tsx (lista de opções atualizada)
   - src/components/AnalyticsFilterBar.tsx (lista de opções no filtro)
 
 ### 9.19. Refinamento Visual: Dashboard de Ocorrência Aeronáutica
@@ -1610,3 +1670,22 @@ Com as otimizações implementadas, o sistema deve suportar:
 - **Arquivos modificados:**
   - src/pages/GestaoUsuarios.tsx (uso de supabase.rpc('update_user_profile', ...) em vez de update direto; filtro de lista por role/base quando isGerenteSCI)
   - docs/PRD.md (item 9.30)
+
+## 12. Comunicação
+
+### 12.1. Modal de Boas-Vindas / Atualização (Pop-up de Versão)
+
+**Objetivo:** Exibir, após o login, um modal elegante com as últimas melhorias do sistema, uma única vez por atualização.
+
+**Comportamento:**
+- Após o usuário estar autenticado, o sistema verifica se há uma nova versão de destaque.
+- O controle de exibição é feito via **localStorage**: chave `medmais_last_version_seen` armazena a última versão que o usuário já viu.
+- A versão e o conteúdo do modal vêm de um arquivo estático de configuração: **`src/data/updates.json`** (campos: `version`, `data`, `titulo`, `novidades`).
+- **Condição de abertura:** Se a `version` do JSON for **diferente** do valor salvo no localStorage, o modal é aberto automaticamente.
+- **Fechamento:** Ao clicar no botão de ação ("Entendi, vamos lá!"), a versão atual do JSON é salva no localStorage; o modal não será exibido novamente até que o arquivo `updates.json` seja alterado com uma nova `version`.
+
+**Implementação:**
+- **Arquivo de configuração:** `src/data/updates.json` — define versão, data, título e lista de novidades.
+- **Componente:** `src/components/UpdateModal.tsx` — Dialog (shadcn/Radix), cabeçalho com ícone de destaque (✨) em laranja, lista com checkmarks verdes, botão "Entendi, vamos lá!".
+- **Gatilho:** `src/components/UpdateModalGate.tsx` — montado no layout principal (`App.tsx`); em `useEffect`, ao detectar usuário autenticado, carrega o JSON, compara `version` com `localStorage.getItem('medmais_last_version_seen')` e abre o modal quando forem diferentes.
+- **Animação:** Entrada do modal com efeito suave (framer-motion: spring/bounce ou fade-in); modo escuro respeitado via classes `bg-background` e `text-foreground`.

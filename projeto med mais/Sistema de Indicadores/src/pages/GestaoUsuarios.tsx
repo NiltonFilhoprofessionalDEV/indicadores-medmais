@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BulkUserForm } from '@/components/BulkUserForm'
 import { Eye, EyeOff } from 'lucide-react'
+import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -22,18 +23,18 @@ const createUserSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Senha é obrigatória'),
-  role: z.enum(['geral', 'chefe', 'gerente_sci'], {
+  role: z.enum(['geral', 'chefe', 'gerente_sci', 'auxiliar'], {
     required_error: 'Selecione um perfil',
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
   acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
-  if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
+  if (data.role === 'chefe' || data.role === 'auxiliar') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
   return true
 }, {
-  message: 'Base e Equipe são obrigatórios para Chefe de Equipe; Base é obrigatória para Gerente de SCI',
+  message: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate; Base é obrigatória para Gerente de SCI',
   path: ['base_id'],
 })
 
@@ -46,18 +47,18 @@ const updateUserSchema = z.object({
     z.literal('N/A'),
   ]).optional(),
   password: z.string().optional().or(z.literal('')),
-  role: z.enum(['geral', 'chefe', 'gerente_sci'], {
+  role: z.enum(['geral', 'chefe', 'gerente_sci', 'auxiliar'], {
     required_error: 'Selecione um perfil',
   }),
   base_id: z.string().optional(),
   equipe_id: z.string().optional(),
   acesso_gerente_sci: z.boolean().optional(),
 }).refine((data) => {
-  if (data.role === 'chefe') return !!data.base_id && !!data.equipe_id
+  if (data.role === 'chefe' || data.role === 'auxiliar') return !!data.base_id && !!data.equipe_id
   if (data.role === 'gerente_sci') return !!data.base_id
   return true
 }, {
-  message: 'Base e Equipe são obrigatórios para Chefe de Equipe; Base é obrigatória para Gerente de SCI',
+  message: 'Base e Equipe são obrigatórios para Chefe de Equipe e Líder de Resgate; Base é obrigatória para Gerente de SCI',
   path: ['base_id'],
 })
 
@@ -68,7 +69,7 @@ interface UsuarioComEmail {
   id: string
   nome: string
   email: string
-  role: 'geral' | 'chefe' | 'gerente_sci'
+  role: 'geral' | 'chefe' | 'gerente_sci' | 'auxiliar'
   base_id: string | null
   equipe_id: string | null
   acesso_gerente_sci: boolean | null
@@ -255,7 +256,7 @@ export function GestaoUsuarios() {
   // Efeito para seleção automática: ADMINISTRATIVO quando role='geral', base travada quando gerente_sci
   useEffect(() => {
     if (role === 'geral' && !isGerenteSCI) {
-      const baseAdministrativo = bases?.find((b) => b.nome === 'ADMINISTRATIVO')
+      const baseAdministrativo = bases?.find((b) => b.nome.toUpperCase() === 'ADMINISTRATIVO')
       if (baseAdministrativo) {
         setValue('base_id', baseAdministrativo.id)
         setValue('equipe_id', '')
@@ -264,7 +265,7 @@ export function GestaoUsuarios() {
       setValue('equipe_id', '')
       if (!isGerenteSCI) setValue('base_id', '')
       else if (gerenteSCIBaseId) setValue('base_id', gerenteSCIBaseId)
-    } else if (role === 'chefe') {
+    } else if (role === 'chefe' || role === 'auxiliar') {
       if (isGerenteSCI && gerenteSCIBaseId) {
         setValue('base_id', gerenteSCIBaseId)
       } else {
@@ -514,7 +515,7 @@ export function GestaoUsuarios() {
     setValue('role', usuario.role)
     setValue('acesso_gerente_sci', usuario.acesso_gerente_sci ?? false)
     if (usuario.role === 'geral') {
-      const baseAdministrativo = bases?.find((b) => b.nome === 'ADMINISTRATIVO')
+      const baseAdministrativo = bases?.find((b) => b.nome.toUpperCase() === 'ADMINISTRATIVO')
       setValue('base_id', baseAdministrativo?.id || usuario.base_id || '')
       setValue('equipe_id', '')
     } else if (usuario.role === 'gerente_sci') {
@@ -750,7 +751,7 @@ export function GestaoUsuarios() {
                 <option value="">Todas as Bases</option>
                 {bases?.map((base) => (
                   <option key={base.id} value={base.id}>
-                    {base.nome}
+                    {formatBaseName(base.nome)}
                   </option>
                 ))}
               </Select>
@@ -799,7 +800,7 @@ export function GestaoUsuarios() {
                           <td className="p-3">{usuario.email}</td>
                           <td className="p-3">
                             {usuario.base_id
-                              ? bases?.find((b) => b.id === usuario.base_id)?.nome || 'N/A'
+                              ? formatBaseName(bases?.find((b) => b.id === usuario.base_id)?.nome ?? '') || 'N/A'
                               : '-'}
                           </td>
                           <td className="p-3">
@@ -814,10 +815,12 @@ export function GestaoUsuarios() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : usuario.role === 'gerente_sci'
                                     ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-green-100 text-green-800'
+                                    : usuario.role === 'auxiliar'
+                                      ? 'bg-slate-100 text-slate-800'
+                                      : 'bg-green-100 text-green-800'
                               }`}
                             >
-                              {usuario.role === 'geral' ? 'Administrador' : usuario.role === 'gerente_sci' ? 'Gerente de SCI' : 'Chefe de Equipe'}
+                              {usuario.role === 'geral' ? 'Administrador' : usuario.role === 'gerente_sci' ? 'Gerente de SCI' : usuario.role === 'auxiliar' ? 'Líder de Resgate' : 'Chefe de Equipe'}
                             </span>
                           </td>
                           <td className="p-3">
@@ -867,17 +870,34 @@ export function GestaoUsuarios() {
 
         {/* Modal de Cadastro/Edição */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>{isEditMode ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</CardTitle>
-                <CardDescription>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto min-h-full py-6">
+            <Card className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+              <CardHeader className="relative">
+                <div className="pr-10">
+                  <CardTitle>{isEditMode ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</CardTitle>
+                  <CardDescription>
                   {isEditMode
                     ? 'Altere os dados do usuário. Deixe a senha em branco para manter a atual.'
                     : 'Preencha os dados para criar um novo usuário no sistema'}
-                </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowModal(false)
+                    setIsEditMode(false)
+                    reset()
+                  }}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 overflow-y-auto min-h-0">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                   {isEditMode && (
                     <input type="hidden" {...register('id')} />
@@ -997,15 +1017,15 @@ export function GestaoUsuarios() {
                       id="role"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       {...register('role')}
-                      disabled={isGerenteSCI}
                     >
                       {!isGerenteSCI && <option value="geral">Administrador</option>}
                       {!isGerenteSCI && <option value="gerente_sci">Gerente de SCI</option>}
                       <option value="chefe">Chefe de Equipe</option>
+                      <option value="auxiliar">Líder de Resgate</option>
                     </select>
                     {isGerenteSCI && (
                       <p className="text-xs text-muted-foreground">
-                        Gerente de SCI pode cadastrar apenas Chefes de Equipe da sua base
+                        Gerente de SCI pode cadastrar Chefes de Equipe e Líderes de Resgate da sua base
                       </p>
                     )}
                     {errors.role && (
@@ -1025,7 +1045,7 @@ export function GestaoUsuarios() {
                       >
                         {bases?.map((base) => (
                           <option key={base.id} value={base.id}>
-                            {base.nome}
+                            {formatBaseName(base.nome)}
                           </option>
                         ))}
                       </select>
@@ -1047,9 +1067,9 @@ export function GestaoUsuarios() {
                         {...register('base_id')}
                       >
                         <option value="">Selecione a base</option>
-                        {bases?.filter((b) => b.nome !== 'ADMINISTRATIVO').map((base) => (
+                        {bases?.filter((b) => b.nome.toUpperCase() !== 'ADMINISTRATIVO').map((base) => (
                           <option key={base.id} value={base.id}>
-                            {base.nome}
+                            {formatBaseName(base.nome)}
                           </option>
                         ))}
                       </select>
@@ -1062,7 +1082,7 @@ export function GestaoUsuarios() {
                     </div>
                   )}
 
-                  {role === 'chefe' && (
+                  {(role === 'chefe' || role === 'auxiliar') && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="base_id">Base *</Label>
@@ -1075,7 +1095,7 @@ export function GestaoUsuarios() {
                           <option value="">Selecione a base</option>
                           {bases?.map((base) => (
                             <option key={base.id} value={base.id}>
-                              {base.nome}
+                              {formatBaseName(base.nome)}
                             </option>
                           ))}
                         </select>
@@ -1099,7 +1119,7 @@ export function GestaoUsuarios() {
                           <option value="">Selecione a equipe</option>
                           {equipes?.map((equipe) => (
                             <option key={equipe.id} value={equipe.id}>
-                              {equipe.nome}
+                              {formatEquipeName(equipe.nome)}
                             </option>
                           ))}
                         </select>
@@ -1108,8 +1128,8 @@ export function GestaoUsuarios() {
                         )}
                       </div>
 
-                      {/* Só Administrador pode conceder acesso ao painel Gerente de SCI (ao cadastrar ou editar chefe) */}
-                      {isGerenteGeral ? (
+                      {/* Só para Chefe: Administrador pode conceder acesso ao painel Gerente de SCI */}
+                      {role === 'chefe' && (isGerenteGeral ? (
                         <div className="flex items-center gap-2 pt-2">
                           <input
                             type="checkbox"
@@ -1125,7 +1145,7 @@ export function GestaoUsuarios() {
                         <p className="text-xs text-muted-foreground pt-2">
                           Apenas administradores podem realizar essa alteração.
                         </p>
-                      )}
+                      ))}
                     </>
                   )}
 
@@ -1179,11 +1199,28 @@ export function GestaoUsuarios() {
         {showDeleteModal && usuarioToDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle className="text-red-600">Confirmar Remoção de Usuário</CardTitle>
-                <CardDescription>
-                  Esta ação não pode ser desfeita. Para confirmar, digite o nome do usuário abaixo.
-                </CardDescription>
+              <CardHeader className="relative">
+                <div className="pr-10">
+                  <CardTitle className="text-red-600">Confirmar Remoção de Usuário</CardTitle>
+                  <CardDescription>
+                    Esta ação não pode ser desfeita. Para confirmar, digite o nome do usuário abaixo.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setUsuarioToDelete(null)
+                    setConfirmacaoTexto('')
+                  }}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

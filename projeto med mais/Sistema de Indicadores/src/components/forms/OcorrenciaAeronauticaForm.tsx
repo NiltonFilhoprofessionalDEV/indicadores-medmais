@@ -114,6 +114,7 @@ export function OcorrenciaAeronauticaForm({
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
+        id: initialData?.id as string | undefined,
         dataReferencia: dataRefFormatted,
         indicadorId,
         conteudo,

@@ -133,13 +133,9 @@ export function OcorrenciaNaoAeronauticaForm({
         hora_termino: data.hora_termino,
         duracao_total: data.duracao_total,
       }
-      // Quando "Outras" está selecionado, mesclar especificação no campo observacoes
+      // Quando "Outras" está selecionado, salvar especificação no campo observacoes
       if (data.tipo_ocorrencia === 'Outras' && data.especificacao_outras?.trim()) {
-        const especificacao = data.especificacao_outras.trim()
-        const observacoesExistentes = (initialData?.observacoes as string)?.trim() || ''
-        conteudo.observacoes = observacoesExistentes
-          ? `${especificacao} | ${observacoesExistentes}`
-          : especificacao
+        conteudo.observacoes = data.especificacao_outras.trim()
       }
 
       // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar

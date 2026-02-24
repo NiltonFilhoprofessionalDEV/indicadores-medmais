@@ -5,11 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** Primeira letra maiúscula e o resto minúsculo (para nomes de bases, etc.). */
+/** Primeira letra de cada palavra maiúscula e demais minúsculas (para nomes de bases, etc.). */
 export function formatBaseName(name: string): string {
   const t = name.trim().toLowerCase()
   if (!t) return ''
-  return t.charAt(0).toUpperCase() + t.slice(1)
+  return t.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 /** Primeira letra de cada palavra maiúscula e demais minúsculas (para nomes de equipes). */

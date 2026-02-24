@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Database } from '@/lib/database.types'
 
 type Colaborador = Database['public']['Tables']['colaboradores']['Row']
@@ -7,19 +8,25 @@ type ColaboradorInsert = Database['public']['Tables']['colaboradores']['Insert']
 type ColaboradorUpdate = Database['public']['Tables']['colaboradores']['Update']
 
 /**
- * Hook para buscar colaboradores de uma base
+ * Hook para buscar colaboradores de uma base.
+ * Para usuários que não são Gerente Geral (role !== 'geral'), o filtro é obrigatório pela base do perfil (defesa em profundidade).
  */
 export function useColaboradores(baseId: string | null) {
+  const { authUser } = useAuth()
+  const isGerenteGeral = authUser?.profile?.role === 'geral'
+  const userBaseId = authUser?.profile?.base_id ?? null
+  const effectiveBaseId = isGerenteGeral ? baseId : (userBaseId ?? baseId)
+
   return useQuery({
-    queryKey: ['colaboradores', baseId],
-    enabled: !!baseId,
+    queryKey: ['colaboradores', effectiveBaseId],
+    enabled: !!effectiveBaseId,
     queryFn: async () => {
-      if (!baseId) return []
+      if (!effectiveBaseId) return []
 
       const { data, error } = await supabase
         .from('colaboradores')
         .select('*')
-        .eq('base_id', baseId)
+        .eq('base_id', effectiveBaseId)
         .order('nome', { ascending: true })
 
       if (error) throw error

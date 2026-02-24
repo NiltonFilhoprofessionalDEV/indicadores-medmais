@@ -25,15 +25,17 @@ type Colaborador = Database['public']['Tables']['colaboradores']['Row']
 export function Colaboradores() {
   const navigate = useNavigate()
   const { authUser } = useAuth()
-  const isGerenteSCI = authUser?.profile?.role === 'gerente_sci'
-  const gerenteSCIBaseId = authUser?.profile?.base_id ?? ''
+  const isGerenteGeral = authUser?.profile?.role === 'geral'
+  const userBaseId = authUser?.profile?.base_id ?? ''
+  /** Usuários que não são Gerente Geral veem apenas a própria base (trava de interface + RLS). */
+  const isBaseLocked = !isGerenteGeral
   const [selectedBaseId, setSelectedBaseId] = useState<string>('')
 
   useEffect(() => {
-    if (isGerenteSCI && gerenteSCIBaseId) {
-      setSelectedBaseId(gerenteSCIBaseId)
+    if (isBaseLocked && userBaseId) {
+      setSelectedBaseId(userBaseId)
     }
-  }, [isGerenteSCI, gerenteSCIBaseId])
+  }, [isBaseLocked, userBaseId])
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'individual' | 'batch'>('individual')
   const [editingColaborador, setEditingColaborador] = useState<Colaborador | null>(null)
@@ -50,7 +52,7 @@ export function Colaboradores() {
     },
   })
 
-  // Buscar colaboradores da base selecionada
+  // Buscar colaboradores da base selecionada (hook aplica filtro por base quando não for geral)
   const { data: colaboradores, isLoading } = useColaboradores(selectedBaseId || null)
 
   // Mutations
@@ -218,18 +220,18 @@ export function Colaboradores() {
               <Select
                 id="base"
                 value={selectedBaseId}
-                onChange={(e) => !isGerenteSCI && setSelectedBaseId(e.target.value)}
+                onChange={(e) => !isBaseLocked && setSelectedBaseId(e.target.value)}
                 className="w-full"
-                disabled={isGerenteSCI}
+                disabled={isBaseLocked}
               >
-                <option value="">Selecione uma base</option>
+                {isBaseLocked ? null : <option value="">Selecione uma base</option>}
                 {bases?.map((base) => (
                   <option key={base.id} value={base.id}>
                     {formatBaseName(base.nome)}
                   </option>
                 ))}
               </Select>
-              {isGerenteSCI && (
+              {isBaseLocked && (
                 <p className="text-xs text-muted-foreground">
                   Base fixada na sua base (você gerencia apenas os colaboradores da sua base)
                 </p>

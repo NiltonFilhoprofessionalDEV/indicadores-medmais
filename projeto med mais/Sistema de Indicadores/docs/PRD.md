@@ -11,6 +11,8 @@ Forms: React Hook Form + Zod (Schema Validation).
 
 3. Segurança e Atores
 
+**Isolamento entre bases (regra crítica):** Usuários de gestão local (Gerente de SCI, Chefes com acesso ao painel Gerente de SCI) são tecnicamente impossibilitados de visualizar ou interagir com dados de bases alheias: (1) **RLS no banco** — políticas de SELECT em `profiles` e `colaboradores` restringem linhas à base do usuário logado, exceto para role `geral`; (2) **Travas na interface** — nas telas Gestão de Efetivo e Gestão de Usuários, o seletor de Base fica desabilitado e fixado na base do perfil, e a opção "Todas as Bases" não é exibida para não-administradores globais; (3) **Hooks** — useColaboradores e as queries de usuários aplicam filtro obrigatório por `base_id` quando o usuário não é Gerente Geral.
+
 **Gerente Geral (role='geral'):** Acesso irrestrito. Pode cadastrar usuários, acessar Analytics, Explorador de Dados, Aderência, Suporte, Gestão de Usuários, Gestão de Efetivo e Gestão de Bases (cadastrar, renomear ou excluir bases aeroportuárias) em todas as bases.
 
 **Gerente de SCI (role='gerente_sci'):** Administrador local de uma base. Gerencia apenas usuários e colaboradores da sua base. Acesso a: Lançamentos (visualização/conferência), Gestão de Usuários, Gestão de Efetivo, Configurações. **Não tem acesso** a Dashboard Analytics nem Explorador de Dados. O filtro de Base nas telas de gestão vem travado na base dele (desabilitado). No cadastro de usuários/colaboradores, o campo Base é preenchido automaticamente e fica read-only.
@@ -82,11 +84,10 @@ IMPORTANTE: Permite múltiplos lançamentos para o mesmo indicador no mesmo dia 
 
 C. Segurança (Row Level Security - RLS)
 
-Profiles: Leitura pública (para o sistema saber quem é quem), Escrita apenas via Admin (Service Role).
+Profiles: Leitura restrita por base (migration 029). **SELECT:** role `geral` vê todos os registros; demais usuários veem apenas o próprio perfil ou profiles cujo `base_id` seja igual ao do perfil do usuário logado. Assim, Gerente de SCI e chefes com acesso local não conseguem listar usuários de outras bases. Escrita: via Service Role / Edge Functions; Gerente de SCI (e chefe com acesso_gerente_sci) pode INSERT/UPDATE/DELETE apenas em profiles da sua base.
 
 Colaboradores: 
-Leitura: Autenticados da mesma base (geral vê tudo; chefe, gerente_sci e auxiliar veem apenas sua base).
-Escrita: Geral (todas as bases); Gerente de SCI (apenas sua base, via RLS); Chefe e Auxiliar não escrevem em colaboradores.
+Leitura: Se role != 'geral', apenas linhas onde `colaboradores.base_id` = base_id do perfil do usuário logado; geral vê tudo. Escrita: Geral (todas as bases); Gerente de SCI / chefe com acesso_gerente_sci (apenas sua base, via RLS); Chefe e Auxiliar sem acesso de gestão não escrevem em colaboradores.
 
 Lancamentos (Leitura):
 Se role == 'geral': TRUE (Vê tudo).
@@ -98,7 +99,7 @@ Se role == 'chefe': lancamento.base_id == profile.base_id (pode inserir/editar/e
 Se role == 'auxiliar': mesmas regras que chefe (políticas RLS duplicadas para role 'auxiliar'). Implementação: migration 026 (supabase/migrations/026_add_auxiliar_role_and_rls.sql).
 IMPORTANTE: O sistema realiza INSERT para novos lançamentos e UPDATE quando um registro existente é editado via seu ID exclusivo, mantendo a integridade e evitando duplicidade. Múltiplos lançamentos no mesmo dia continuam permitidos (novos inserts).
 
-Profiles (para gerente_sci): RLS permite SELECT, INSERT, UPDATE e DELETE apenas em registros onde base_id = base_id do próprio perfil (gerenciam apenas usuários da sua base).
+Profiles (para gerente_sci e chefe com acesso_gerente_sci): RLS permite SELECT apenas em registros onde base_id = base_id do próprio perfil ou id = auth.uid(); INSERT, UPDATE e DELETE apenas em registros da mesma base. Migration 029 substitui a policy profiles_select_all por profiles_select_restricted_by_base para eliminar vazamento de dados entre bases.
 
 5. Especificação Técnica dos Formulários (Inputs & Lógica)
 Regra Global: Todos os formulários possuem Base, Equipe e Data (dd/mm/aaaa).
@@ -385,7 +386,7 @@ Filtro Dinâmico por Base: Select acima da tabela com opção "Todas as Bases" (
 - Ao selecionar "Todas as Bases": Mostra todos os usuários cadastrados.
 - Comportamento: Gerentes Gerais (role='geral') sempre aparecem na lista, independente do filtro selecionado, para garantir que o administrador nunca desapareça da visualização.
 
-**Para Gerente de SCI:** O filtro de Base vem travado na base dele e desabilitado. No formulário de cadastro, o campo Base é preenchido automaticamente com a base do gerente e fica read-only — impede cadastrar em outra base. O Gerente de SCI pode cadastrar apenas Chefes de Equipe (não Gerentes Gerais nem outros Gerentes de SCI).
+**Isolamento para gestão local:** Para qualquer usuário que não seja Gerente Geral (Gerente de SCI ou Chefe com acesso ao painel), o filtro de Base fica travado na base do perfil e desabilitado; a opção "Todas as Bases" não é exibida. No formulário de cadastro, o campo Base é preenchido automaticamente e fica read-only. RLS (migration 029) garante que a API não retorne profiles de outras bases.
 
 Tabela listando todos os usuários cadastrados (Nome | Email | Base | Equipe | Perfil | Ações).
 Botões no topo: "Adicionar Novo Usuário" e "Cadastro em Lote".
@@ -575,7 +576,7 @@ Tela 8: Gestão de Bases (/admin/bases) - Apenas Gerente Geral
 
 Tela 5: Admin - Gestão de Efetivo (Colaboradores) (Gerente Geral e Gerente de SCI)
 
-**Para Gerente de SCI:** O Select de Base vem travado na base dele e desabilitado — gerencia apenas os colaboradores da sua base.
+**Isolamento por base:** Para qualquer usuário que **não** seja Gerente Geral (incluindo Gerente de SCI e Chefe com acesso ao painel Gerente de SCI), o Select de Base fica travado na base do perfil e desabilitado; a opção "Selecione uma base" (equivalente a "Todas as Bases") não é exibida. O hook useColaboradores aplica filtro obrigatório pela base do usuário quando role !== 'geral', garantindo que a API não retorne dados de outras bases.
 
 Objetivo: Cadastrar e gerenciar o efetivo (bombeiros/colaboradores) de cada base.
 

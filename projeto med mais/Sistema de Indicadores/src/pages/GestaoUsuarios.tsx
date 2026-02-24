@@ -83,6 +83,8 @@ export function GestaoUsuarios() {
   const isGerenteSCI = authUser?.profile?.role === 'gerente_sci'
   const isGerenteGeral = authUser?.profile?.role === 'geral'
   const gerenteSCIBaseId = authUser?.profile?.base_id ?? ''
+  /** Usuários que não são Gerente Geral veem apenas a própria base (trava de interface + RLS). */
+  const isBaseLocked = !isGerenteGeral
   const [showModal, setShowModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -104,9 +106,9 @@ export function GestaoUsuarios() {
     return DEFAULT_PASSWORD
   }
 
-  // Buscar usuários
+  // Buscar usuários: filtro de base obrigatório para não-geral (só veem sua base)
   type Profile = Database['public']['Tables']['profiles']['Row']
-  const baseFilter = isGerenteSCI ? gerenteSCIBaseId : filtroBaseId
+  const baseFilter = isBaseLocked ? gerenteSCIBaseId : filtroBaseId
   const { data: usuarios, isLoading, error: usuariosError } = useQuery<UsuarioComEmail[]>({
     queryKey: ['usuarios', baseFilter],
     queryFn: async () => {
@@ -127,11 +129,11 @@ export function GestaoUsuarios() {
             throw errorBase
           }
 
-          if (isGerenteSCI) {
-            // Gerente de SCI: vê apenas usuários da sua base (não vê Administradores)
+          if (isBaseLocked) {
+            // Gestão local: vê apenas usuários da sua base (não vê Administradores)
             profiles = (usuariosBase as Profile[]) || []
           } else {
-            // Administrador: vê usuários da base + Administradores
+            // Gerente Geral: vê usuários da base + Administradores
             const { data: gerentesGerais, error: errorGeral } = await supabase
               .from('profiles')
               .select('*')
@@ -190,12 +192,12 @@ export function GestaoUsuarios() {
   })
 
   // Buscar bases e equipes
-  // Gerente de SCI: travar filtro e base na base dele
+  // Travar filtro de base na própria base para qualquer usuário que não seja Gerente Geral
   useEffect(() => {
-    if (isGerenteSCI && gerenteSCIBaseId) {
+    if (isBaseLocked && gerenteSCIBaseId) {
       setFiltroBaseId(gerenteSCIBaseId)
     }
-  }, [isGerenteSCI, gerenteSCIBaseId])
+  }, [isBaseLocked, gerenteSCIBaseId])
 
   const { data: bases, error: basesError } = useQuery<Base[]>({
     queryKey: ['bases'],
@@ -736,7 +738,7 @@ export function GestaoUsuarios() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="pt-6">
-            {/* Filtro por Base - travado e desabilitado para Gerente de SCI */}
+            {/* Filtro por Base - travado e desabilitado para gestão local (não-Gerente Geral) */}
             <div className="mb-6 flex items-center gap-4">
               <Label htmlFor="filtro-base" className="text-sm font-medium whitespace-nowrap">
                 Filtrar por Base:
@@ -744,18 +746,18 @@ export function GestaoUsuarios() {
               <Select
                 id="filtro-base"
                 value={filtroBaseId}
-                onChange={(e) => !isGerenteSCI && setFiltroBaseId(e.target.value)}
+                onChange={(e) => !isBaseLocked && setFiltroBaseId(e.target.value)}
                 className="max-w-xs"
-                disabled={isGerenteSCI}
+                disabled={isBaseLocked}
               >
-                <option value="">Todas as Bases</option>
+                {isBaseLocked ? null : <option value="">Todas as Bases</option>}
                 {bases?.map((base) => (
                   <option key={base.id} value={base.id}>
                     {formatBaseName(base.nome)}
                   </option>
                 ))}
               </Select>
-              {isGerenteSCI && (
+              {isBaseLocked && (
                 <span className="text-xs text-muted-foreground">
                   (Sua base - visualização restrita)
                 </span>

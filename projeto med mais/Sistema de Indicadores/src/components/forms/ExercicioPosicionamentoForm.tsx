@@ -55,7 +55,7 @@ function isAfericaoRowComplete(r: { viatura?: string; motorista?: string; local?
   return !!viatura && !!motorista && !!local && !!tempo && validateMMSS(tempo, 4)
 }
 
-const tempoRespostaSchema = z
+const exercicioPosicionamentoSchema = z
   .object({
     afericoes: z.array(afericaoSchemaLax),
     data_referencia: z.string().min(1, 'Data é obrigatória'),
@@ -75,26 +75,26 @@ const tempoRespostaSchema = z
     }
   )
 
-type TempoRespostaFormData = z.infer<typeof tempoRespostaSchema>
+type ExercicioPosicionamentoFormData = z.infer<typeof exercicioPosicionamentoSchema>
 
-interface TempoRespostaFormProps {
+interface ExercicioPosicionamentoFormProps {
   indicadorId: string
   onSuccess?: () => void
   initialData?: Record<string, unknown>
   readOnly?: boolean
 }
 
-export function TempoRespostaForm({
+export function ExercicioPosicionamentoForm({
   indicadorId,
   onSuccess,
   initialData,
   readOnly = false,
-}: TempoRespostaFormProps) {
+}: ExercicioPosicionamentoFormProps) {
   const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const { authUser } = useAuth()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia 
+    initialData?.data_referencia
       ? normalizeDateToLocal(initialData.data_referencia as string)
       : getCurrentDateLocal()
   )
@@ -104,7 +104,7 @@ export function TempoRespostaForm({
 
   const initialAfericoes = initialData?.afericoes && Array.isArray(initialData.afericoes)
     ? (initialData.afericoes as Array<Record<string, unknown>>).map((a) => ({
-        viatura: (a.viatura as typeof VIATURAS[number]) || undefined,
+        viatura: (a.viatura as (typeof VIATURAS)[number]) || undefined,
         motorista: (a.motorista as string) || '',
         local: (a.local as string) || '',
         tempo: (a.tempo as string) || '',
@@ -118,8 +118,8 @@ export function TempoRespostaForm({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<TempoRespostaFormData>({
-    resolver: zodResolver(tempoRespostaSchema),
+  } = useForm<ExercicioPosicionamentoFormData>({
+    resolver: zodResolver(exercicioPosicionamentoSchema),
     defaultValues: {
       afericoes: initialAfericoes,
       data_referencia: dataReferencia,
@@ -133,14 +133,13 @@ export function TempoRespostaForm({
     name: 'afericoes',
   })
 
-  // Buscar colaboradores da base para o Select de motorista
   const { data: colaboradores } = useColaboradores(finalBaseId || null)
 
-  const onSubmit = async (data: TempoRespostaFormData) => {
+  const onSubmit = async (data: ExercicioPosicionamentoFormData) => {
     try {
       const afericoesFiltradas = data.afericoes.filter((a) => isAfericaoRowComplete(a))
       if (afericoesFiltradas.length === 0) {
-        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        alert('Preencha pelo menos uma aferição completamente para salvar.')
         return
       }
 
@@ -148,10 +147,10 @@ export function TempoRespostaForm({
         afericoes: afericoesFiltradas,
       }
 
-      // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
-      const dataRefFormatted = typeof data.data_referencia === 'string' 
-        ? data.data_referencia 
-        : formatDateForStorage(new Date(data.data_referencia))
+      const dataRefFormatted =
+        typeof data.data_referencia === 'string'
+          ? data.data_referencia
+          : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
         id: initialData?.id as string | undefined,
@@ -172,9 +171,9 @@ export function TempoRespostaForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Exercício de Tempo Resposta</CardTitle>
+        <CardTitle>Exercício de Posicionamento</CardTitle>
         <CardDescription>
-          Lista de aferições de tempo de resposta das viaturas
+          Lista de aferições de posicionamento (viatura, motorista, local e tempo)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -315,7 +314,7 @@ export function TempoRespostaForm({
 
           {!readOnly && (
             <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Exercício de Tempo Resposta'}
+              {isLoading ? 'Salvando...' : 'Salvar Exercício de Posicionamento'}
             </Button>
           )}
         </form>

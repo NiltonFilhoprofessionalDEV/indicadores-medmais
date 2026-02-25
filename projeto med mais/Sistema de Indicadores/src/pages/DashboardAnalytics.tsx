@@ -16,6 +16,7 @@ import {
   processProvaTeorica,
   processTempoTPEPR,
   processTempoResposta,
+  processExercicioPosicionamento,
   processHorasTreinamento,
   processInspecaoViaturas,
   processControleEstoque,
@@ -266,6 +267,7 @@ type ViewType =
   | 'treinamento'
   | 'tempo_tp_epr'
   | 'tempo_resposta'
+  | 'exercicio_posicionamento'
   | 'inspecao_viaturas'
   | 'logistica'
 
@@ -279,6 +281,7 @@ const VIEW_ORDER: ViewType[] = [
   'treinamento',
   'tempo_tp_epr',
   'tempo_resposta',
+  'exercicio_posicionamento',
   'inspecao_viaturas',
   'logistica',
 ]
@@ -463,7 +466,8 @@ export function DashboardAnalytics() {
       prova_teorica: 'Prova Teórica',
       treinamento: 'PTR-BA - Horas treinamento diário',
       tempo_tp_epr: 'Exercício TP/EPR',
-      tempo_resposta: 'Tempo de Resposta',
+      tempo_resposta: 'Exercício de Tempo Resposta',
+      exercicio_posicionamento: 'Exercício de Posicionamento',
       inspecao_viaturas: 'Inspeção de Viaturas',
       logistica: 'Logística',
     }
@@ -581,6 +585,9 @@ export function DashboardAnalytics() {
         break
       case 'tempo_resposta':
         processedData = processTempoResposta(filteredLancamentos)
+        break
+      case 'exercicio_posicionamento':
+        processedData = processExercicioPosicionamento(filteredLancamentos)
         break
       case 'inspecao_viaturas':
         processedData = processInspecaoViaturas(filteredLancamentos)
@@ -923,7 +930,17 @@ export function DashboardAnalytics() {
                   : 'text-white hover:bg-white/20'
               }`}
             >
-              Tempo Resposta
+              Exercício de Tempo Resposta
+            </button>
+            <button
+              onClick={() => setViewAndCloseSidebar('exercicio_posicionamento')}
+              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                view === 'exercicio_posicionamento' 
+                  ? 'bg-white text-[#fc4d00] font-semibold' 
+                  : 'text-white hover:bg-white/20'
+              }`}
+            >
+              Exercício de Posicionamento
             </button>
             <button
               onClick={() => setViewAndCloseSidebar('inspecao_viaturas')}
@@ -1971,7 +1988,151 @@ export function DashboardAnalytics() {
                        (!processedData.graficoCurvaAgilidade || processedData.graficoCurvaAgilidade.length === 0) && 
                        (!processedData.graficoConsistencia || processedData.graficoConsistencia.length === 0) && (
                         <div className="text-center py-8 text-gray-500">
-                          Nenhum dado de Tempo Resposta encontrado para os filtros selecionados.
+                          Nenhum dado de Exercício de Tempo Resposta encontrado para os filtros selecionados.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {view === 'exercicio_posicionamento' && processedData && (
+                    <div className="space-y-6">
+                      {/* KPIs */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Menor Tempo (Recorde)</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {processedData.kpis?.menorTempo ? (
+                              <>
+                                <div className="text-3xl font-bold">{processedData.kpis.menorTempo.tempo}</div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {processedData.kpis.menorTempo.viatura}
+                                </p>
+                              </>
+                            ) : (
+                              <div className="text-3xl font-bold">-</div>
+                            )}
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Performance de Resposta (Média)</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold">{processedData.kpis?.tempoMedioGeral || '-'}</div>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Pior Tempo (Alerta)</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {processedData.kpis?.maiorTempo ? (
+                              <>
+                                <div className="text-3xl font-bold text-red-600">{processedData.kpis.maiorTempo.tempo}</div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {processedData.kpis.maiorTempo.viatura}
+                                </p>
+                              </>
+                            ) : (
+                              <div className="text-3xl font-bold">-</div>
+                            )}
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Total de Exercícios</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold">{processedData.kpis?.totalExercicios || 0}</div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Gráfico 1: Performance por Viatura (Bar Chart) */}
+                      {processedData.graficoPerformancePorViatura && processedData.graficoPerformancePorViatura.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Performance por Viatura</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <BarChart
+                              data={processedData.graficoPerformancePorViatura.map((item: any) => ({
+                                viatura: item.viatura,
+                                media: item.mediaSegundos,
+                              }))}
+                              dataKey="media"
+                              xKey="viatura"
+                              name="Performance"
+                              color="#fc4d00"
+                              yAxisFormatter={(value: any) => {
+                                const mins = Math.floor(value / 60)
+                                const secs = Math.floor(value % 60)
+                                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Gráfico 2: Curva de Agilidade (Line Chart) com ReferenceLine em 3:00 */}
+                      {processedData.graficoCurvaAgilidade && processedData.graficoCurvaAgilidade.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Curva de Agilidade</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <LineChart
+                              data={processedData.graficoCurvaAgilidade.map((item: any) => ({
+                                mes: item.mes,
+                                media: item.mediaSegundos,
+                              }))}
+                              dataKey="media"
+                              xKey="mes"
+                              name="Performance"
+                              color="#fc4d00"
+                              yAxisFormatter={(value: any) => {
+                                const mins = Math.floor(value / 60)
+                                const secs = Math.floor(value % 60)
+                                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+                              }}
+                              referenceLine={{
+                                value: 180,
+                                label: 'Meta (3:00)',
+                                stroke: '#ef4444',
+                                strokeDasharray: '5 5',
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Gráfico 3: Consistência (Donut Chart) */}
+                      {processedData.graficoConsistencia && processedData.graficoConsistencia.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Consistência</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <DonutChart
+                              data={processedData.graficoConsistencia.map((item: any) => ({
+                                name: item.name,
+                                value: item.value,
+                              }))}
+                              colors={['#22c55e', '#f59e0b', '#ef4444']}
+                              showCenterLabel={true}
+                              centerLabel={`${processedData.kpis?.totalExercicios || 0} exercícios`}
+                            />
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {(!processedData.graficoPerformancePorViatura || processedData.graficoPerformancePorViatura.length === 0) &&
+                       (!processedData.graficoCurvaAgilidade || processedData.graficoCurvaAgilidade.length === 0) &&
+                       (!processedData.graficoConsistencia || processedData.graficoConsistencia.length === 0) && (
+                        <div className="text-center py-8 text-gray-500">
+                          Nenhum dado de Exercício de Posicionamento encontrado para os filtros selecionados.
                         </div>
                       )}
                     </div>

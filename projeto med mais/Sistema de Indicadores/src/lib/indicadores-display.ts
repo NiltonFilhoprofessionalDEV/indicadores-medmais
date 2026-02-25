@@ -4,6 +4,7 @@
  */
 export const INDICADOR_DISPLAY_NAME_OVERRIDE: Record<string, string> = {
   treinamento: 'PTR-BA - Horas treinamento diário',
+  tempo_resposta: 'Exercício de Tempo Resposta',
 }
 
 export function getIndicadorDisplayName(indicador: {

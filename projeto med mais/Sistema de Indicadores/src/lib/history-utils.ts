@@ -22,6 +22,7 @@ export function getIndicatorBadgeVariant(
     case 'tempo_tp_epr':
       return 'default' // Azul/Preto para avaliações
     case 'tempo_resposta':
+    case 'exercicio_posicionamento':
     case 'inspecao_viaturas':
       return 'secondary' // Cinza para operacionais
     case 'estoque':
@@ -100,7 +101,14 @@ export function getResumoLancamento(
         const count = conteudo.afericoes.length
         return `${count} ${count === 1 ? 'aferição' : 'aferições'}`
       }
-      return 'Tempo Resposta registrado'
+      return 'Exercício de Tempo Resposta registrado'
+
+    case 'exercicio_posicionamento':
+      if (Array.isArray(conteudo.afericoes)) {
+        const count = conteudo.afericoes.length
+        return `${count} ${count === 1 ? 'aferição' : 'aferições'}`
+      }
+      return 'Exercício de Posicionamento registrado'
 
     case 'inspecao_viaturas':
       // Contar viaturas inspecionadas

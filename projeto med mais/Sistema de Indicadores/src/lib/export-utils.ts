@@ -102,6 +102,7 @@ export function flattenLancamento(
           row.tempo_medio = toExportValue(conteudo.tempo_medio) as string
           break
         case 'tempo_resposta':
+        case 'exercicio_posicionamento':
           row.viatura = item.viatura ?? ''
           row.motorista = item.motorista ?? ''
           row.local = item.local ?? ''
@@ -184,6 +185,7 @@ function flattenConteudo(
       break
 
     case 'tempo_resposta':
+    case 'exercicio_posicionamento':
       // Tratado no unwinding (afericoes)
       break
 

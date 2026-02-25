@@ -91,7 +91,14 @@ const GRUPO_C: ComplianceRule[] = [
   },
   {
     schema_type: 'tempo_resposta',
-    nome: 'Tempo Resposta',
+    nome: 'Exercício de Tempo Resposta',
+    grupo: 'C',
+    periodicidade: 'mensal',
+    obrigatorio: true,
+  },
+  {
+    schema_type: 'exercicio_posicionamento',
+    nome: 'Exercício de Posicionamento',
     grupo: 'C',
     periodicidade: 'mensal',
     obrigatorio: true,

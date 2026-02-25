@@ -916,6 +916,13 @@ export function processTempoResposta(lancamentos: Lancamento[]) {
 }
 
 /**
+ * 5b. EXERCÍCIO DE POSICIONAMENTO (mesma estrutura e lógica do Tempo Resposta)
+ */
+export function processExercicioPosicionamento(lancamentos: Lancamento[]) {
+  return processTempoResposta(lancamentos)
+}
+
+/**
  * 6. HORAS DE TREINAMENTO
  */
 export function processHorasTreinamento(lancamentos: Lancamento[]) {

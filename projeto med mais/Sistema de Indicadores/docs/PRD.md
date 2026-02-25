@@ -37,7 +37,7 @@ equipes: Tabela contendo as 5 equipes padrão:
 
 Dados: "ALFA", "BRAVO", "CHARLIE", "DELTA", "FOXTROT".
 
-indicadores_config: Lista dos 14 indicadores.
+indicadores_config: Lista dos 15 indicadores.
 
 Campos: id, nome, schema_type (identificador técnico).
 
@@ -51,6 +51,7 @@ Dados:
 "Inspeção de Viaturas" (inspecao_viaturas)
 "Tempo de TP/EPR" (tempo_tp_epr)
 "Tempo Resposta" (tempo_resposta)
+"Exercício de Posicionamento" (exercicio_posicionamento)
 "Controle de Estoque" (estoque)
 "Controle de Trocas" (controle_trocas)
 "Verificação de TP" (verificacao_tp)
@@ -208,6 +209,9 @@ local: Texto.
 tempo: Texto (Máscara mm:ss, Max 04:59).
 Layout: Grid corrigido para alinhamento visual adequado (items-start para alinhar botão Remover).
 
+9b. Exercício de Posicionamento
+Réplica funcional do Tempo Resposta: mesma estrutura de dados (lista de aferições), mesmos campos (viatura, motorista, local, tempo em mm:ss) e mesma regra de preenchimento (pelo menos uma linha completa para salvar). Utilizado para registrar exercícios de posicionamento da frota. No Analytics, utiliza a mesma lógica de processamento e os mesmos gráficos do Tempo Resposta (KPIs: Menor Tempo/Recorde, Performance de Resposta/Média, Pior Tempo/Alerta; Bar Chart por Viatura; Line Chart Curva de Agilidade com ReferenceLine 3:00; Donut Consistência).
+
 14. Controle de EPI
 Estrutura: Lista de Colaboradores (Padrão 10 linhas).
 Campos por Linha:
@@ -270,7 +274,7 @@ Histórico: Painel de Controle de Lançamentos Profissional
 Estrutura:
 - Barra de Ferramentas (Toolbar) com filtros dinâmicos:
   - Input de Busca: Busca por texto em campos como local, tipo de ocorrência (busca no JSONB conteudo).
-  - Select "Filtrar por Indicador": Lista todos os 14 indicadores disponíveis.
+  - Select "Filtrar por Indicador": Lista todos os 15 indicadores disponíveis.
   - Select "Mês/Ano": Filtro por período (últimos 12 meses disponíveis).
   - Botão "Limpar Filtros": Reseta todos os filtros e retorna à primeira página.
 
@@ -279,13 +283,13 @@ Estrutura:
   - Coluna INDICADOR: Badge colorida por categoria:
     - Vermelho (destructive): Ocorrências Aeronáuticas e Não Aeronáuticas.
     - Azul/Preto (default): TAF, Prova Teórica, Treinamento, Tempo TP/EPR.
-    - Cinza (secondary): Tempo Resposta, Inspeção de Viaturas.
+    - Cinza (secondary): Tempo Resposta, Exercício de Posicionamento, Inspeção de Viaturas.
     - Borda (outline): Estoque, Trocas, Higienização, EPI.
   - Coluna RESUMO: Texto curto e relevante extraído dinamicamente do JSONB conteudo:
     - Ocorrências: "Local: [nome do local]" ou "Tipo: [tipo]".
     - TAF/Treinamento/Prova Teórica: "[X] avaliados" ou "[X] colaboradores".
     - Estoque: "Pó Químico: [quantidade]kg" ou lista de itens principais.
-    - Tempo Resposta: "[X] aferições".
+    - Tempo Resposta / Exercício de Posicionamento: "[X] aferições".
     - Outros: Resumo específico conforme o tipo de indicador.
   - Colunas BASE e EQUIPE: Nomes das bases e equipes.
   - Coluna AÇÕES: Botões Ver/Editar/Excluir com regra de permissão:
@@ -365,7 +369,7 @@ Tela 5: Monitoramento de Aderência (Compliance) - Apenas Gerente Geral
 - Visual na Tabela: "Último: DD/MM/YYYY" (Cor neutra/cinza).
 
 **GRUPO C: Obrigação Mensal (Meta do Mês)**
-- Indicadores: 'Prova Teórica', 'Inspeção de Viaturas', 'Tempo de TP/EPR', 'Tempo Resposta', 'Controle de Estoque', 'Controle de Trocas', 'Verificação de TP', 'Higienização de TP', 'Controle de EPI' (total: 9 indicadores).
+- Indicadores: 'Prova Teórica', 'Inspeção de Viaturas', 'Tempo de TP/EPR', 'Tempo Resposta', 'Exercício de Posicionamento', 'Controle de Estoque', 'Controle de Trocas', 'Verificação de TP', 'Higienização de TP', 'Controle de EPI' (total: 10 indicadores no Grupo C).
 - Regra de Monitoramento: Verifica se existe pelo menos 1 lançamento dentro do Mês Atual.
 - Visual na Tabela:
   - ✅ (Verde): Se tem lançamento no mês (9 de 9 entregues).
@@ -622,7 +626,7 @@ Integração:
   - "Visão Geral" (Resumo de tudo)
   - "Ocorrências" (Submenu: Aero, Não Aero, Acessórias)
   - "Pessoal & Treino" (Submenu: TAF, Prova, Treino, TP/EPR)
-  - "Frota" (Submenu: Tempo Resposta, Inspeção)
+  - "Frota" (Submenu: Tempo Resposta, Exercício de Posicionamento, Inspeção)
   - "Logística" (Agrupa Estoque, EPI, Trocas)
 - **Conteúdo Principal (Centro):** Área dinâmica que muda conforme a visão selecionada
 - **Barra de Filtros (Topo do Conteúdo):** Filtros específicos para cada visão usando componente `AnalyticsFilterBar`
@@ -901,6 +905,15 @@ Dividido em dois painéis lado a lado:
     *   Ordenação cronológica corrigida no gráfico de evolução (datas em ordem ascendente).
     *   Análise focada em viaturas, não em motoristas individuais.
 
+#### 9b. Exercício de Posicionamento
+*   **Objetivo:** Réplica funcional do Tempo Resposta para registro e análise de exercícios de posicionamento. Mesma estrutura de dados (aferições: viatura, motorista, local, tempo) e mesma lógica de visualização no Analytics.
+*   **KPIs (Cards de Topo):** Menor Tempo (Recorde), Performance de Resposta (Média), Pior Tempo (Alerta), Total de Exercícios.
+*   **Gráficos:**
+    *   **[Bar Chart] Performance por Viatura:** Média de tempo por viatura.
+    *   **[Line Chart] Curva de Agilidade:** Evolução mensal com ReferenceLine em 3:00 (meta).
+    *   **[Donut Chart] Consistência:** Faixas Excelente (&lt; 2min), Bom (2min–3min), Crítico (&gt; 3min).
+*   Realtime e Modo Monitor aplicam-se da mesma forma que aos demais indicadores.
+
 ---
 
 ### GRUPO B: LOGÍSTICA & MATERIAIS (Visão Agrupada - Ênfase em Estoque)
@@ -1085,7 +1098,7 @@ Com as otimizações implementadas, o sistema deve suportar:
 1. **Filtros Globais (Topo):**
    - Base: Select com todas as bases (opção "Todas as Bases")
    - Equipe: Select com todas as equipes (opção "Todas as Equipes")
-   - Indicador: Select com todos os 14 indicadores (opção "Todos os Indicadores")
+   - Indicador: Select com todos os 15 indicadores (opção "Todos os Indicadores")
    - Data Início: Input tipo `date` (formato YYYY-MM-DD)
    - Data Fim: Input tipo `date` (formato YYYY-MM-DD)
    - Validação: Intervalo máximo de 12 meses (mesma regra do Analytics)
@@ -1126,9 +1139,9 @@ Com as otimizações implementadas, o sistema deve suportar:
   - Treinamento (PTR-BA): uma linha por participante (nome, horas, temas_ptr quando existir).
   - Inspeção de Viaturas: uma linha por viatura (viatura, qtd_inspecoes, qtd_nao_conforme).
   - Tempo TP/EPR: uma linha por avaliado (nome, tempo, status, tempo_medio).
-  - Tempo Resposta: uma linha por aferição (viatura, motorista, local, tempo).
+  - Tempo Resposta / Exercício de Posicionamento: uma linha por aferição (viatura, motorista, local, tempo).
   - Controle de EPI: uma linha por colaborador (nome, epi_entregue, epi_previsto, unif_entregue, unif_previsto, total_epi_pct, total_unif_pct).
-- **Mapeamento Completo dos 14 Indicadores:**
+- **Mapeamento Completo dos 15 Indicadores:**
   - **Ocorrência Aeronáutica:** local, acao, hora_acionamento, tempo_chegada_1_cci, tempo_chegada_ult_cci, termino_ocorrencia.
   - **Ocorrência Não Aeronáutica:** tipo_ocorrencia, local, hora_acionamento, hora_chegada, hora_termino, duracao_total.
   - **Atividades Acessórias:** tipo_atividade, qtd_bombeiros, tempo_gasto, qtd_equipamentos.

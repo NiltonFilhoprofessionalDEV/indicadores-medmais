@@ -3,7 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay } from '@/lib/date-utils'
-import { flattenLancamento, convertToCSV, downloadCSV, generateFilename } from '@/lib/export-utils'
+import {
+  flattenLancamento,
+  convertToCSV,
+  downloadCSV,
+  generateFilename,
+  exportConsolidadoTreinamento,
+  convertConsolidadoToCSV,
+} from '@/lib/export-utils'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -38,7 +45,8 @@ type Equipe = Database['public']['Tables']['equipes']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 const PAGE_SIZE = 20
-const MAX_EXPORT_ROWS = 1000 // Limite para exportação
+const MAX_EXPORT_ROWS = 1000 // Limite padrão para exportação
+const MAX_EXPORT_ROWS_TREINAMENTO = 3000 // Limite exclusivo para Horas de Treinamento Mensal (auditoria ANAC)
 
 export function DataExplorer() {
   const { authUser } = useAuth()
@@ -50,6 +58,7 @@ export function DataExplorer() {
   const [dataInicio, setDataInicio] = useState<string>('')
   const [dataFim, setDataFim] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
+  const [isExportingConsolidado, setIsExportingConsolidado] = useState(false)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
@@ -114,6 +123,17 @@ export function DataExplorer() {
       const { data, error } = await supabase.from('profiles').select('id, nome')
       if (error) throw error
       return (data || []) as Profile[]
+    },
+  })
+
+  // Buscar todos os colaboradores (para consolidado treinamento: nome -> base)
+  const { data: colaboradoresAll } = useQuery<Array<{ nome: string; base_id: string }>>({
+    queryKey: ['colaboradores-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('colaboradores').select('nome, base_id').order('nome')
+      if (error) throw error
+      const rows = (data || []) as Array<{ nome: string; base_id: string }>
+      return rows.map((r) => ({ nome: r.nome, base_id: r.base_id }))
     },
   })
 
@@ -182,13 +202,14 @@ export function DataExplorer() {
 
     setIsExporting(true)
     try {
-      // Buscar TODOS os lançamentos filtrados (sem paginação) para exportação
-      // Limitar a MAX_EXPORT_ROWS para evitar sobrecarga
+      // Limite dinâmico: 3000 para Treinamento (ANAC), 1000 para os demais indicadores
+      const exportLimit = isTreinamentoSelected ? MAX_EXPORT_ROWS_TREINAMENTO : MAX_EXPORT_ROWS
+      // Buscar lançamentos filtrados (sem paginação) para exportação, respeitando o limite
       let exportQuery = supabase
         .from('lancamentos')
         .select('*')
         .order('data_referencia', { ascending: false })
-        .limit(MAX_EXPORT_ROWS)
+        .limit(exportLimit)
 
       // Aplicar filtros
       if (baseId) exportQuery = exportQuery.eq('base_id', baseId)
@@ -237,6 +258,82 @@ export function DataExplorer() {
       alert(`Erro ao exportar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  // Indicador de Treinamento selecionado? (para exibir botão de Fechamento Coletivo)
+  const isTreinamentoSelected =
+    !!indicadorId && indicadoresMap.get(indicadorId)?.schema_type === 'treinamento'
+
+  // Tamanho máximo por página no Supabase (PostgREST limita a 1000 por requisição)
+  const SUPABASE_PAGE_SIZE = 1000
+
+  // Exportar Fechamento Coletivo de Treinamento (soma total por colaborador)
+  const handleExportConsolidadoTreinamento = async () => {
+    if (!indicadorId || !dataInicio || !dataFim) return
+    setIsExportingConsolidado(true)
+    try {
+      // Busca exaustiva em páginas: Supabase retorna no máx. 1000 por request, então fazemos até 3 requests (0–999, 1000–1999, 2000–2999)
+      const lancamentos: Lancamento[] = []
+      let offset = 0
+      let hasMore = true
+
+      while (hasMore && lancamentos.length < MAX_EXPORT_ROWS_TREINAMENTO) {
+        const from = offset
+        const to = offset + SUPABASE_PAGE_SIZE - 1
+
+        let query = supabase
+          .from('lancamentos')
+          .select('*')
+          .eq('indicador_id', indicadorId)
+          .gte('data_referencia', dataInicio)
+          .lte('data_referencia', dataFim)
+          .order('data_referencia', { ascending: true })
+          .range(from, to)
+
+        if (baseId) query = query.eq('base_id', baseId)
+        if (equipeId) query = query.eq('equipe_id', equipeId)
+
+        const { data: pageData, error: queryError } = await query
+
+        if (queryError) {
+          alert(`Erro ao buscar lançamentos: ${queryError.message}`)
+          return
+        }
+
+        const page = (pageData || []) as Lancamento[]
+        lancamentos.push(...page)
+        offset += SUPABASE_PAGE_SIZE
+        hasMore = page.length >= SUPABASE_PAGE_SIZE
+      }
+
+      console.log('Lançamentos recuperados do banco:', lancamentos.length)
+
+      const colaboradores = colaboradoresAll ?? []
+
+      const rows = exportConsolidadoTreinamento({
+        lancamentos,
+        indicadoresMap,
+        basesMap,
+        colaboradores,
+      })
+
+      console.log('Total de colaboradores únicos identificados:', rows.length)
+
+      if (rows.length === 0) {
+        alert('Nenhum participante encontrado nos lançamentos de treinamento do período.')
+        return
+      }
+
+      const csvContent = convertConsolidadoToCSV(rows)
+      const filename = generateFilename('fechamento_coletivo_treinamento')
+      downloadCSV(csvContent, filename)
+      alert(`Fechamento coletivo exportado! ${rows.length} colaborador(es) no período.`)
+    } catch (error) {
+      console.error('Erro ao exportar consolidado:', error)
+      alert(`Erro ao exportar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setIsExportingConsolidado(false)
     }
   }
 
@@ -387,7 +484,7 @@ export function DataExplorer() {
 
         {/* Botão de Exportação */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-3">
             <Button
               onClick={handleExportCSV}
               disabled={isExporting || !lancamentosData || lancamentosData.total === 0}
@@ -396,11 +493,26 @@ export function DataExplorer() {
               <Download className="h-4 w-4 mr-2" />
               {isExporting ? 'Exportando...' : 'Exportar Resultados (.csv)'}
             </Button>
+            {isTreinamentoSelected && (
+              <Button
+                onClick={handleExportConsolidadoTreinamento}
+                disabled={isExportingConsolidado || !dataInicio || !dataFim}
+                variant="outline"
+                className="w-full border-[#fc4d00] text-[#fc4d00] hover:bg-orange-50 hover:text-[#e04400]"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isExportingConsolidado ? 'Exportando...' : 'Exportar Fechamento Coletivo (Soma Total)'}
+              </Button>
+            )}
             {lancamentosData && (
               <p className="text-sm text-muted-foreground mt-2 text-center">
                 {lancamentosData.total} lançamento(s) encontrado(s)
-                {lancamentosData.total > MAX_EXPORT_ROWS && (
-                  <span className="text-orange-600"> (máximo {MAX_EXPORT_ROWS} linhas na exportação)</span>
+                {lancamentosData.total > (isTreinamentoSelected ? MAX_EXPORT_ROWS_TREINAMENTO : MAX_EXPORT_ROWS) && (
+                  <span className="text-orange-600">
+                    {isTreinamentoSelected
+                      ? ' (Máximo 3000 registros para este indicador)'
+                      : ` (máximo ${MAX_EXPORT_ROWS} linhas na exportação)`}
+                  </span>
                 )}
               </p>
             )}

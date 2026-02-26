@@ -1005,6 +1005,7 @@ Com as otimizações implementadas, o sistema deve suportar:
 - **100k+ registros:** Queries de Analytics devem completar em < 2 segundos com índices adequados.
 - **Intervalo de 12 meses:** Processamento de Analytics deve ser responsivo (< 3 segundos).
 - **Memória do Cliente:** Uso de memória reduzido em ~40% com select parcial e limitação de intervalo.
+- **Exportação e Fechamento Coletivo:** O sistema deve gerenciar buscas de até 3000 registros de forma performática para evitar truncamento de dados (ex.: fechamento coletivo de treinamento para auditoria ANAC).
 
 ### 9.5. Manutenção de Índices
 
@@ -1072,8 +1073,11 @@ Com as otimizações implementadas, o sistema deve suportar:
   - Escape: Valores com vírgulas, aspas ou quebras de linha são escapados corretamente
   - Headers: Primeira linha contém nomes das colunas
 - **Limitações:**
-  - Máximo 1000 registros por exportação (para evitar timeout)
+  - Máximo 1000 registros por exportação (para evitar timeout), exceto para o indicador de Horas de Treinamento Mensal (até 3000)
   - Aviso exibido se total de registros exceder o limite
+- **Limites de Exportação:** O sistema suporta até 1000 registros por padrão, com uma exceção de até 3000 registros exclusiva para o indicador de Horas de Treinamento Mensal, visando suportar auditorias completas da ANAC.
+
+- **Fechamento Coletivo de Treinamento:** Capacidade de gerar um relatório único que processa todos os lançamentos do período, agrupando automaticamente por colaborador e somando a carga horária total para fins de comprovação junto à ANAC. No Explorador de Dados, ao selecionar o indicador de Treinamento (Horas de Treinamento Mensal), exibe-se o botão "Exportar Fechamento Coletivo (Soma Total)", que gera um CSV com: Colaborador, Base (unidade de lotação), Total de Horas Acumuladas, Meta ANAC (16h) (Atingida/Pendente) e Qtd. de Plantões Treinados. Implementado em `src/lib/export-utils.ts` (função `exportConsolidadoTreinamento`) e `src/pages/DataExplorer.tsx`.
 
 **Modal de Visualização:**
 

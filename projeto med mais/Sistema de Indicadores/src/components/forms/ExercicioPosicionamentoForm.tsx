@@ -10,10 +10,10 @@ import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from 
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormShell, FormField } from './FormShell'
 import { BaseFormFields } from './BaseFormFields'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { Plus, Trash2 } from 'lucide-react'
 
 const VIATURAS = [
   'CCI 01',
@@ -169,156 +169,151 @@ export function ExercicioPosicionamentoForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Exercício de Posicionamento</CardTitle>
-        <CardDescription>
-          Lista de aferições de posicionamento (viatura, motorista, local e tempo)
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <BaseFormFields
-            dataReferencia={dataReferencia}
-            onDataChange={(date) => {
-              setDataReferencia(date)
-              setValue('data_referencia', date)
-            }}
-            baseId={finalBaseId}
-            equipeId={watch('equipe_id') ?? finalEquipeId}
-            onBaseIdChange={(baseId) => setValue('base_id', baseId)}
-            onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
-            readOnly={readOnly}
-          />
+    <FormShell
+      title="Exercício de Posicionamento"
+      description="Registro de exercícios de posicionamento"
+      onSubmit={handleSubmit(onSubmit)}
+      isLoading={isLoading}
+      readOnly={readOnly}
+      submitLabel="Salvar Exercício"
+    >
+      <BaseFormFields
+        dataReferencia={dataReferencia}
+        onDataChange={(date) => {
+          setDataReferencia(date)
+          setValue('data_referencia', date)
+        }}
+        baseId={finalBaseId}
+        equipeId={watch('equipe_id') ?? finalEquipeId}
+        onBaseIdChange={(baseId) => setValue('base_id', baseId)}
+        onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
+        readOnly={readOnly}
+      />
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Aferições</Label>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <label className="text-xs font-medium text-muted-foreground">Aferições</label>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append({ viatura: '' as any, motorista: '', local: '', tempo: '' })}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Adicionar Linha
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {fields.map((field, index) => (
+            <div
+              key={field.id}
+              className="relative rounded-lg bg-muted/20 border border-border p-4"
+            >
               {!readOnly && (
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ viatura: '' as any, motorista: '', local: '', tempo: '' })}
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(index)}
+                  className="absolute top-3 right-3 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Remover"
                 >
-                  Adicionar Linha
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-8">
+                <FormField
+                  label="Viatura"
+                  required
+                  error={errors.afericoes?.[index]?.viatura?.message as string | undefined}
+                >
+                  <Controller
+                    name={`afericoes.${index}.viatura`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        disabled={readOnly}
+                        className={readOnly ? 'bg-muted' : ''}
+                      >
+                        <option value="">Selecione</option>
+                        {VIATURAS.map((viatura) => (
+                          <option key={viatura} value={viatura}>
+                            {viatura}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  />
+                </FormField>
 
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md items-start">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Viatura *</Label>
-                    <Controller
-                      name={`afericoes.${index}.viatura`}
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          {...field}
-                          disabled={readOnly}
-                          className={readOnly ? 'bg-muted' : ''}
-                        >
-                          <option value="">Selecione</option>
-                          {VIATURAS.map((viatura) => (
-                            <option key={viatura} value={viatura}>
-                              {viatura}
+                <FormField
+                  label="Motorista (BA-MC)"
+                  required
+                  error={errors.afericoes?.[index]?.motorista?.message as string | undefined}
+                >
+                  <Controller
+                    name={`afericoes.${index}.motorista`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        disabled={readOnly || !finalBaseId}
+                        className={readOnly ? 'bg-muted' : ''}
+                      >
+                        <option value="">Selecione um colaborador</option>
+                        {colaboradores
+                          ?.filter((c) => c.ativo)
+                          .map((colaborador) => (
+                            <option key={colaborador.id} value={colaborador.nome}>
+                              {colaborador.nome}
                             </option>
                           ))}
-                        </Select>
-                      )}
-                    />
-                    {errors.afericoes?.[index]?.viatura && (
-                      <p className="text-xs text-destructive">{errors.afericoes[index]?.viatura?.message}</p>
+                      </Select>
                     )}
-                  </div>
+                  />
+                </FormField>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs">Motorista (BA-MC) *</Label>
-                    <Controller
-                      name={`afericoes.${index}.motorista`}
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          {...field}
-                          disabled={readOnly || !finalBaseId}
-                          className={readOnly ? 'bg-muted' : ''}
-                        >
-                          <option value="">Selecione um colaborador</option>
-                          {colaboradores
-                            ?.filter((c) => c.ativo)
-                            .map((colaborador) => (
-                              <option key={colaborador.id} value={colaborador.nome}>
-                                {colaborador.nome}
-                              </option>
-                            ))}
-                        </Select>
-                      )}
-                    />
-                    {errors.afericoes?.[index]?.motorista && (
-                      <p className="text-xs text-destructive">{errors.afericoes[index]?.motorista?.message}</p>
-                    )}
-                  </div>
+                <FormField
+                  label="Taxway"
+                  required
+                  error={errors.afericoes?.[index]?.local?.message as string | undefined}
+                >
+                  <Input
+                    {...register(`afericoes.${index}.local`)}
+                    disabled={readOnly}
+                    className={readOnly ? 'bg-muted' : ''}
+                  />
+                </FormField>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs">Local *</Label>
-                    <Input
-                      {...register(`afericoes.${index}.local`)}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.afericoes?.[index]?.local && (
-                      <p className="text-xs text-destructive">{errors.afericoes[index]?.local?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tempo (mm:ss, máx 04:59) *</Label>
-                    <Input
-                      placeholder="01:30"
-                      {...register(`afericoes.${index}.tempo`)}
-                      onChange={(e) => {
-                        const formatted = formatTimeMMSS(e.target.value, 4)
-                        setValue(`afericoes.${index}.tempo`, formatted)
-                      }}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.afericoes?.[index]?.tempo && (
-                      <p className="text-xs text-destructive">{errors.afericoes[index]?.tempo?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1 flex items-end">
-                    {!readOnly && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => remove(index)}
-                        className="w-full"
-                      >
-                        Remover
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                <FormField
+                  label="Tempo (mm:ss, máx 04:59)"
+                  required
+                  error={errors.afericoes?.[index]?.tempo?.message as string | undefined}
+                >
+                  <Input
+                    placeholder="01:30"
+                    {...register(`afericoes.${index}.tempo`)}
+                    onChange={(e) => {
+                      const formatted = formatTimeMMSS(e.target.value, 4)
+                      setValue(`afericoes.${index}.tempo`, formatted)
+                    }}
+                    disabled={readOnly}
+                    className={readOnly ? 'bg-muted' : ''}
+                  />
+                </FormField>
+              </div>
             </div>
+          ))}
+        </div>
 
-            {errors.afericoes && (
-              <p className="text-sm text-destructive">{errors.afericoes.message}</p>
-            )}
-          </div>
-
-          {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Exercício de Posicionamento'}
-            </Button>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+        {errors.afericoes && (
+          <p className="text-sm text-destructive">{errors.afericoes.message}</p>
+        )}
+      </div>
+    </FormShell>
   )
 }

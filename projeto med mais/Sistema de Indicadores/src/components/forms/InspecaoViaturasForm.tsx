@@ -3,14 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Plus, Trash2 } from 'lucide-react'
 import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormShell, FormField } from './FormShell'
 import { BaseFormFields } from './BaseFormFields'
 
 const VIATURAS = [
@@ -31,19 +31,40 @@ const VIATURAS = [
 ] as const
 
 const inspecaoSchema = z.object({
-  viatura: z.enum(VIATURAS, {
-    required_error: 'Selecione uma viatura',
-  }),
-  qtd_inspecoes: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
-  qtd_nao_conforme: z.number().min(0, 'Quantidade deve ser maior ou igual a 0'),
+  viatura: z.string().optional().default(''),
+  qtd_inspecoes: z.union([z.number(), z.nan()]).optional(),
+  qtd_nao_conforme: z.union([z.number(), z.nan()]).optional(),
 })
 
-const inspecaoViaturasSchema = z.object({
-  inspecoes: z.array(inspecaoSchema).min(1, 'Adicione pelo menos uma inspeção'),
-  data_referencia: z.string().min(1, 'Data é obrigatória'),
-  base_id: z.string().optional(),
-  equipe_id: z.string().optional(),
-})
+const inspecaoViaturasSchema = z
+  .object({
+    inspecoes: z.array(inspecaoSchema),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      const hasValue = (i: { viatura?: string; qtd_inspecoes?: number; qtd_nao_conforme?: number }) => {
+        const v = String(i.viatura ?? '').trim()
+        const qi = i.qtd_inspecoes
+        const qn = i.qtd_nao_conforme
+        return v !== '' || (typeof qi === 'number' && !Number.isNaN(qi)) || (typeof qn === 'number' && !Number.isNaN(qn))
+      }
+      const isComplete = (i: { viatura?: string; qtd_inspecoes?: number; qtd_nao_conforme?: number }) => {
+        const v = String(i.viatura ?? '').trim()
+        const qi = i.qtd_inspecoes
+        const qn = i.qtd_nao_conforme
+        return v !== '' && typeof qi === 'number' && !Number.isNaN(qi) && qi >= 0 && typeof qn === 'number' && !Number.isNaN(qn) && qn >= 0
+      }
+      for (const row of data.inspecoes) {
+        if (hasValue(row) && !isComplete(row)) return false
+      }
+      const atLeastOneComplete = data.inspecoes.some((i) => isComplete(i))
+      return atLeastOneComplete
+    },
+    { message: 'Preencha a linha por completo (viatura, qtd. inspeções e qtd. não conforme) ou deixe-a em branco. É necessário ao menos uma linha completa.', path: ['inspecoes'] }
+  )
 
 type InspecaoViaturasFormData = z.infer<typeof inspecaoViaturasSchema>
 
@@ -104,7 +125,18 @@ export function InspecaoViaturasForm({
 
   const onSubmit = async (data: InspecaoViaturasFormData) => {
     try {
-      const inspecoesFiltradas = data.inspecoes.filter((i) => i.viatura)
+      const inspecoesFiltradas = data.inspecoes
+        .filter((i) => {
+          const v = String(i.viatura ?? '').trim()
+          const qi = i.qtd_inspecoes
+          const qn = i.qtd_nao_conforme
+          return v !== '' && typeof qi === 'number' && !Number.isNaN(qi) && qi >= 0 && typeof qn === 'number' && !Number.isNaN(qn) && qn >= 0
+        })
+        .map((i) => ({
+          viatura: String(i.viatura).trim(),
+          qtd_inspecoes: Number(i.qtd_inspecoes),
+          qtd_nao_conforme: Number(i.qtd_nao_conforme),
+        }))
 
       const conteudo = {
         inspecoes: inspecoesFiltradas,
@@ -132,128 +164,121 @@ export function InspecaoViaturasForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Inspeção de Viaturas</CardTitle>
-        <CardDescription>
-          Lista de inspeções realizadas nas viaturas
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <BaseFormFields
-            dataReferencia={dataReferencia}
-            onDataChange={(date) => {
-              setDataReferencia(date)
-              setValue('data_referencia', date)
-            }}
-            baseId={finalBaseId}
-            equipeId={watch('equipe_id') ?? finalEquipeId}
-            onBaseIdChange={(baseId) => setValue('base_id', baseId)}
-            onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
-            readOnly={readOnly}
-          />
+    <FormShell
+      title="Inspeção de Viaturas"
+      description="Lista de inspeções realizadas nas viaturas"
+      onSubmit={handleSubmit(onSubmit)}
+      isLoading={isLoading}
+      readOnly={readOnly}
+      submitLabel="Salvar Inspeção"
+    >
+      <BaseFormFields
+        dataReferencia={dataReferencia}
+        onDataChange={(date) => {
+          setDataReferencia(date)
+          setValue('data_referencia', date)
+        }}
+        baseId={finalBaseId}
+        equipeId={watch('equipe_id') ?? finalEquipeId}
+        onBaseIdChange={(baseId) => setValue('base_id', baseId)}
+        onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
+        readOnly={readOnly}
+      />
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>Inspeções</Label>
-              {!readOnly && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ viatura: '' as any, qtd_inspecoes: 0, qtd_nao_conforme: 0 })}
-                >
-                  Adicionar Linha
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border rounded-md">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Viatura *</Label>
-                    <Controller
-                      name={`inspecoes.${index}.viatura`}
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          {...field}
-                          disabled={readOnly}
-                          className={readOnly ? 'bg-muted' : ''}
-                        >
-                          <option value="">Selecione</option>
-                          {VIATURAS.map((viatura) => (
-                            <option key={viatura} value={viatura}>
-                              {viatura}
-                            </option>
-                          ))}
-                        </Select>
-                      )}
-                    />
-                    {errors.inspecoes?.[index]?.viatura && (
-                      <p className="text-xs text-destructive">{errors.inspecoes[index]?.viatura?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Qtd. Inspeções *</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      {...register(`inspecoes.${index}.qtd_inspecoes`, { valueAsNumber: true })}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.inspecoes?.[index]?.qtd_inspecoes && (
-                      <p className="text-xs text-destructive">{errors.inspecoes[index]?.qtd_inspecoes?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Qtd. Não Conforme *</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      {...register(`inspecoes.${index}.qtd_nao_conforme`, { valueAsNumber: true })}
-                      disabled={readOnly}
-                      className={readOnly ? 'bg-muted' : ''}
-                    />
-                    {errors.inspecoes?.[index]?.qtd_nao_conforme && (
-                      <p className="text-xs text-destructive">{errors.inspecoes[index]?.qtd_nao_conforme?.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    {!readOnly && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => remove(index)}
-                        className="mt-6 w-full"
-                      >
-                        Remover
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {errors.inspecoes && (
-              <p className="text-sm text-destructive">{errors.inspecoes.message}</p>
-            )}
-          </div>
-
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Inspeções</h3>
           {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Inspeção de Viaturas'}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append({ viatura: '', qtd_inspecoes: undefined, qtd_nao_conforme: undefined })}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Adicionar Linha
             </Button>
           )}
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="space-y-3">
+          {fields.map((field, index) => (
+            <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 rounded-lg bg-muted/20 border border-border">
+              <FormField
+                label="Viatura"
+                required
+                error={errors.inspecoes?.[index]?.viatura?.message}
+              >
+                <Controller
+                  name={`inspecoes.${index}.viatura`}
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      disabled={readOnly}
+                      className={readOnly ? 'bg-muted' : ''}
+                    >
+                      <option value="">Selecione</option>
+                      {VIATURAS.map((viatura) => (
+                        <option key={viatura} value={viatura}>
+                          {viatura}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
+              </FormField>
+
+              <FormField
+                label="Qtd. Inspeções"
+                required
+                error={errors.inspecoes?.[index]?.qtd_inspecoes?.message}
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  {...register(`inspecoes.${index}.qtd_inspecoes`, { valueAsNumber: true })}
+                  disabled={readOnly}
+                  className={readOnly ? 'bg-muted' : ''}
+                />
+              </FormField>
+
+              <FormField
+                label="Qtd. Não Conforme"
+                required
+                error={errors.inspecoes?.[index]?.qtd_nao_conforme?.message}
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  {...register(`inspecoes.${index}.qtd_nao_conforme`, { valueAsNumber: true })}
+                  disabled={readOnly}
+                  className={readOnly ? 'bg-muted' : ''}
+                />
+              </FormField>
+
+              <div className="flex items-end justify-center">
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 mt-6"
+                    title="Remover"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {errors.inspecoes && (
+          <p className="text-xs text-destructive font-medium">{errors.inspecoes.message}</p>
+        )}
+      </div>
+    </FormShell>
   )
 }

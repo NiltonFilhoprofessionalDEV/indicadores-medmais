@@ -18,7 +18,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      fontSize: {
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
       },
       colors: {
         border: "var(--border)",
@@ -28,7 +31,7 @@ export default {
         foreground: "var(--foreground)",
         primary: {
           DEFAULT: "#EA580C",
-          hover: "#C2410C",
+          hover: "var(--primary-hover)",
           foreground: "var(--primary-foreground)",
         },
         secondary: {
@@ -56,14 +59,18 @@ export default {
           foreground: "var(--card-foreground)",
         },
       },
+      transitionTimingFunction: {
+        'drawer': 'cubic-bezier(0.32, 0.72, 0, 1)',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        soft: "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
-        "glow-primary": "0 0 20px rgba(234, 88, 12, 0.15), 0 0 40px rgba(234, 88, 12, 0.08)",
+        soft: "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)",
+        "soft-md": "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05)",
+        "glow-primary": "0 0 20px rgba(234, 88, 12, 0.12), 0 0 40px rgba(234, 88, 12, 0.06)",
       },
       keyframes: {
         "accordion-down": {

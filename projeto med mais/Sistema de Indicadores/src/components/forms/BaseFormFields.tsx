@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
+import { CalendarDays, Building2, Users } from 'lucide-react'
 
 type Base = Database['public']['Tables']['bases']['Row']
 type Equipe = Database['public']['Tables']['equipes']['Row']
@@ -36,7 +36,6 @@ export function BaseFormFields({
 }: BaseFormFieldsProps) {
   const { authUser } = useAuth()
 
-  // Buscar bases
   const { data: bases } = useQuery<Base[]>({
     queryKey: ['bases'],
     queryFn: async () => {
@@ -46,7 +45,6 @@ export function BaseFormFields({
     },
   })
 
-  // Buscar equipes
   const { data: equipes } = useQuery<Equipe[]>({
     queryKey: ['equipes'],
     queryFn: async () => {
@@ -56,79 +54,67 @@ export function BaseFormFields({
     },
   })
 
-  // Se for chefe ou Líder de Resgate (auxiliar), usar base e equipe do perfil
   const finalBaseId = baseId || authUser?.profile?.base_id || ''
   const finalEquipeId = equipeId || authUser?.profile?.equipe_id || ''
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div className="space-y-2">
-        <Label htmlFor="base">Base</Label>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-lg bg-muted/40 border border-border">
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5" /> Base
+        </label>
         {readOnly ? (
           <Input
-            id="base"
             value={formatBaseName(bases?.find((b) => b.id === finalBaseId)?.nome ?? '')}
             readOnly
-            className="bg-muted py-2.5"
+            className="bg-background"
           />
         ) : (
           <Select
-            id="base"
             value={finalBaseId}
-            onChange={(e) => {
-              onBaseChange?.(e.target.value)
-              onBaseIdChange?.(e.target.value)
-            }}
+            onChange={(e) => { onBaseChange?.(e.target.value); onBaseIdChange?.(e.target.value) }}
             disabled={!!authUser?.profile?.base_id}
-            className="py-2.5"
           >
-            <option value="">Selecione a base</option>
+            <option value="">Selecione</option>
             {bases?.map((base) => (
-              <option key={base.id} value={base.id}>
-                {formatBaseName(base.nome)}
-              </option>
+              <option key={base.id} value={base.id}>{formatBaseName(base.nome)}</option>
             ))}
           </Select>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="equipe">Equipe</Label>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" /> Equipe
+        </label>
         {readOnly ? (
           <Input
-            id="equipe"
             value={equipes?.find((e) => e.id === finalEquipeId)?.nome || ''}
             readOnly
-            className="bg-muted py-2.5"
+            className="bg-background"
           />
         ) : (
           <Select
-            id="equipe"
             value={finalEquipeId}
-            onChange={(e) => {
-              onEquipeChange?.(e.target.value)
-              onEquipeIdChange?.(e.target.value)
-            }}
-            className="py-2.5"
+            onChange={(e) => { onEquipeChange?.(e.target.value); onEquipeIdChange?.(e.target.value) }}
           >
-            <option value="">Selecione a equipe</option>
+            <option value="">Selecione</option>
             {equipes?.map((equipe) => (
-              <option key={equipe.id} value={equipe.id}>
-                {formatEquipeName(equipe.nome)}
-              </option>
+              <option key={equipe.id} value={equipe.id}>{formatEquipeName(equipe.nome)}</option>
             ))}
           </Select>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="data_referencia">Data de Referência</Label>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5" /> Data de Referência
+        </label>
         <DatePicker
-          id="data_referencia"
           value={dataReferencia}
           onChange={onDataChange}
           disabled={readOnly}
-          placeholder="Selecione a data"
+          placeholder="Selecione"
         />
       </div>
     </div>

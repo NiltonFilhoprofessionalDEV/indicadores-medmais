@@ -3,7 +3,10 @@
  */
 
 /**
- * Calcula o status do TAF baseado na idade e tempo
+ * Calcula o status e a nota do TAF baseado na idade e no tempo (mm:ss).
+ * Regras conforme PRD: status em tempo real; nota conforme faixas de tempo por idade.
+ * Regra < 40 anos: <= 2:00 (10), <= 2:20 (9), <= 2:40 (8), <= 3:00 (7), > 3:00 Reprovado.
+ * Regra >= 40 anos: <= 3:00 (10), <= 3:20 (9), <= 3:40 (8), <= 4:00 (7), > 4:00 Reprovado.
  */
 export function calculateTAFStatus(idade: number, tempo: string): { status: string; nota?: number } {
   if (!tempo || !tempo.includes(':')) {
@@ -14,14 +17,12 @@ export function calculateTAFStatus(idade: number, tempo: string): { status: stri
   const totalSeconds = minutes * 60 + seconds
 
   if (idade < 40) {
-    // Regra < 40 anos
     if (totalSeconds <= 120) return { status: 'Aprovado', nota: 10 } // <= 2:00
     if (totalSeconds <= 140) return { status: 'Aprovado', nota: 9 }  // <= 2:20
     if (totalSeconds <= 160) return { status: 'Aprovado', nota: 8 }  // <= 2:40
     if (totalSeconds <= 180) return { status: 'Aprovado', nota: 7 }  // <= 3:00
     return { status: 'Reprovado' } // > 3:00
   } else {
-    // Regra >= 40 anos
     if (totalSeconds <= 180) return { status: 'Aprovado', nota: 10 } // <= 3:00
     if (totalSeconds <= 200) return { status: 'Aprovado', nota: 9 }  // <= 3:20
     if (totalSeconds <= 220) return { status: 'Aprovado', nota: 8 }  // <= 3:40

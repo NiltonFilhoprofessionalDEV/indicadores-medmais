@@ -9,11 +9,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatTimeHHMM, formatTimeMMSS, validateHHMM, validateMMSS } from '@/lib/masks'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormShell, FormSection, FormField } from './FormShell'
 import { BaseFormFields } from './BaseFormFields'
 
 const ocorrenciaAeronauticaSchema = z.object({
@@ -49,7 +47,7 @@ export function OcorrenciaAeronauticaForm({
   const navigate = useNavigate()
   const { saveLancamento, isLoading } = useLancamento()
   const [dataReferencia, setDataReferencia] = useState<string>(
-    initialData?.data_referencia 
+    initialData?.data_referencia
       ? normalizeDateToLocal(initialData.data_referencia as string)
       : getCurrentDateLocal()
   )
@@ -109,8 +107,8 @@ export function OcorrenciaAeronauticaForm({
 
       // CORREÇÃO TIMEZONE: Converter data para formato de armazenamento antes de enviar
       // Se data_referencia já é string YYYY-MM-DD, usar direto. Se for Date, converter.
-      const dataRefFormatted = typeof data.data_referencia === 'string' 
-        ? data.data_referencia 
+      const dataRefFormatted = typeof data.data_referencia === 'string'
+        ? data.data_referencia
         : formatDateForStorage(new Date(data.data_referencia))
 
       await saveLancamento({
@@ -130,30 +128,30 @@ export function OcorrenciaAeronauticaForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ocorrência Aeronáutica</CardTitle>
-        <CardDescription>
-          Preenchido sempre que tiver uma ocorrência
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <BaseFormFields
-            dataReferencia={dataReferencia}
-            onDataChange={(date) => {
-              setDataReferencia(date)
-              setValue('data_referencia', date)
-            }}
-            baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
-            equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
-            onBaseIdChange={(baseId) => setValue('base_id', baseId)}
-            onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
-            readOnly={readOnly}
-          />
+    <FormShell
+      title="Ocorrência Aeronáutica"
+      description="Registro de emergência aeronáutica"
+      onSubmit={handleSubmit(onSubmit)}
+      isLoading={isLoading}
+      readOnly={readOnly}
+      submitLabel="Salvar Ocorrência"
+    >
+      <BaseFormFields
+        dataReferencia={dataReferencia}
+        onDataChange={(date) => {
+          setDataReferencia(date)
+          setValue('data_referencia', date)
+        }}
+        baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
+        equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
+        onBaseIdChange={(baseId) => setValue('base_id', baseId)}
+        onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
+        readOnly={readOnly}
+      />
 
-          <div className="space-y-2">
-            <Label htmlFor="tipo_ocorrencia">Tipo de Ocorrência</Label>
+      <FormSection title="Dados da Ocorrência">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Tipo de Ocorrência">
             <Input
               id="tipo_ocorrencia"
               value="Emergência aeronáutica"
@@ -161,10 +159,9 @@ export function OcorrenciaAeronauticaForm({
               className="bg-muted"
               {...register('tipo_ocorrencia')}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="acao">Ação *</Label>
+          <FormField label="Ação" required error={errors.acao?.message}>
             <Controller
               name="acao"
               control={control}
@@ -181,26 +178,20 @@ export function OcorrenciaAeronauticaForm({
                 </Select>
               )}
             />
-            {errors.acao && (
-              <p className="text-sm text-destructive">{errors.acao.message}</p>
-            )}
-          </div>
+          </FormField>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="local">Local *</Label>
-            <Input
-              id="local"
-              {...register('local')}
-              disabled={readOnly}
-              className={readOnly ? 'bg-muted' : ''}
-            />
-            {errors.local && (
-              <p className="text-sm text-destructive">{errors.local.message}</p>
-            )}
-          </div>
+        <FormField label="Local" required error={errors.local?.message}>
+          <Input
+            id="local"
+            {...register('local')}
+            disabled={readOnly}
+            className={readOnly ? 'bg-muted' : ''}
+          />
+        </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="hora_acionamento">Hora de Acionamento (HH:mm) *</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Hora de Acionamento (HH:mm)" required error={errors.hora_acionamento?.message}>
             <Input
               id="hora_acionamento"
               placeholder="14:00"
@@ -212,13 +203,9 @@ export function OcorrenciaAeronauticaForm({
               disabled={readOnly}
               className={readOnly ? 'bg-muted' : ''}
             />
-            {errors.hora_acionamento && (
-              <p className="text-sm text-destructive">{errors.hora_acionamento.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="tempo_chegada_1_cci">Tempo de Chegada 1ª CCI (mm:ss, máx 59:59) *</Label>
+          <FormField label="Tempo de Chegada 1ª CCI (mm:ss, máx 59:59)" required error={errors.tempo_chegada_1_cci?.message}>
             <Input
               id="tempo_chegada_1_cci"
               placeholder="02:30"
@@ -230,13 +217,9 @@ export function OcorrenciaAeronauticaForm({
               disabled={readOnly}
               className={readOnly ? 'bg-muted' : ''}
             />
-            {errors.tempo_chegada_1_cci && (
-              <p className="text-sm text-destructive">{errors.tempo_chegada_1_cci.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="tempo_chegada_ult_cci">Tempo de Chegada Última CCI (mm:ss, máx 59:59) *</Label>
+          <FormField label="Tempo de Chegada Última CCI (mm:ss, máx 59:59)" required error={errors.tempo_chegada_ult_cci?.message}>
             <Input
               id="tempo_chegada_ult_cci"
               placeholder="05:45"
@@ -248,13 +231,9 @@ export function OcorrenciaAeronauticaForm({
               disabled={readOnly}
               className={readOnly ? 'bg-muted' : ''}
             />
-            {errors.tempo_chegada_ult_cci && (
-              <p className="text-sm text-destructive">{errors.tempo_chegada_ult_cci.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="termino_ocorrencia">Hora do término da ocorrência (HH:mm) *</Label>
+          <FormField label="Hora do término da ocorrência (HH:mm)" required error={errors.termino_ocorrencia?.message}>
             <Input
               id="termino_ocorrencia"
               placeholder="15:30"
@@ -266,18 +245,9 @@ export function OcorrenciaAeronauticaForm({
               disabled={readOnly}
               className={readOnly ? 'bg-muted' : ''}
             />
-            {errors.termino_ocorrencia && (
-              <p className="text-sm text-destructive">{errors.termino_ocorrencia.message}</p>
-            )}
-          </div>
-
-          {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Ocorrência'}
-            </Button>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+          </FormField>
+        </div>
+      </FormSection>
+    </FormShell>
   )
 }

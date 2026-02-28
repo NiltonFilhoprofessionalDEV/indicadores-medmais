@@ -937,9 +937,10 @@ export function processHorasTreinamento(lancamentos: Lancamento[]) {
     const conteudo = lancamento.conteudo as { participantes?: Array<Record<string, unknown>> }
     if (conteudo.participantes && Array.isArray(conteudo.participantes)) {
       conteudo.participantes.forEach((participante) => {
+        const totalDia = (participante.total_dia as string) || (participante.horas as string) || ''
         participantes.push({
           nome: (participante.nome as string) || '',
-          horas: (participante.horas as string) || '',
+          horas: totalDia,
           data_referencia: lancamento.data_referencia,
           equipe_id: lancamento.equipe_id,
         })
@@ -1567,15 +1568,16 @@ export function processControleEstoque(lancamentos: Lancamento[], bases?: Array<
 
       porBase.set(baseId, baseData)
     } else {
-      // Formato 2: Campos diretos
+      // Formato 2: Campos diretos (novo: quantidade_estoque_reserva_tecnica; compatível com _atual)
       const baseId = lancamento.base_id
+      const c = conteudo as Record<string, unknown>
       porBase.set(baseId, {
-        po_quimico_atual: Number(conteudo.po_quimico_atual) || 0,
-        po_quimico_exigido: Number(conteudo.po_quimico_exigido) || 0,
-        lge_atual: Number(conteudo.lge_atual) || 0,
-        lge_exigido: Number(conteudo.lge_exigido) || 0,
-        nitrogenio_atual: Number(conteudo.nitrogenio_atual) || 0,
-        nitrogenio_exigido: Number(conteudo.nitrogenio_exigido) || 0,
+        po_quimico_atual: Number(c.po_quimico_quantidade_estoque_reserva_tecnica ?? c.po_quimico_atual) || 0,
+        po_quimico_exigido: Number(c.po_quimico_exigido) || 0,
+        lge_atual: Number(c.lge_quantidade_estoque_reserva_tecnica ?? c.lge_atual) || 0,
+        lge_exigido: Number(c.lge_exigido) || 0,
+        nitrogenio_atual: Number(c.nitrogenio_quantidade_estoque_reserva_tecnica ?? c.nitrogenio_atual) || 0,
+        nitrogenio_exigido: Number(c.nitrogenio_exigido) || 0,
       })
     }
   })
@@ -1892,7 +1894,7 @@ export function generateExecutiveSummary(
     const conteudo = lancamento.conteudo as { participantes?: Array<Record<string, unknown>> }
     if (conteudo.participantes && Array.isArray(conteudo.participantes)) {
       conteudo.participantes.forEach((participante) => {
-        const horas = (participante.horas as string) || ''
+        const horas = (participante.total_dia as string) || (participante.horas as string) || ''
         if (horas) {
           totalHorasTreinamento += timeToMinutes(horas)
         }
@@ -1903,20 +1905,16 @@ export function generateExecutiveSummary(
   // 4. Alertas Críticos (Bases com estoque crítico OU viatura não conforme)
   const basesComAlerta = new Set<string>()
   
-  // Verificar estoque crítico
+  // Verificar estoque crítico (novo: quantidade_estoque_reserva_tecnica; compatível com _atual)
   estoque.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as {
-      po_quimico_atual?: number
-      po_quimico_exigido?: number
-      lge_atual?: number
-      lge_exigido?: number
-      nitrogenio_atual?: number
-      nitrogenio_exigido?: number
-    }
+    const c = lancamento.conteudo as Record<string, unknown>
+    const poAtual = c.po_quimico_quantidade_estoque_reserva_tecnica ?? c.po_quimico_atual
+    const lgeAtual = c.lge_quantidade_estoque_reserva_tecnica ?? c.lge_atual
+    const nitAtual = c.nitrogenio_quantidade_estoque_reserva_tecnica ?? c.nitrogenio_atual
     if (
-      (conteudo.po_quimico_atual !== undefined && conteudo.po_quimico_exigido !== undefined && conteudo.po_quimico_atual < conteudo.po_quimico_exigido) ||
-      (conteudo.lge_atual !== undefined && conteudo.lge_exigido !== undefined && conteudo.lge_atual < conteudo.lge_exigido) ||
-      (conteudo.nitrogenio_atual !== undefined && conteudo.nitrogenio_exigido !== undefined && conteudo.nitrogenio_atual < conteudo.nitrogenio_exigido)
+      (poAtual !== undefined && c.po_quimico_exigido !== undefined && Number(poAtual) < Number(c.po_quimico_exigido)) ||
+      (lgeAtual !== undefined && c.lge_exigido !== undefined && Number(lgeAtual) < Number(c.lge_exigido)) ||
+      (nitAtual !== undefined && c.nitrogenio_exigido !== undefined && Number(nitAtual) < Number(c.nitrogenio_exigido))
     ) {
       basesComAlerta.add(lancamento.base_id)
     }
@@ -2014,25 +2012,21 @@ export function generateExecutiveSummary(
     pontosAtencao.push({ tipo: 'taf', mensagem: `${qtd} Reprovado${qtd > 1 ? 's' : ''} no TAF`, base })
   })
 
-  // Estoque: Itens críticos por base
+  // Estoque: Itens críticos por base (novo: quantidade_estoque_reserva_tecnica; compatível com _atual)
   estoque.forEach((lancamento) => {
-    const conteudo = lancamento.conteudo as {
-      po_quimico_atual?: number
-      po_quimico_exigido?: number
-      lge_atual?: number
-      lge_exigido?: number
-      nitrogenio_atual?: number
-      nitrogenio_exigido?: number
-    }
+    const c = lancamento.conteudo as Record<string, unknown>
+    const poAtual = c.po_quimico_quantidade_estoque_reserva_tecnica ?? c.po_quimico_atual
+    const lgeAtual = c.lge_quantidade_estoque_reserva_tecnica ?? c.lge_atual
+    const nitAtual = c.nitrogenio_quantidade_estoque_reserva_tecnica ?? c.nitrogenio_atual
     const baseNome = bases.find((b) => b.id === lancamento.base_id)?.nome || lancamento.base_id
-    
-    if (conteudo.po_quimico_atual !== undefined && conteudo.po_quimico_exigido !== undefined && conteudo.po_quimico_atual < conteudo.po_quimico_exigido) {
+
+    if (poAtual !== undefined && c.po_quimico_exigido !== undefined && Number(poAtual) < Number(c.po_quimico_exigido)) {
       pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de Pó Químico Crítico', base: baseNome })
     }
-    if (conteudo.lge_atual !== undefined && conteudo.lge_exigido !== undefined && conteudo.lge_atual < conteudo.lge_exigido) {
+    if (lgeAtual !== undefined && c.lge_exigido !== undefined && Number(lgeAtual) < Number(c.lge_exigido)) {
       pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de LGE Crítico', base: baseNome })
     }
-    if (conteudo.nitrogenio_atual !== undefined && conteudo.nitrogenio_exigido !== undefined && conteudo.nitrogenio_atual < conteudo.nitrogenio_exigido) {
+    if (nitAtual !== undefined && c.nitrogenio_exigido !== undefined && Number(nitAtual) < Number(c.nitrogenio_exigido)) {
       pontosAtencao.push({ tipo: 'estoque', mensagem: 'Estoque de Nitrogênio Crítico', base: baseNome })
     }
   })

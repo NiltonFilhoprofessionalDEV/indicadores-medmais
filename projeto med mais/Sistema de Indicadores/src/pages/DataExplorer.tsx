@@ -10,18 +10,21 @@ import {
   generateFilename,
   buildTreinamentoConsolidadoRows,
   buildTreinamentoConsolidadoCSV,
+  buildTreinamentoGranularRows,
+  buildTreinamentoGranularCSV,
 } from '@/lib/export-utils'
-import { getIndicadorDisplayName } from '@/lib/indicadores-display'
+import { getIndicadorDisplayName, sortIndicadoresPtrBaProximos } from '@/lib/indicadores-display'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
+import { AppShell } from '@/components/AppShell'
+import { FormDrawer } from '@/components/ui/form-drawer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Download, Eye } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Download, Eye } from 'lucide-react'
 import { getDefaultDateRange, validateDateRange, enforceMaxDateRange } from '@/lib/date-utils'
 import {
   OcorrenciaAeronauticaForm,
@@ -30,6 +33,7 @@ import {
   TAFForm,
   ProvaTeoricaForm,
   HorasTreinamentoForm,
+  FormPtrBaExtras,
   InspecaoViaturasForm,
   TempoTPEPRForm,
   TempoRespostaForm,
@@ -52,7 +56,6 @@ const MAX_EXPORT_ROWS = 3000 // Limite para exportação
 
 export function DataExplorer() {
   const { authUser } = useAuth()
-  const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [baseId, setBaseId] = useState<string>('')
   const [equipeId, setEquipeId] = useState<string>('')
@@ -61,6 +64,7 @@ export function DataExplorer() {
   const [dataFim, setDataFim] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
   const [isExportingConsolidado, setIsExportingConsolidado] = useState(false)
+  const [isExportingGranular, setIsExportingGranular] = useState(false)
   const [selectedLancamento, setSelectedLancamento] = useState<Lancamento | null>(null)
   const [selectedIndicador, setSelectedIndicador] = useState<Indicador | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
@@ -73,6 +77,7 @@ export function DataExplorer() {
     taf: TAFForm,
     prova_teorica: ProvaTeoricaForm,
     treinamento: HorasTreinamentoForm,
+    ptr_ba_extras: FormPtrBaExtras,
     inspecao_viaturas: InspecaoViaturasForm,
     tempo_tp_epr: TempoTPEPRForm,
     tempo_resposta: TempoRespostaForm,
@@ -298,6 +303,52 @@ export function DataExplorer() {
     }
   }
 
+  // Exportação granular PTR-BA (uma linha por tema por colaborador)
+  const handleExportGranular = async () => {
+    if (!indicadorId) return
+    const indicador = indicadoresMap.get(indicadorId)
+    if (!indicador || indicador.schema_type !== 'treinamento') return
+
+    setIsExportingGranular(true)
+    try {
+      let exportQuery = supabase
+        .from('lancamentos')
+        .select('*')
+        .eq('indicador_id', indicadorId)
+        .order('data_referencia', { ascending: false })
+        .limit(MAX_EXPORT_ROWS)
+
+      if (baseId) exportQuery = exportQuery.eq('base_id', baseId)
+      if (equipeId) exportQuery = exportQuery.eq('equipe_id', equipeId)
+      if (dataInicio) exportQuery = exportQuery.gte('data_referencia', dataInicio)
+      if (dataFim) exportQuery = exportQuery.lte('data_referencia', dataFim)
+
+      const { data: allLancamentos, error: exportError } = await exportQuery
+
+      if (exportError) {
+        alert(`Erro ao exportar: ${exportError.message}`)
+        return
+      }
+
+      if (!allLancamentos || allLancamentos.length === 0) {
+        alert('Nenhum lançamento de treinamento encontrado para o período e filtros selecionados.')
+        return
+      }
+
+      const rows = buildTreinamentoGranularRows(allLancamentos as Lancamento[], basesMap, equipesMap)
+      const csvContent = buildTreinamentoGranularCSV(rows)
+      const filename = generateFilename('treinamento_detalhado_por_tema')
+      downloadCSV(csvContent, filename)
+
+      alert(`Exportação detalhada concluída! ${rows.length} linha(s) (uma por dia por colaborador; cada tema em uma coluna).`)
+    } catch (error) {
+      console.error('Erro ao exportar detalhado:', error)
+      alert(`Erro ao exportar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setIsExportingGranular(false)
+    }
+  }
+
   const isTreinamentoSelected =
     !!indicadorId && indicadoresMap.get(indicadorId)?.schema_type === 'treinamento'
 
@@ -334,41 +385,7 @@ export function DataExplorer() {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <img 
-                src="/logo-medmais.png" 
-                alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Explorador de Dados</h1>
-                <p className="text-sm text-white/90">
-                  {authUser?.profile?.nome} - {authUser?.profile?.role}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button 
-                onClick={() => navigate('/dashboard-gerente')} 
-                variant="outline" 
-                className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar ao Dashboard
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell title="Explorador de Dados" subtitle={authUser?.profile?.nome}>
         {/* Filtros Globais */}
         <Card className="mb-6">
           <CardHeader>
@@ -407,7 +424,7 @@ export function DataExplorer() {
                 <Label>Indicador</Label>
                 <Select value={indicadorId} onChange={(e) => setIndicadorId(e.target.value)}>
                   <option value="">Todos os Indicadores</option>
-                  {indicadores?.map((indicador) => (
+                  {sortIndicadoresPtrBaProximos(indicadores ?? []).map((indicador) => (
                     <option key={indicador.id} value={indicador.id}>
                       {getIndicadorDisplayName(indicador)}
                     </option>
@@ -453,7 +470,7 @@ export function DataExplorer() {
               <Button
                 onClick={handleExportCSV}
                 disabled={isExporting || !lancamentosData || lancamentosData.total === 0}
-                className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white shadow-orange-sm"
+                className="w-full"
               >
                 <Download className="h-4 w-4 mr-2" />
                 {isExporting ? 'Exportando...' : 'Exportar Resultados (.csv)'}
@@ -463,10 +480,21 @@ export function DataExplorer() {
                   onClick={handleExportFechamentoMensal}
                   disabled={isExportingConsolidado || !lancamentosData || lancamentosData.total === 0}
                   variant="outline"
-                  className="w-full border-[#fc4d00] text-[#fc4d00] hover:bg-orange-50 hover:text-[#e04400]"
+                  className="w-full"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   {isExportingConsolidado ? 'Exportando...' : 'Exportar Fechamento Mensal (Somado)'}
+                </Button>
+              )}
+              {isTreinamentoSelected && (
+                <Button
+                  onClick={handleExportGranular}
+                  disabled={isExportingGranular || !lancamentosData || lancamentosData.total === 0}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExportingGranular ? 'Exportando...' : 'Exportar Detalhado (por Tema e Colaborador)'}
                 </Button>
               )}
             </div>
@@ -546,7 +574,6 @@ export function DataExplorer() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleViewDetails(lancamento)}
-                                className="text-[#fc4d00] hover:text-[#e04400] hover:bg-orange-50"
                               >
                                 <Eye className="h-4 w-4 mr-1" />
                                 Ver Detalhes
@@ -571,7 +598,6 @@ export function DataExplorer() {
                         size="sm"
                         onClick={() => handlePageChange(page - 1)}
                         disabled={page === 1}
-                        className="border-orange-200 text-[#fc4d00] hover:bg-orange-50"
                       >
                         Anterior
                       </Button>
@@ -580,7 +606,6 @@ export function DataExplorer() {
                         size="sm"
                         onClick={() => handlePageChange(page + 1)}
                         disabled={page >= lancamentosData.totalPages}
-                        className="border-orange-200 text-[#fc4d00] hover:bg-orange-50"
                       >
                         Próximo
                       </Button>
@@ -592,63 +617,47 @@ export function DataExplorer() {
           </CardContent>
         </Card>
 
-        {/* Modal: Visualização de Detalhes */}
-        {showViewModal && selectedIndicador && selectedLancamento && FormComponent && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+        {/* Drawer: Visualização de Detalhes */}
+        {selectedIndicador && selectedLancamento && FormComponent && (
+          <FormDrawer
+            open={showViewModal}
+            onClose={() => {
+              setShowViewModal(false)
+              setSelectedLancamento(null)
+              setSelectedIndicador(null)
+            }}
+            title="Visualizar Detalhes"
+            subtitle={selectedIndicador.nome}
           >
-            <Card className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto relative">
-              <CardHeader className="relative">
-                <CardTitle>Visualizar Detalhes - {selectedIndicador.nome}</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowViewModal(false)
-                    setSelectedLancamento(null)
-                    setSelectedIndicador(null)
-                  }}
-                  className="absolute top-4 right-4 z-10"
-                  title="Fechar"
-                >
-                  ✕
-                </Button>
-              </CardHeader>
-              <CardContent className="max-h-[calc(90vh-120px)] overflow-y-auto p-0">
-                <div className="p-6 [&_*]:max-w-none">
-                  <FormComponent
-                    indicadorId={selectedIndicador.id}
-                    onSuccess={() => {
-                      setShowViewModal(false)
-                      setSelectedLancamento(null)
-                      setSelectedIndicador(null)
-                    }}
-                    initialData={{
-                      data_referencia: selectedLancamento.data_referencia,
-                      base_id: selectedLancamento.base_id,
-                      equipe_id: selectedLancamento.equipe_id,
-                      ...(selectedLancamento.conteudo as Record<string, unknown>),
-                    }}
-                    readOnly={true}
-                  />
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      onClick={() => {
-                        setShowViewModal(false)
-                        setSelectedLancamento(null)
-                        setSelectedIndicador(null)
-                      }}
-                      variant="outline"
-                    >
-                      Fechar
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            <FormComponent
+              indicadorId={selectedIndicador.id}
+              onSuccess={() => {
+                setShowViewModal(false)
+                setSelectedLancamento(null)
+                setSelectedIndicador(null)
+              }}
+              initialData={{
+                data_referencia: selectedLancamento.data_referencia,
+                base_id: selectedLancamento.base_id,
+                equipe_id: selectedLancamento.equipe_id,
+                ...(selectedLancamento.conteudo as Record<string, unknown>),
+              }}
+              readOnly={true}
+            />
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={() => {
+                  setShowViewModal(false)
+                  setSelectedLancamento(null)
+                  setSelectedIndicador(null)
+                }}
+                variant="outline"
+              >
+                Fechar
+              </Button>
+            </div>
+          </FormDrawer>
         )}
-      </main>
-    </div>
+    </AppShell>
   )
 }

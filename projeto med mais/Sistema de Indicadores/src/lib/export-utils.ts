@@ -13,6 +13,28 @@ interface FlattenedRow {
   [key: string]: string | number | null | undefined
 }
 
+/**
+ * Formata texto para exportação: primeira letra maiúscula e demais minúsculas.
+ * Não altera strings sem letras (ex.: horários, números, datas).
+ */
+function capitalizeForExport(s: string): string {
+  const t = s.trim()
+  if (!t) return s
+  if (!/[a-zA-ZÀ-ÿ]/.test(t)) return s
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
+}
+
+/** Apenas nomes de viaturas (CCI, CRS, etc.) permanecem como no sistema; demais colunas são formatadas. */
+const COLUNAS_ORIGEM_SISTEMA = new Set(['viatura'])
+
+/** Aplica padrão de texto (1ª maiúscula, restante minúscula) para célula CSV; mantém números/datas/horas. Não altera colunas de origem do sistema. */
+function formatCellForCSV(val: string, columnKey?: string): string {
+  if (!val) return val
+  const t = String(val).trim()
+  if (columnKey && COLUNAS_ORIGEM_SISTEMA.has(columnKey)) return t
+  return t && /[a-zA-ZÀ-ÿ]/.test(t) ? capitalizeForExport(t) : t
+}
+
 /** Converte valor para exportação: string simples (tempos como "02:02") ou número */
 function toExportValue(value: unknown): string | number {
   if (value === null || value === undefined) return ''
@@ -85,11 +107,16 @@ export function flattenLancamento(
           break
         case 'treinamento': {
           row.nome = item.nome ?? ''
-          row.horas = toExportValue(item.horas) as string
-          const temas = conteudo.temas_ptr ?? conteudo.temas
-          row.temas_ptr = Array.isArray(temas) ? (temas as string[]).join(', ') : (temas ? String(temas) : '')
+          const totalDia = item.total_dia ?? item.horas
+          row.horas = toExportValue(totalDia) as string
+          const detalhe = item.detalhamento_temas
+          row.temas_ptr = Array.isArray(detalhe) ? (detalhe as { tema?: string }[]).map((d) => d.tema).filter(Boolean).join(', ') : ''
           break
         }
+        case 'ptr_ba_extras':
+          row.nome = item.nome ?? ''
+          row.horas = toExportValue(item.horas) as string
+          break
         case 'inspecao_viaturas':
           row.viatura = item.viatura ?? ''
           row.qtd_inspecoes = item.qtd_inspecoes != null ? item.qtd_inspecoes : ''
@@ -189,14 +216,23 @@ function flattenConteudo(
       // Tratado no unwinding (afericoes)
       break
 
-    case 'estoque':
-      row.po_quimico_atual = conteudo.po_quimico_atual ?? ''
-      row.po_quimico_exigido = conteudo.po_quimico_exigido ?? ''
-      row.lge_atual = conteudo.lge_atual ?? ''
-      row.lge_exigido = conteudo.lge_exigido ?? ''
-      row.nitrogenio_atual = conteudo.nitrogenio_atual ?? ''
-      row.nitrogenio_exigido = conteudo.nitrogenio_exigido ?? ''
+    case 'estoque': {
+      // Modelo novo: campos "atual" renomeados para quantidade_estoque_reserva_tecnica; compatível com dados antigos (_atual).
+      const poEstoque = conteudo.po_quimico_quantidade_estoque_reserva_tecnica ?? conteudo.po_quimico_atual ?? 0
+      const lgeEstoque = conteudo.lge_quantidade_estoque_reserva_tecnica ?? conteudo.lge_atual ?? 0
+      const nitEstoque = conteudo.nitrogenio_quantidade_estoque_reserva_tecnica ?? conteudo.nitrogenio_atual ?? 0
+      row.po_quimico_quantidade_linha = conteudo.po_quimico_quantidade_linha ?? 0
+      row.po_quimico_cat_aerodromo = conteudo.po_quimico_cat_aerodromo ?? 0
+      row.po_quimico_exigido = conteudo.po_quimico_exigido ?? 0
+      row.po_quimico_quantidade_estoque_reserva_tecnica = poEstoque
+      row.lge_quantidade_linha = conteudo.lge_quantidade_linha ?? 0
+      row.lge_exigido = conteudo.lge_exigido ?? 0
+      row.lge_quantidade_estoque_reserva_tecnica = lgeEstoque
+      row.nitrogenio_quantidade_linha = conteudo.nitrogenio_quantidade_linha ?? 0
+      row.nitrogenio_exigido = conteudo.nitrogenio_exigido ?? 0
+      row.nitrogenio_quantidade_estoque_reserva_tecnica = nitEstoque
       break
+    }
 
     case 'controle_trocas':
       row.qtd_trocas = conteudo.qtd_trocas ?? ''
@@ -235,13 +271,14 @@ export function convertToCSV(rows: FlattenedRow[]): string {
   rows.forEach((row) => Object.keys(row).forEach((key) => allKeys.add(key)))
   const headers = Array.from(allKeys).sort()
 
-  const headerRow = headers.map((key) => escapeCSVValue(String(key))).join(',')
+  const headerRow = headers.map((key) => escapeCSVValue(capitalizeForExport(String(key)))).join(',')
   const dataRows = rows.map((row) =>
     headers
       .map((key) => {
         const value = row[key]
-        const str = value !== null && value !== undefined ? String(value) : ''
-        return escapeCSVValue(str)
+        const str = value !== null && value !== undefined ? String(value).trim() : ''
+        const formatted = formatCellForCSV(str, key)
+        return escapeCSVValue(formatted)
       })
       .join(',')
   )
@@ -365,9 +402,12 @@ export function buildTreinamentoConsolidadoRows(
     if (Number.isNaN(year) || Number.isNaN(month)) continue
 
     for (const p of participantes) {
-      const nome = String(p.nome ?? '').trim()
+      const nome = String((p as any).nome ?? '').trim()
       if (!nome) continue
-      const minutos = hhmmToMinutes(p.horas ?? '')
+      const horasNew = (p as any).total_dia
+      const horasOld = (p as any).horas
+      const minutos = hhmmToMinutes(typeof horasNew === 'string' ? horasNew : typeof horasOld === 'string' ? horasOld : '')
+      if (minutos === 0) continue
 
       const key: Key = `${year}-${String(month).padStart(2, '0')}|${baseName}|${nome}`
 
@@ -419,15 +459,122 @@ export function buildTreinamentoConsolidadoRows(
 export function buildTreinamentoConsolidadoCSV(rows: TreinamentoConsolidadoRow[]): string {
   if (rows.length === 0) return ''
 
-  const headerRow = CONSOLIDATED_HEADERS.map((h) => escapeCSVValue(h)).join(',')
+  const headerRow = CONSOLIDATED_HEADERS.map((h) => escapeCSVValue(capitalizeForExport(h))).join(',')
   const dataRows = rows.map((row) => {
     return [
-      escapeCSVValue(row.dataReferencia),
-      escapeCSVValue(row.base),
-      escapeCSVValue(row.nomeColaborador),
-      escapeCSVValue(row.cargaHorariaTotal),
-      escapeCSVValue(row.statusCompliance),
+      escapeCSVValue(formatCellForCSV(row.dataReferencia)),
+      escapeCSVValue(formatCellForCSV(row.base, 'base')),
+      escapeCSVValue(formatCellForCSV(row.nomeColaborador)),
+      escapeCSVValue(formatCellForCSV(row.cargaHorariaTotal)),
+      escapeCSVValue(formatCellForCSV(row.statusCompliance)),
       String(row.qtdPlantoes),
+    ].join(',')
+  })
+
+  return [headerRow, ...dataRows].join('\n')
+}
+
+// --- Exportação granular PTR-BA (uma linha por dia por colaborador; Tema 1, Tema 2, ... = nome do PTR; Total de horas) ---
+
+export interface TreinamentoGranularRow {
+  data: string
+  base: string
+  equipe: string
+  colaborador: string
+  /** Nomes dos PTRs aplicados no dia, na ordem (Tema 1, Tema 2, ...) */
+  temasNomes: string[]
+  totalDia: string
+}
+
+/** Formata data_referencia YYYY-MM-DD para DD/MM/YYYY */
+function formatDataRef(ref: string): string {
+  if (!ref) return ''
+  const [y, m, d] = ref.split('-')
+  return [d, m, y].filter(Boolean).join('/')
+}
+
+/**
+ * Gera linhas para exportação detalhada por dia e colaborador.
+ * Uma linha por (data, base, equipe, colaborador); temas na ordem do dia (Tema 1 = primeiro PTR, Tema 2 = segundo, ...); total no final.
+ */
+export function buildTreinamentoGranularRows(
+  lancamentos: Lancamento[],
+  basesMap: Map<string, string>,
+  equipesMap: Map<string, string>
+): TreinamentoGranularRow[] {
+  const rows: TreinamentoGranularRow[] = []
+
+  for (const lancamento of lancamentos) {
+    const conteudo = lancamento.conteudo as Record<string, unknown> | null
+    const participantes = Array.isArray(conteudo?.participantes)
+      ? (conteudo.participantes as Array<{ nome?: string; total_dia?: string; horas?: string; detalhamento_temas?: { tema?: string; horas?: string }[] }>)
+      : []
+    const baseName = basesMap.get(lancamento.base_id) ?? lancamento.base_id
+    const equipeName = equipesMap.get(lancamento.equipe_id) ?? lancamento.equipe_id ?? ''
+    const dataStr = formatDataRef(lancamento.data_referencia ?? '')
+
+    for (const p of participantes) {
+      const nome = String(p.nome ?? '').trim()
+      if (!nome) continue
+
+      const totalDia = String(p.total_dia ?? p.horas ?? '00:00')
+      const detalhe = Array.isArray(p.detalhamento_temas) ? p.detalhamento_temas : []
+      const temasNomes: string[] = []
+
+      if (detalhe.length > 0) {
+        for (const dt of detalhe) {
+          const tema = String(dt.tema ?? '').trim() || '—'
+          const horas = String(dt.horas ?? '').trim()
+          if (horas) temasNomes.push(tema)
+        }
+      }
+
+      if (temasNomes.length > 0 || (totalDia && totalDia !== '00:00')) {
+        if (temasNomes.length === 0 && totalDia && totalDia !== '00:00') {
+          temasNomes.push('—')
+        }
+        rows.push({
+          data: dataStr,
+          base: baseName,
+          equipe: equipeName,
+          colaborador: nome,
+          temasNomes,
+          totalDia,
+        })
+      }
+    }
+  }
+
+  rows.sort((a, b) => {
+    const dateCmp = a.data.split('/').reverse().join('').localeCompare(b.data.split('/').reverse().join(''))
+    if (dateCmp !== 0) return dateCmp
+    if (a.base !== b.base) return a.base.localeCompare(b.base)
+    return a.colaborador.localeCompare(b.colaborador)
+  })
+
+  return rows
+}
+
+/**
+ * Gera o conteúdo CSV: Data, Base, Equipe, Colaborador, Tema 1, Tema 2, Tema 3, ... (nome do PTR aplicado no dia), Total de horas.
+ */
+export function buildTreinamentoGranularCSV(rows: TreinamentoGranularRow[]): string {
+  if (rows.length === 0) return ''
+
+  const maxTemas = Math.max(1, ...rows.map((r) => r.temasNomes.length))
+  const temaHeaders = Array.from({ length: maxTemas }, (_, i) => `Tema ${i + 1}`)
+  const headers = ['Data', 'Base', 'Equipe', 'Colaborador', ...temaHeaders, 'Total de horas']
+  const headerRow = headers.map((h) => escapeCSVValue(formatCellForCSV(h))).join(',')
+
+  const dataRows = rows.map((row) => {
+    const temaValores = Array.from({ length: maxTemas }, (_, i) => row.temasNomes[i] ?? '')
+    return [
+      escapeCSVValue(formatCellForCSV(row.data)),
+      escapeCSVValue(formatCellForCSV(row.base, 'base')),
+      escapeCSVValue(formatCellForCSV(row.equipe, 'equipe')),
+      escapeCSVValue(formatCellForCSV(row.colaborador)),
+      ...temaValores.map((v) => escapeCSVValue(formatCellForCSV(v))),
+      escapeCSVValue(row.totalDia),
     ].join(',')
   })
 

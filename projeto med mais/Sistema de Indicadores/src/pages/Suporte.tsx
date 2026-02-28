@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { AppShell } from '@/components/AppShell'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -84,7 +84,6 @@ function getTratativaTipoLabel(value: string | null) {
 
 export function Suporte() {
   const { authUser } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filtroStatus, setFiltroStatus] = React.useState<string>('todos')
   const [feedbackDetalhe, setFeedbackDetalhe] = React.useState<FeedbackWithAuthor | null>(null)
@@ -213,39 +212,7 @@ export function Suporte() {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <img
-                src="/logo-medmais.png"
-                alt="MedMais Logo"
-                className="h-10 w-auto brightness-0 invert"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Suporte / Feedback</h1>
-                <p className="text-sm text-white/90">
-                  Veja os feedbacks enviados pelos usuários e dê as tratativas
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button
-                onClick={() => navigate('/dashboard-gerente')}
-                className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm"
-              >
-                Voltar ao Dashboard
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell title="Suporte / Feedback" subtitle={authUser?.profile?.nome}>
         <Card>
           <CardHeader>
             <CardTitle>Feedbacks dos Usuários</CardTitle>
@@ -464,7 +431,7 @@ export function Suporte() {
         {/* Modal: detalhe do feedback enviado pelo usuário */}
         {feedbackDetalhe && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={() => setFeedbackDetalhe(null)}
           >
             <Card
@@ -541,7 +508,7 @@ export function Suporte() {
                   />
                   <Button
                     type="button"
-                    className="mt-2 w-full bg-[#fc4d00] hover:bg-[#e04400] text-white"
+                    className="mt-2 w-full"
                     disabled={updateRespostaSuporteMutation.isPending}
                     onClick={() =>
                       updateRespostaSuporteMutation.mutate({
@@ -565,7 +532,6 @@ export function Suporte() {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+    </AppShell>
   )
 }

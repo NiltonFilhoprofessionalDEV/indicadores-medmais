@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import type { Database } from '@/lib/database.types'
 import { useLancamentos } from '@/hooks/useLancamentos'
 import { useAuth } from '@/contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { AppShell, type SidebarItem } from '@/components/AppShell'
 import { getDefaultDateRange, validateDateRange, enforceMaxDateRange } from '@/lib/date-utils'
 import {
   processOcorrenciaAeronautica,
@@ -32,7 +32,7 @@ import { DonutChart } from '@/components/charts/DonutChart'
 import { ComposedChart } from '@/components/charts/ComposedChart'
 import { GroupedBarChart } from '@/components/charts/GroupedBarChart'
 import { AnalyticsFilterBar } from '@/components/AnalyticsFilterBar'
-import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown, Menu, X, Monitor, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, Clock, Users, Info, ArrowUpDown } from 'lucide-react'
 import { parseTimeMMSS } from '@/lib/analytics-utils'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
 
@@ -81,7 +81,7 @@ function ProvaTeoricaResultsTable({ avaliados, equipes }: { avaliados: Array<{ n
               <th className="text-left p-2 font-semibold">
                 <button
                   onClick={handleSort}
-                  className="flex items-center gap-1 hover:text-[#fc4d00] transition-colors"
+                  className="flex items-center gap-1 hover:text-primary transition-colors"
                 >
                   Nota
                   <ArrowUpDown className="h-4 w-4" />
@@ -125,7 +125,7 @@ function ProvaTeoricaResultsTable({ avaliados, equipes }: { avaliados: Array<{ n
               size="sm"
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               disabled={page === 1}
-              className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+              className="border-border"
             >
               Anterior
             </Button>
@@ -134,7 +134,7 @@ function ProvaTeoricaResultsTable({ avaliados, equipes }: { avaliados: Array<{ n
               size="sm"
               onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={page >= totalPages}
-              className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+              className="border-border"
             >
               Próximo
             </Button>
@@ -190,7 +190,7 @@ function TafResultsTable({ avaliados }: { avaliados: Array<{ nome: string; idade
               <th className="text-left p-2 font-semibold">
                 <button
                   onClick={handleSort}
-                  className="flex items-center gap-1 hover:text-[#fc4d00] transition-colors"
+                  className="flex items-center gap-1 hover:text-primary transition-colors"
                 >
                   Tempo
                   <ArrowUpDown className="h-4 w-4" />
@@ -237,7 +237,7 @@ function TafResultsTable({ avaliados }: { avaliados: Array<{ nome: string; idade
               size="sm"
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               disabled={page === 1}
-              className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+              className="border-border"
             >
               Anterior
             </Button>
@@ -246,7 +246,7 @@ function TafResultsTable({ avaliados }: { avaliados: Array<{ nome: string; idade
               size="sm"
               onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={page >= totalPages}
-              className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+              className="border-border"
             >
               Próximo
             </Button>
@@ -271,21 +271,6 @@ type ViewType =
   | 'inspecao_viaturas'
   | 'logistica'
 
-const VIEW_ORDER: ViewType[] = [
-  'visao_geral',
-  'ocorrencia_aero',
-  'ocorrencia_nao_aero',
-  'atividades_acessorias',
-  'taf',
-  'prova_teorica',
-  'treinamento',
-  'tempo_tp_epr',
-  'tempo_resposta',
-  'exercicio_posicionamento',
-  'inspecao_viaturas',
-  'logistica',
-]
-
 // Componente de Tooltip com ícone de informação
 function InfoTooltip({ text }: { text: string }) {
   return (
@@ -305,13 +290,7 @@ function InfoTooltip({ text }: { text: string }) {
 
 export function DashboardAnalytics() {
   const { authUser } = useAuth()
-  const navigate = useNavigate()
   const [view, setView] = useState<ViewType>('visao_geral')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isMonitorMode, setIsMonitorMode] = useState(false)
-  const [monitorScale, setMonitorScale] = useState(1)
-  const monitorContainerRef = useRef<HTMLDivElement>(null)
-  const monitorContentRef = useRef<HTMLDivElement>(null)
   const [baseId, setBaseId] = useState<string>('')
   const [equipeId, setEquipeId] = useState<string>('')
   
@@ -333,7 +312,6 @@ export function DashboardAnalytics() {
   const atividadesAcessoriasPageSize = 10
   
   const isChefe = authUser?.profile?.role === 'chefe'
-  const isGerente = authUser?.profile?.role === 'geral'
 
   // Resetar página de pontos de atenção quando os dados mudarem
   useEffect(() => {
@@ -624,386 +602,38 @@ export function DashboardAnalytics() {
   const showTipoOcorrenciaFilter = view === 'ocorrencia_nao_aero'
   const showTipoOcorrenciaAeroFilter = view === 'ocorrencia_aero'
 
-  const setViewAndCloseSidebar = (v: ViewType) => {
-    setView(v)
-    setSidebarOpen(false)
-  }
-
-  const goToPrevDashboard = useCallback(() => {
-    const idx = VIEW_ORDER.indexOf(view)
-    if (idx <= 0) return
-    setView(VIEW_ORDER[idx - 1])
-  }, [view])
-
-  const goToNextDashboard = useCallback(() => {
-    const idx = VIEW_ORDER.indexOf(view)
-    if (idx < 0 || idx >= VIEW_ORDER.length - 1) return
-    setView(VIEW_ORDER[idx + 1])
-  }, [view])
-
   useRealtimeSync()
 
-  const toggleMonitorMode = useCallback(async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen()
-        setIsMonitorMode(true)
-      } else {
-        await document.exitFullscreen()
-        setIsMonitorMode(false)
-      }
-    } catch {
-      setIsMonitorMode(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsMonitorMode(!!document.fullscreenElement)
-    }
-    document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!isMonitorMode) {
-      setMonitorScale(1)
-      return
-    }
-    const container = monitorContainerRef.current
-    const content = monitorContentRef.current
-    if (!container || !content) return
-
-    const run = () => {
-      requestAnimationFrame(() => {
-        const ch = container.clientHeight
-        const cw = container.clientWidth
-        const sh = content.scrollHeight
-        const sw = content.scrollWidth
-        if (sh <= 0 || sw <= 0) {
-          setMonitorScale(1)
-          return
-        }
-        const scaleH = ch / sh
-        const scaleW = cw / sw
-        setMonitorScale(Math.min(1, scaleH, scaleW))
-      })
-    }
-
-    run()
-    const ro = new ResizeObserver(run)
-    ro.observe(container)
-    ro.observe(content)
-    const onResize = () => run()
-    window.addEventListener('resize', onResize)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', onResize)
-    }
-  }, [isMonitorMode, view, processedData, isLoading])
-
-  const baseMonitorLabel = userBaseId && bases?.length
-    ? (formatBaseName(bases.find((b) => b.id === userBaseId)?.nome ?? '') || 'Todas as bases')
-    : 'Todas as bases'
-
-  const MonitorContentWrapper = ({
-    children,
-  }: {
-    children: React.ReactNode
-  }) => {
-    if (isMonitorMode) {
-      return (
-        <div ref={monitorContainerRef} className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col">
-          <div
-            ref={monitorContentRef}
-            style={{ transform: `scale(${monitorScale})`, transformOrigin: 'top left' }}
-            className="absolute top-0 left-0 w-full h-full overflow-hidden"
-          >
-            <div className="w-full h-full max-w-none monitor-mode flex flex-col">{children}</div>
-          </div>
-        </div>
-      )
-    }
-    return <div className="max-w-7xl mx-auto space-y-6">{children}</div>
-  }
+  const analyticsSidebarItems: SidebarItem[] = [
+    { id: 'visao_geral', label: 'Visão Geral', onClick: () => setView('visao_geral') },
+    { id: 'ocorrencia_aero', label: 'Ocorr. Aeronáutica', onClick: () => setView('ocorrencia_aero') },
+    { id: 'ocorrencia_nao_aero', label: 'Ocorr. Não Aeronáutica', onClick: () => setView('ocorrencia_nao_aero') },
+    { id: 'atividades_acessorias', label: 'Atividades Acessórias', onClick: () => setView('atividades_acessorias') },
+    { id: 'taf', label: 'Teste de Aptidão (TAF)', onClick: () => setView('taf') },
+    { id: 'prova_teorica', label: 'Prova Teórica', onClick: () => setView('prova_teorica') },
+    { id: 'treinamento', label: 'PTR-BA - Horas Treinamento', onClick: () => setView('treinamento') },
+    { id: 'tempo_tp_epr', label: 'Exercício TP/EPR', onClick: () => setView('tempo_tp_epr') },
+    { id: 'tempo_resposta', label: 'Exercício Tempo Resposta', onClick: () => setView('tempo_resposta') },
+    { id: 'exercicio_posicionamento', label: 'Exercício Posicionamento', onClick: () => setView('exercicio_posicionamento') },
+    { id: 'inspecao_viaturas', label: 'Inspeção Viaturas', onClick: () => setView('inspecao_viaturas') },
+    { id: 'logistica', label: 'Estoque, EPI & Trocas', onClick: () => setView('logistica') },
+  ]
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col transition-all duration-300 ease-in-out page-transition ${isMonitorMode ? 'h-screen overflow-hidden' : ''}`}>
-      {/* Header - oculto em Modo Monitor */}
-      {!isMonitorMode && (
-        <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex justify-between items-center min-h-[80px] gap-2">
-              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="lg:hidden text-white hover:bg-white/20 shrink-0"
-                  onClick={() => setSidebarOpen(true)}
-                  aria-label="Abrir menu"
-                >
-                  <Menu className="h-6 w-6" />
-                </Button>
-                <img 
-                  src="/logo-medmais.png" 
-                  alt="MedMais Logo" 
-                  className="h-8 sm:h-10 w-auto brightness-0 invert shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-                <div className="min-w-0">
-                  <h1 className="text-lg sm:text-2xl font-bold text-white truncate">Dashboard</h1>
-                  <p className="text-xs sm:text-sm text-white/90 truncate">Analytics e Indicadores</p>
-                </div>
-              </div>
-              <div className="flex gap-1 sm:gap-2 flex-shrink-0 ml-2 sm:ml-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-lg gap-1 sm:gap-2"
-                  onClick={toggleMonitorMode}
-                  aria-label="Modo Monitor"
-                  title="Modo Monitor (tela cheia)"
-                >
-                  <Monitor className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="hidden sm:inline">Modo Monitor</span>
-                </Button>
-                {isChefe && (
-                <Button 
-                  onClick={() => navigate('/dashboard-chefe')} 
-                  variant="outline" 
-                  className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-lg"
-                  style={{ boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.15)' }}
-                >
-                  Voltar ao Dashboard
-                </Button>
-                )}
-                {isGerente && (
-                  <Button 
-                    onClick={() => navigate('/dashboard-gerente')} 
-                    variant="outline" 
-                    className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-lg"
-                    style={{ boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.15)' }}
-                  >
-                    Voltar
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-
-      {/* Backdrop do drawer (apenas mobile) */}
-      {!isMonitorMode && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar: oculta em Modo Monitor; drawer no mobile, fixa no desktop */}
-        {!isMonitorMode && (
-        <aside
-          className={`
-            w-64 bg-[#fc4d00] border-r border-[#fc4d00] p-4 overflow-y-auto shadow-orange-sm
-            fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
-            transform transition-transform duration-200 ease-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          `}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Analytics</h2>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="lg:hidden text-white hover:bg-white/20"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Fechar menu"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        <nav className="space-y-1">
-          <button
-            onClick={() => setViewAndCloseSidebar('visao_geral')}
-            className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-              view === 'visao_geral' 
-                ? 'bg-white text-[#fc4d00] font-semibold' 
-                : 'text-white hover:bg-white/20'
-            }`}
-          >
-            Visão Geral
-          </button>
-
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Ocorrências</p>
-            <button
-              onClick={() => setViewAndCloseSidebar('ocorrencia_aero')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'ocorrencia_aero' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Ocorr. Aeronáutica
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('ocorrencia_nao_aero')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'ocorrencia_nao_aero' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Ocorr. Não Aeronáutica
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('atividades_acessorias')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'atividades_acessorias' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Atividades Acessórias
-            </button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Pessoal & Treino</p>
-            <button
-              onClick={() => setViewAndCloseSidebar('taf')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'taf' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Teste de Aptidão (TAF)
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('prova_teorica')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'prova_teorica' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Prova Teórica
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('treinamento')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'treinamento' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              PTR-BA - Horas treinamento diário
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('tempo_tp_epr')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'tempo_tp_epr' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Exercício TP/EPR
-            </button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Frota</p>
-            <button
-              onClick={() => setViewAndCloseSidebar('tempo_resposta')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'tempo_resposta' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Exercício de Tempo Resposta
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('exercicio_posicionamento')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'exercicio_posicionamento' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Exercício de Posicionamento
-            </button>
-            <button
-              onClick={() => setViewAndCloseSidebar('inspecao_viaturas')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'inspecao_viaturas' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Inspeção Viaturas
-            </button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-xs font-semibold text-white uppercase px-3 mb-2">Logística</p>
-            <button
-              onClick={() => setViewAndCloseSidebar('logistica')}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                view === 'logistica' 
-                  ? 'bg-white text-[#fc4d00] font-semibold' 
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              Estoque, EPI & Trocas
-            </button>
-          </div>
-        </nav>
-      </aside>
-        )}
-
-        {/* Conteúdo Principal */}
-        <main
-          className={
-            isMonitorMode
-              ? 'flex-1 flex flex-col h-screen w-full overflow-hidden p-2 sm:p-4 min-w-0'
-              : 'flex-1 overflow-y-auto min-w-0 p-4 sm:p-6'
-          }
-        >
-          {isMonitorMode && (
-            <div className="shrink-0 z-30 py-2 px-4 bg-[#fc4d00] text-white text-center text-sm sm:text-base font-semibold rounded-md shadow-md flex items-center justify-center gap-4 flex-wrap">
-              <span>📡 MONITORAMENTO EM TEMPO REAL — {baseMonitorLabel}</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="bg-white/20 text-white border-white hover:bg-white hover:text-[#fc4d00] shrink-0"
-                onClick={toggleMonitorMode}
-              >
-                Sair do Modo Monitor
-              </Button>
-            </div>
-          )}
-          <MonitorContentWrapper>
-          <Card className={isMonitorMode ? 'border-0 shadow-lg h-full flex flex-col min-h-0 w-full flex-1' : ''}>
+    <AppShell
+      title="Dashboard Analytics"
+      subtitle={authUser?.profile?.nome}
+      sidebarItems={analyticsSidebarItems}
+      sidebarTitle="Analytics"
+    >
+          <Card>
             <CardHeader>
               <CardTitle>
                 Dashboard{getIndicadorNome() ? ` - ${getIndicadorNome()}` : ''}
               </CardTitle>
             </CardHeader>
-            <CardContent className={isMonitorMode ? 'flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden p-4' : ''}>
-              {/* Barra de Filtros - oculta em Modo Monitor */}
-              {!isMonitorMode && (
-                <AnalyticsFilterBar
+            <CardContent>
+              <AnalyticsFilterBar
                   baseId={baseId}
                   onBaseChange={setBaseId}
                   equipeId={equipeId}
@@ -1024,7 +654,6 @@ export function DashboardAnalytics() {
                   disableBaseFilter={isChefe}
                   onClearFilters={handleClearFilters}
                 />
-              )}
 
               {/* Conteúdo Dinâmico */}
               {isLoading ? (
@@ -1040,7 +669,7 @@ export function DashboardAnalytics() {
                   Nenhum dado encontrado para os filtros selecionados.
                 </div>
               ) : (
-                <div className={isMonitorMode ? 'mt-4 flex-1 flex flex-col min-h-0 min-w-0 overflow-auto w-full space-y-4' : 'mt-6 space-y-6'}>
+                <div className="mt-6 space-y-6">
                   {/* Renderizar conteúdo específico de cada view */}
                   {view === 'ocorrencia_aero' && processedData && (
                     <div className="space-y-6">
@@ -1154,8 +783,6 @@ export function DashboardAnalytics() {
                         </CardContent>
                       </Card>
 
-                      {/* Tabela Detalhada - oculta em Modo Monitor */}
-                      {!isMonitorMode && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Ocorrências Detalhadas</CardTitle>
@@ -1205,7 +832,7 @@ export function DashboardAnalytics() {
                                       size="sm"
                                       onClick={() => setOcorrenciaAeroPage((prev) => Math.max(1, prev - 1))}
                                       disabled={ocorrenciaAeroPage === 1}
-                                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                      className="border-border"
                                     >
                                       Anterior
                                     </Button>
@@ -1214,7 +841,7 @@ export function DashboardAnalytics() {
                                       size="sm"
                                       onClick={() => setOcorrenciaAeroPage((prev) => Math.min(Math.ceil(processedData.listaDetalhada.length / ocorrenciaAeroPageSize), prev + 1))}
                                       disabled={ocorrenciaAeroPage >= Math.ceil(processedData.listaDetalhada.length / ocorrenciaAeroPageSize)}
-                                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                      className="border-border"
                                     >
                                       Próximo
                                     </Button>
@@ -1227,7 +854,6 @@ export function DashboardAnalytics() {
                           )}
                         </CardContent>
                       </Card>
-                      )}
                     </div>
                   )}
 
@@ -1478,8 +1104,6 @@ export function DashboardAnalytics() {
                         </CardContent>
                       </Card>
 
-                      {/* Tabela de Registros - oculta em Modo Monitor */}
-                      {!isMonitorMode && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Registros Detalhados</CardTitle>
@@ -1522,7 +1146,7 @@ export function DashboardAnalytics() {
                                       size="sm"
                                       onClick={() => setAtividadesAcessoriasPage((prev) => Math.max(1, prev - 1))}
                                       disabled={atividadesAcessoriasPage === 1}
-                                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                      className="border-border"
                                     >
                                       Anterior
                                     </Button>
@@ -1531,7 +1155,7 @@ export function DashboardAnalytics() {
                                       size="sm"
                                       onClick={() => setAtividadesAcessoriasPage((prev) => Math.min(Math.ceil(processedData.listaCompleta.length / atividadesAcessoriasPageSize), prev + 1))}
                                       disabled={atividadesAcessoriasPage >= Math.ceil(processedData.listaCompleta.length / atividadesAcessoriasPageSize)}
-                                      className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                      className="border-border"
                                     >
                                       Próximo
                                     </Button>
@@ -1544,7 +1168,6 @@ export function DashboardAnalytics() {
                           )}
                         </CardContent>
                       </Card>
-                      )}
                     </div>
                   )}
 
@@ -1682,8 +1305,6 @@ export function DashboardAnalytics() {
                         </Card>
                       ) : null}
 
-                      {/* Tabela de Resultados - oculta em Modo Monitor */}
-                      {!isMonitorMode && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Resultados Detalhados</CardTitle>
@@ -1696,7 +1317,6 @@ export function DashboardAnalytics() {
                           )}
                         </CardContent>
                       </Card>
-                      )}
                     </div>
                   )}
 
@@ -1831,8 +1451,6 @@ export function DashboardAnalytics() {
                         ) : null}
                       </div>
 
-                      {/* Tabela Detalhada - oculta em Modo Monitor */}
-                      {!isMonitorMode && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Resultados Detalhados</CardTitle>
@@ -1845,7 +1463,6 @@ export function DashboardAnalytics() {
                           )}
                         </CardContent>
                       </Card>
-                      )}
                     </div>
                   )}
 
@@ -2673,244 +2290,7 @@ export function DashboardAnalytics() {
                   )}
 
                   {view === 'visao_geral' && processedData && (
-                    isMonitorMode ? (
-                      <div className="grid grid-cols-2 grid-rows-2 gap-2 h-full min-h-0 overflow-hidden">
-                        {/* Quadrante 1: KPIs */}
-                        <div className="min-h-0 overflow-auto">
-                          <div className="grid grid-cols-2 gap-2">
-                        {/* Volume Operacional */}
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <div className="flex items-center gap-2">
-                              <CardTitle className="text-sm font-medium text-gray-600">Volume Operacional</CardTitle>
-                              <InfoTooltip text="Soma total de ocorrências (Aeronáuticas + Não Aeronáuticas) no período filtrado. Compara com o período anterior (30 dias) mostrando a porcentagem de crescimento." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-3xl font-bold">{processedData.kpis?.volumeOperacional?.valor ?? 0}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {(processedData.kpis?.volumeOperacional?.crescimento ?? 0) >= 0 ? (
-                                <TrendingUp className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <TrendingDown className="h-4 w-4 text-red-600" />
-                              )}
-                              <span className={`text-sm ${(processedData.kpis?.volumeOperacional?.crescimento ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {(processedData.kpis?.volumeOperacional?.crescimento ?? 0) >= 0 ? '+' : ''}
-                                {(processedData.kpis?.volumeOperacional?.crescimento ?? 0).toFixed(1)}%
-                              </span>
-                              <span className="text-xs text-gray-500">vs período anterior</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Agilidade */}
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <div className="flex items-center gap-2">
-                              <CardTitle className="text-sm font-medium text-gray-600">Agilidade</CardTitle>
-                              <InfoTooltip text="Valor referência global dos tempos de resposta de todas as equipes. Verde indica meta atingida (< 3 minutos), amarelo indica atenção necessária (≥ 3 minutos)." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center gap-2">
-                              <Clock className={`h-5 w-5 ${(processedData.kpis?.agilidade?.cor ?? 'yellow') === 'green' ? 'text-green-600' : 'text-yellow-600'}`} />
-                              <div className="text-3xl font-bold">{processedData.kpis?.agilidade?.tempoMedio ?? '00:00'}</div>
-                            </div>
-                            <div className="mt-2">
-                              <span className={`text-sm px-2 py-1 rounded ${(processedData.kpis?.agilidade?.cor ?? 'yellow') === 'green' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                {(processedData.kpis?.agilidade?.tempoMedioMinutos ?? 0) < 3 ? 'Meta atingida' : 'Atenção necessária'}
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Força de Trabalho */}
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <div className="flex items-center gap-2">
-                              <CardTitle className="text-sm font-medium text-gray-600">Força de Trabalho</CardTitle>
-                              <InfoTooltip text="Soma total de horas de treinamento realizadas por todos os colaboradores no período filtrado. Indica o investimento em capacitação da equipe." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center gap-2">
-                              <Users className="h-5 w-5 text-blue-600" />
-                              <div className="text-3xl font-bold">{processedData.kpis?.forcaTrabalho?.totalHoras ?? '00:00'}</div>
-                            </div>
-                            <div className="mt-2 text-xs text-gray-500">Total de horas de treinamento</div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Alertas Críticos */}
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <div className="flex items-center gap-2">
-                              <CardTitle className="text-sm font-medium text-gray-600">Alertas Críticos</CardTitle>
-                              <InfoTooltip text="Contagem de bases que possuem ao menos 1 item de estoque abaixo do exigido (Pó Químico, LGE ou Nitrogênio) OU 1 viatura não conforme. Identifica pontos que requerem atenção imediata." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center gap-2">
-                              {(processedData.kpis?.alertasCriticos?.total ?? 0) > 0 ? (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
-                              ) : (
-                                <div className="h-5 w-5 rounded-full bg-green-500" />
-                              )}
-                              <div className={`text-3xl font-bold ${(processedData.kpis?.alertasCriticos?.total ?? 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {processedData.kpis?.alertasCriticos?.total ?? 0}
-                              </div>
-                            </div>
-                            <div className="mt-2 text-xs text-gray-500">
-                              {(processedData.kpis?.alertasCriticos?.total ?? 0) > 0 
-                                ? `${processedData.kpis.alertasCriticos.total} base${processedData.kpis.alertasCriticos.total > 1 ? 's' : ''} com alertas`
-                                : 'Nenhum alerta crítico'}
-                            </div>
-                          </CardContent>
-                        </Card>
-                          </div>
-                        </div>
-                        {/* Quadrante 2: Gráfico Composed */}
-                        <div className="min-h-0 overflow-auto">
-                      {processedData?.graficoComposed && Array.isArray(processedData.graficoComposed) && processedData.graficoComposed.length > 0 ? (
-                        <Card>
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <CardTitle>Volume Operacional vs Agilidade de Resposta</CardTitle>
-                              <InfoTooltip text="Gráfico combinado que cruza demanda (barras laranjas = ocorrências por mês) com eficiência (linha verde = agilidade de resposta). Permite identificar correlações entre volume de trabalho e agilidade operacional." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <ComposedChart
-                              data={processedData.graficoComposed.map((item: any) => ({
-                                ...item,
-                                ocorrencias: item.ocorrencias || 0,
-                                tempoMedio: item.tempoMedioSegundos || 0,
-                              }))}
-                              barDataKey="ocorrencias"
-                              lineDataKey="tempoMedio"
-                              xKey="mes"
-                              barName="Ocorrências"
-                              lineName="Agilidade"
-                              barColor="#fc4d00"
-                              lineColor="#22c55e"
-                              lineYAxisFormatter={(value: any) => {
-                                const mins = Math.floor(value / 60)
-                                const secs = Math.floor(value % 60)
-                                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
-                      ) : (
-                        <Card>
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <CardTitle>Volume Operacional vs Agilidade de Resposta</CardTitle>
-                              <InfoTooltip text="Gráfico combinado que cruza demanda (barras laranjas = ocorrências por mês) com eficiência (linha verde = agilidade de resposta). Permite identificar correlações entre volume de trabalho e agilidade operacional." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-center py-8 text-gray-500">Nenhum dado disponível para o período selecionado</div>
-                          </CardContent>
-                        </Card>
-                      )}
-                        </div>
-                        {/* Quadrante 3: Ranking */}
-                        <div className="min-h-0 overflow-auto">
-                        <Card>
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <CardTitle>Ranking de Atividade (Top 5 Bases)</CardTitle>
-                              <InfoTooltip text="Mostra as 5 bases com maior volume de ocorrências acumuladas no período filtrado. Útil para identificar bases mais ativas e distribuição de demanda operacional." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            {processedData?.rankingBases && Array.isArray(processedData.rankingBases) && processedData.rankingBases.length > 0 ? (
-                              <BarChart
-                                data={processedData.rankingBases}
-                                dataKey="qtd"
-                                xKey="base"
-                                name="Ocorrências"
-                                color="#fc4d00"
-                                layout="horizontal"
-                              />
-                            ) : (
-                              <div className="text-center py-8 text-gray-500">Nenhum dado disponível</div>
-                            )}
-                          </CardContent>
-                        </Card>
-                        </div>
-                        {/* Quadrante 4: Pontos de Atenção */}
-                        <div className="min-h-0 overflow-auto">
-                        <Card>
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <CardTitle>Pontos de Atenção</CardTitle>
-                              <InfoTooltip text="Lista automática de alertas críticos gerados pelo sistema: reprovações no TAF, estoques críticos (abaixo do exigido) e viaturas não conformes." />
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            {processedData?.pontosAtencao && Array.isArray(processedData.pontosAtencao) && processedData.pontosAtencao.length > 0 ? (
-                              <>
-                                <div className="space-y-3">
-                                  {processedData.pontosAtencao
-                                    .slice((pontosAtencaoPage - 1) * pontosAtencaoPageSize, pontosAtencaoPage * pontosAtencaoPageSize)
-                                    .map((alerta: any, index: number) => (
-                                    <div
-                                      key={index}
-                                      className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg"
-                                    >
-                                      <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                      <div className="flex-1">
-                                        <div className="font-semibold text-red-900">{alerta.base}</div>
-                                        <div className="text-sm text-red-700">{alerta.mensagem}</div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                {processedData.pontosAtencao.length > pontosAtencaoPageSize && (
-                                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                                    <div className="text-sm text-gray-600">
-                                      Página {pontosAtencaoPage} de {Math.ceil(processedData.pontosAtencao.length / pontosAtencaoPageSize)} ({processedData.pontosAtencao.length} alertas)
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setPontosAtencaoPage((prev) => Math.max(1, prev - 1))}
-                                        disabled={pontosAtencaoPage === 1}
-                                        className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
-                                      >
-                                        Anterior
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setPontosAtencaoPage((prev) => Math.min(Math.ceil(processedData.pontosAtencao.length / pontosAtencaoPageSize), prev + 1))}
-                                        disabled={pontosAtencaoPage >= Math.ceil(processedData.pontosAtencao.length / pontosAtencaoPageSize)}
-                                        className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
-                                      >
-                                        Próximo
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <div className="text-center py-8 text-gray-500">
-                                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-                                  <div className="h-6 w-6 rounded-full bg-green-500" />
-                                </div>
-                                Nenhum ponto de atenção identificado
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                    ) : (
-                      /* Layout normal da Visão Geral (fora do Modo Monitor) */
-                      <div className="space-y-6">
+                    <div className="space-y-6">
                         {/* KPIs */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <Card>
@@ -3101,7 +2481,7 @@ export function DashboardAnalytics() {
                                           size="sm"
                                           onClick={() => setPontosAtencaoPage((prev) => Math.max(1, prev - 1))}
                                           disabled={pontosAtencaoPage === 1}
-                                          className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                          className="border-border"
                                         >
                                           Anterior
                                         </Button>
@@ -3110,7 +2490,7 @@ export function DashboardAnalytics() {
                                           size="sm"
                                           onClick={() => setPontosAtencaoPage((prev) => Math.min(Math.ceil(processedData.pontosAtencao.length / pontosAtencaoPageSize), prev + 1))}
                                           disabled={pontosAtencaoPage >= Math.ceil(processedData.pontosAtencao.length / pontosAtencaoPageSize)}
-                                          className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-[#fc4d00]"
+                                          className="border-border"
                                         >
                                           Próximo
                                         </Button>
@@ -3130,36 +2510,11 @@ export function DashboardAnalytics() {
                           </Card>
                         </div>
                       </div>
-                    ) )}
+                    )}
                 </div>
               )}
             </CardContent>
           </Card>
-          </MonitorContentWrapper>
-        </main>
-
-        {/* Botões laterais para trocar de dashboard (apenas Modo Monitor) */}
-        {isMonitorMode && (
-          <>
-            <button
-              type="button"
-              onClick={goToPrevDashboard}
-              className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-12 h-24 flex items-center justify-center rounded-r-lg bg-white/5 text-white/30 hover:bg-[#fc4d00] hover:text-white transition-all duration-200 border border-transparent hover:border-[#fc4d00]"
-              aria-label="Dashboard anterior"
-            >
-              <ChevronLeft className="h-8 w-8" />
-            </button>
-            <button
-              type="button"
-              onClick={goToNextDashboard}
-              className="fixed right-0 top-1/2 -translate-y-1/2 z-50 w-12 h-24 flex items-center justify-center rounded-l-lg bg-white/5 text-white/30 hover:bg-[#fc4d00] hover:text-white transition-all duration-200 border border-transparent hover:border-[#fc4d00]"
-              aria-label="Próximo dashboard"
-            >
-              <ChevronRight className="h-8 w-8" />
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    </AppShell>
   )
 }

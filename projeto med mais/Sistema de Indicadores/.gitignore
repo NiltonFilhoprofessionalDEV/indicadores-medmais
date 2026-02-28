@@ -49,3 +49,6 @@ testsprite_tests/tmp/raw_report.md
 testsprite_tests/tmp/test_results.json
 # Opcional: se usar arquivo local com Service Role Key
 testsprite_tests/backend_config.local.py
+
+# Supabase local
+supabase/.temp

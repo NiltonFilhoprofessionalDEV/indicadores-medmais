@@ -149,8 +149,9 @@ export function useLancamento() {
       )
     },
     onSuccess: () => {
-      // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['lancamentos'] })
+      queryClient.invalidateQueries({ queryKey: ['stats-mes-atual'] })
+      queryClient.invalidateQueries({ queryKey: ['stats-mes-anterior'] })
     },
   })
 

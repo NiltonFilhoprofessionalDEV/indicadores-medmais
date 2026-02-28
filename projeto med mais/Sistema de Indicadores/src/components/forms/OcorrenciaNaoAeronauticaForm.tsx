@@ -7,11 +7,9 @@ import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatTimeHHMM, validateHHMM, calculateTimeDifference } from '@/lib/masks'
 import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormShell, FormField } from './FormShell'
 import { BaseFormFields } from './BaseFormFields'
 
 const TIPOS_OCORRENCIA = [
@@ -164,156 +162,138 @@ export function OcorrenciaNaoAeronauticaForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ocorrência Não Aeronáutica</CardTitle>
-        <CardDescription>
-          Preenchido sempre que tiver uma ocorrência.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <BaseFormFields
-            dataReferencia={dataReferencia}
-            onDataChange={(date) => {
-              setDataReferencia(date)
-              setValue('data_referencia', date)
-            }}
-            baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
-            equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
-            onBaseIdChange={(baseId) => setValue('base_id', baseId)}
-            onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
-            readOnly={readOnly}
-          />
+    <FormShell
+      title="Ocorrência Não Aeronáutica"
+      description="Preenchido sempre que tiver uma ocorrência."
+      onSubmit={handleSubmit(onSubmit)}
+      isLoading={isLoading}
+      readOnly={readOnly}
+      submitLabel="Salvar Ocorrência"
+    >
+      <BaseFormFields
+        dataReferencia={dataReferencia}
+        onDataChange={(date) => {
+          setDataReferencia(date)
+          setValue('data_referencia', date)
+        }}
+        baseId={watch('base_id') ?? initialData?.base_id as string | undefined}
+        equipeId={watch('equipe_id') ?? initialData?.equipe_id as string | undefined}
+        onBaseIdChange={(baseId) => setValue('base_id', baseId)}
+        onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
+        readOnly={readOnly}
+      />
 
-          <div className="space-y-2">
-            <Label htmlFor="tipo_ocorrencia">Tipo de Ocorrência *</Label>
-            <Controller
-              name="tipo_ocorrencia"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  id="tipo_ocorrencia"
-                  {...field}
-                  disabled={readOnly}
-                  className={readOnly ? 'bg-muted' : ''}
-                >
-                  <option value="">Selecione o tipo de ocorrência</option>
-                  {TIPOS_OCORRENCIA.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            />
-            {errors.tipo_ocorrencia && (
-              <p className="text-sm text-destructive">{errors.tipo_ocorrencia.message}</p>
-            )}
-          </div>
-
-          {isOutras && (
-            <div className="space-y-2">
-              <Label htmlFor="especificacao_outras">Especifique o tipo de ocorrência *</Label>
-              <Input
-                id="especificacao_outras"
-                {...register('especificacao_outras')}
-                placeholder="Ex.: Resgate em área de difícil acesso"
-                disabled={readOnly}
-                className={readOnly ? 'bg-muted' : ''}
-              />
-              {errors.especificacao_outras && (
-                <p className="text-sm text-destructive">{errors.especificacao_outras.message}</p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="local">Local *</Label>
-            <Input
-              id="local"
-              {...register('local')}
+      <FormField label="Tipo de Ocorrência" required error={errors.tipo_ocorrencia?.message}>
+        <Controller
+          name="tipo_ocorrencia"
+          control={control}
+          render={({ field }) => (
+            <Select
+              id="tipo_ocorrencia"
+              {...field}
               disabled={readOnly}
               className={readOnly ? 'bg-muted' : ''}
-            />
-            {errors.local && (
-              <p className="text-sm text-destructive">{errors.local.message}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="hora_acionamento">Hora de Acionamento (HH:mm) *</Label>
-              <Input
-                id="hora_acionamento"
-                placeholder="14:00"
-                {...register('hora_acionamento')}
-                onChange={(e) => {
-                  const formatted = formatTimeHHMM(e.target.value)
-                  setValue('hora_acionamento', formatted)
-                }}
-                disabled={readOnly}
-                className={readOnly ? 'bg-muted' : ''}
-              />
-              {errors.hora_acionamento && (
-                <p className="text-sm text-destructive">{errors.hora_acionamento.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="hora_chegada">Hora de Chegada (HH:mm) *</Label>
-              <Input
-                id="hora_chegada"
-                placeholder="14:15"
-                {...register('hora_chegada')}
-                onChange={(e) => {
-                  const formatted = formatTimeHHMM(e.target.value)
-                  setValue('hora_chegada', formatted)
-                }}
-                disabled={readOnly}
-                className={readOnly ? 'bg-muted' : ''}
-              />
-              {errors.hora_chegada && (
-                <p className="text-sm text-destructive">{errors.hora_chegada.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="hora_termino">Hora de Término (HH:mm) *</Label>
-              <Input
-                id="hora_termino"
-                placeholder="15:30"
-                {...register('hora_termino')}
-                onChange={(e) => {
-                  const formatted = formatTimeHHMM(e.target.value)
-                  setValue('hora_termino', formatted)
-                }}
-                disabled={readOnly}
-                className={readOnly ? 'bg-muted' : ''}
-              />
-              {errors.hora_termino && (
-                <p className="text-sm text-destructive">{errors.hora_termino.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="duracao_total">Duração Total (HH:mm)</Label>
-            <Input
-              id="duracao_total"
-              value={watch('duracao_total') || ''}
-              readOnly
-              className="bg-muted"
-            />
-          </div>
-
-          {!readOnly && (
-            <Button type="submit" disabled={isLoading} className="w-full bg-[#fc4d00] hover:bg-[#e04400] text-white">
-              {isLoading ? 'Salvando...' : 'Salvar Ocorrência'}
-            </Button>
+            >
+              <option value="">Selecione o tipo de ocorrência</option>
+              {TIPOS_OCORRENCIA.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </Select>
           )}
-        </form>
-      </CardContent>
-    </Card>
+        />
+      </FormField>
+
+      {isOutras && (
+        <FormField
+          label="Especifique o tipo de ocorrência"
+          required
+          error={errors.especificacao_outras?.message}
+        >
+          <Input
+            id="especificacao_outras"
+            {...register('especificacao_outras')}
+            placeholder="Ex.: Resgate em área de difícil acesso"
+            disabled={readOnly}
+            className={readOnly ? 'bg-muted' : ''}
+          />
+        </FormField>
+      )}
+
+      <FormField label="Local" required error={errors.local?.message}>
+        <Input
+          id="local"
+          {...register('local')}
+          disabled={readOnly}
+          className={readOnly ? 'bg-muted' : ''}
+        />
+      </FormField>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          label="Hora de Acionamento (HH:mm)"
+          required
+          error={errors.hora_acionamento?.message}
+        >
+          <Input
+            id="hora_acionamento"
+            placeholder="14:00"
+            {...register('hora_acionamento')}
+            onChange={(e) => {
+              const formatted = formatTimeHHMM(e.target.value)
+              setValue('hora_acionamento', formatted)
+            }}
+            disabled={readOnly}
+            className={readOnly ? 'bg-muted' : ''}
+          />
+        </FormField>
+
+        <FormField
+          label="Hora de Chegada (HH:mm)"
+          required
+          error={errors.hora_chegada?.message}
+        >
+          <Input
+            id="hora_chegada"
+            placeholder="14:15"
+            {...register('hora_chegada')}
+            onChange={(e) => {
+              const formatted = formatTimeHHMM(e.target.value)
+              setValue('hora_chegada', formatted)
+            }}
+            disabled={readOnly}
+            className={readOnly ? 'bg-muted' : ''}
+          />
+        </FormField>
+
+        <FormField
+          label="Hora de Término (HH:mm)"
+          required
+          error={errors.hora_termino?.message}
+        >
+          <Input
+            id="hora_termino"
+            placeholder="15:30"
+            {...register('hora_termino')}
+            onChange={(e) => {
+              const formatted = formatTimeHHMM(e.target.value)
+              setValue('hora_termino', formatted)
+            }}
+            disabled={readOnly}
+            className={readOnly ? 'bg-muted' : ''}
+          />
+        </FormField>
+      </div>
+
+      <FormField label="Duração Total (HH:mm)">
+        <Input
+          id="duracao_total"
+          value={watch('duracao_total') || ''}
+          readOnly
+          className="bg-muted"
+        />
+      </FormField>
+    </FormShell>
   )
 }

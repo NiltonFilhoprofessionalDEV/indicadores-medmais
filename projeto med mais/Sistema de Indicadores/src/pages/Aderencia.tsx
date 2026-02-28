@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
+import { AppShell } from '@/components/AppShell'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,7 +32,6 @@ interface BaseComplianceStatus {
 
 export function Aderencia() {
   const { authUser } = useAuth()
-  const navigate = useNavigate()
   
   // Estado para filtro de mês/ano
   const [mesAno, setMesAno] = useState<string>(() => {
@@ -284,36 +282,7 @@ export function Aderencia() {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border transition-colors duration-300 shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <img 
-                src="/logo-medmais.png" 
-                alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Monitoramento de Aderência</h1>
-                <p className="text-sm text-white/90">
-                  {authUser?.profile?.nome} - {authUser?.profile?.role}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button onClick={() => navigate('/dashboard-gerente')} className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm">
-                Voltar
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell title="Monitoramento de Aderência" subtitle={authUser?.profile?.nome}>
         {/* Filtro de Mês/Ano */}
         <Card className="mb-6">
           <CardHeader>
@@ -553,7 +522,6 @@ export function Aderencia() {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+    </AppShell>
   )
 }

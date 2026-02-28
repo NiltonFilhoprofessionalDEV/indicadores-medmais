@@ -19,6 +19,7 @@ export function getIndicatorBadgeVariant(
     case 'taf':
     case 'prova_teorica':
     case 'treinamento':
+    case 'ptr_ba_extras':
     case 'tempo_tp_epr':
       return 'default' // Azul/Preto para avaliações
     case 'tempo_resposta':
@@ -76,16 +77,27 @@ export function getResumoLancamento(
       return 'Prova Teórica registrada'
 
     case 'treinamento':
-      // Contar colaboradores ou horas
-      if (Array.isArray(conteudo.colaboradores)) {
-        const count = conteudo.colaboradores.length
-        const horas = conteudo.colaboradores.reduce(
-          (sum: number, c: any) => sum + (Number(c.horas) || 0),
-          0
-        )
+      if (Array.isArray(conteudo.participantes)) {
+        const count = conteudo.participantes.length
+        const totalMin = conteudo.participantes.reduce((sum: number, p: any) => {
+          const h = p.total_dia || p.horas
+          if (typeof h === 'string' && /^\d{1,2}:\d{2}$/.test(h)) {
+            const [hh, mm] = h.split(':').map(Number)
+            return sum + (hh || 0) * 60 + (mm || 0)
+          }
+          return sum
+        }, 0)
+        const horas = Math.floor(totalMin / 60)
         return `${count} ${count === 1 ? 'colaborador' : 'colaboradores'} - ${horas}h`
       }
       return 'Treinamento registrado'
+
+    case 'ptr_ba_extras':
+      if (Array.isArray(conteudo.participantes)) {
+        const count = conteudo.participantes.length
+        return `${count} ${count === 1 ? 'colaborador' : 'colaboradores'}`
+      }
+      return 'PTR-BA Extras registrado'
 
     case 'tempo_tp_epr':
       // Contar colaboradores
@@ -126,16 +138,23 @@ export function getResumoLancamento(
       }
       return 'Controle EPI registrado'
 
-    case 'estoque':
-      // Listar itens principais
+    case 'estoque': {
+      const poEstoque = conteudo.po_quimico_quantidade_estoque_reserva_tecnica ?? conteudo.po_quimico_atual
+      const lgeEstoque = conteudo.lge_quantidade_estoque_reserva_tecnica ?? conteudo.lge_atual
+      const nitEstoque = conteudo.nitrogenio_quantidade_estoque_reserva_tecnica ?? conteudo.nitrogenio_atual
       const itens: string[] = []
-      if (conteudo.po_quimico) itens.push(`Pó Químico: ${conteudo.po_quimico}kg`)
-      if (conteudo.espuma) itens.push(`Espuma: ${conteudo.espuma}L`)
-      if (conteudo.agua) itens.push(`Água: ${conteudo.agua}L`)
-      if (itens.length > 0) {
-        return itens.slice(0, 2).join(', ')
+      if (poEstoque != null || conteudo.po_quimico_exigido != null) {
+        itens.push(`Pó Químico: ${poEstoque ?? 0}/${conteudo.po_quimico_exigido ?? 0} kg`)
       }
+      if (lgeEstoque != null || conteudo.lge_exigido != null) {
+        itens.push(`LGE: ${lgeEstoque ?? 0}/${conteudo.lge_exigido ?? 0} L`)
+      }
+      if (nitEstoque != null || conteudo.nitrogenio_exigido != null) {
+        itens.push(`Nitrogênio: ${nitEstoque ?? 0}/${conteudo.nitrogenio_exigido ?? 0}`)
+      }
+      if (itens.length > 0) return itens.slice(0, 3).join(', ')
       return 'Estoque registrado'
+    }
 
     case 'controle_trocas':
       // Quantidade de trocas

@@ -37,7 +37,7 @@ equipes: Tabela contendo as 5 equipes padrão:
 
 Dados: "ALFA", "BRAVO", "CHARLIE", "DELTA", "FOXTROT".
 
-indicadores_config: Lista dos 15 indicadores.
+indicadores_config: Lista dos 16 indicadores.
 
 Campos: id, nome, schema_type (identificador técnico).
 
@@ -48,6 +48,7 @@ Dados:
 "Teste de Aptidão Física (TAF)" (taf)
 "Prova Teórica (PTR-BA)" (prova_teorica)
 "PTR-BA - Horas treinamento diário" (treinamento)
+"PTR-BA Extras" (ptr_ba_extras)
 "Inspeção de Viaturas" (inspecao_viaturas)
 "Tempo de TP/EPR" (tempo_tp_epr)
 "Tempo Resposta" (tempo_resposta)
@@ -152,7 +153,7 @@ duracao_total: Calculado Automaticamente (Hora Término - Hora Acionamento). For
 3. Atividades Acessórias
 Mensagem de Apoio: "Preenchido sempre que realizado atividade no plantão."
 Campos:
-tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "Inspeção em área de cessionários", "Ronda TPS").
+tipo_atividade: Select ("Inspeção de extintores e mangueiras", "Inspeção de pista", "Inspeção de fauna", "Derramamento de combustível", "Acompanhamento de serviços", "Inspeção em área de cessionários", "Ronda TPS", "Outras"). Adicionada opção "Outras" com campo de especificação obrigatório, cujo conteúdo é mesclado às observações no salvamento (formato: [Atividade Especificada]: [texto] | [observações originais]).
 Campos obrigatórios para todos os tipos:
 qtd_equipamentos: Número (Min 0).
 qtd_bombeiros: Número (Min 1).
@@ -181,10 +182,13 @@ nota: Número Decimal (0.0 a 10.0).
 status: Calculado Automaticamente em Tempo Real (atualiza enquanto usuário digita a nota). (Nota < 8.0 = "Reprovado", >= 8.0 = "Aprovado").
 
 6. PTR-BA - Horas treinamento diário
-Estrutura: Lista de Participantes (Padrão 10 linhas).
-Campos por Linha:
-nome: Select (Lista colaboradores ativos da Base do usuário logado - integrado com tabela colaboradores).
-horas: Texto (Máscara HH:mm).
+Estrutura Granular: O sistema armazena o tempo individual de cada tema para cada colaborador, permitindo auditoria detalhada de carga horária por competência.
+Grade do Dia (topo): Lista de temas e horas previstas (ex: PLEM - 01:00, APH - 02:00). O usuário define os temas do dia e as horas de cada um.
+Participantes (corpo): Ao adicionar um colaborador, o sistema herda automaticamente a lista de temas da Grade do Dia. Cada colaborador possui sua própria sub-lista de temas, onde o Chefe pode alterar as horas por tema ou remover um tema para aquele colaborador. O campo "Horas de PTR" (Total do dia) é calculado automaticamente como a soma dos tempos dos temas individuais.
+Salvamento (JSONB): conteudo.temas_referencia = [{ tema, horas }]; conteudo.participantes = [{ nome, total_dia (HH:mm), detalhamento_temas: [{ tema, horas }] }].
+Campos: nome (Select de colaboradores ativos da Base); por participante: detalhamento_temas (tema + horas HH:mm); total_dia calculado.
+
+6b. PTR-BA Extras: Registro de carga horária complementar com preenchimento em lote (Nome e Horas). Estrutura: tabela dinâmica (estilo planilha) com 10 linhas iniciais. Campos por linha: Colaborador (Select de colaboradores ativos da Base) e Quantidade de Horas (Input HH:mm). Linhas totalmente em branco são ignoradas; é obrigatório pelo menos uma linha preenchida com nome e horas válidas. Salvamento (JSONB): conteudo.participantes = [{ nome, horas }]. No Explorador de Dados, exportação gera uma linha por colaborador no CSV.
 
 7. Inspeção de Viaturas
 Estrutura: Lista de Inspeções (Padrão 4 linhas).
@@ -275,8 +279,8 @@ Estrutura:
 - Barra de Ferramentas (Toolbar) com filtros dinâmicos:
   - Input de Busca: Busca por texto em campos como local, tipo de ocorrência (busca no JSONB conteudo).
   - Select "Filtrar por Indicador": Lista todos os 15 indicadores disponíveis.
-  - Select "Mês/Ano": Filtro por período (últimos 12 meses disponíveis).
-  - Botão "Limpar Filtros": Reseta todos os filtros e retorna à primeira página.
+  - Filtro de Período Personalizado: Data Inicial e Data Final via Calendário (labels "De" e "Até"). Padrão ao abrir: intervalo do mês atual (dia 1 até hoje). Ao clicar em "Limpar Filtros", as datas retornam a esse padrão.
+  - Botão "Limpar Filtros": Reseta todos os filtros (incluindo datas para o padrão) e retorna à primeira página.
 
 - Tabela de Lançamentos (Visual "Excel Inteligente"):
   - Coluna DATA: Exibe data formatada usando formatDateForDisplay (DD/MM/YYYY) para evitar erros de timezone.
@@ -1158,10 +1162,12 @@ Com as otimizações implementadas, o sistema deve suportar:
   - Máximo 1000 registros por exportação (para evitar timeout).
   - Aviso exibido se total de registros exceder o limite.
 
+- **Estrutura Granular (Treinamento):** O sistema armazena o tempo individual de cada tema para cada colaborador, permitindo auditoria detalhada de carga horária por competência. O JSONB salvo contém temas_referencia (Grade do Dia) e participantes com total_dia e detalhamento_temas (tema + horas por colaborador).
 - **Relatório Consolidado Mensal PTR-BA (Horas de Treinamento):**
   - **Objetivo:** Exportação específica para o indicador "PTR-BA - Horas treinamento diário", com dados já somados por colaborador por mês, para facilitar a auditoria da meta de 16h da ANAC.
-  - **Disponibilidade:** Quando o indicador de Treinamento estiver selecionado nos filtros do Explorador, é exibido um botão de ação secundário: **"Exportar Fechamento Mensal (Somado)"**.
-  - **Lógica:** O sistema varre todos os lançamentos de treinamento do período filtrado; agrupa por **Mês/Ano + Nome do Colaborador + Base**; converte as strings "HH:mm" de cada lançamento em minutos, soma os treinos do colaborador no mês e converte o total de volta para "HH:mm".
+  - **Disponibilidade:** Quando o indicador de Treinamento estiver selecionado nos filtros do Explorador, são exibidos os botões **"Exportar Fechamento Mensal (Somado)"** e **"Exportar Detalhado (por Tema e Colaborador)"**.
+  - **Exportação Detalhada (granular):** Uma linha para cada tema de cada colaborador. Colunas: Data, Base, Equipe, Colaborador, Tema, Horas do Tema, Total do Dia. Permite filtrar no Excel quantas horas de cada tema (ex.: PLEM) cada base realizou no período.
+  - **Lógica (Somado):** O sistema varre todos os lançamentos de treinamento do período filtrado; agrupa por **Mês/Ano + Nome do Colaborador + Base**; utiliza total_dia (ou horas no formato legado) de cada participante, soma os treinos do colaborador no mês e converte o total de volta para "HH:mm".
   - **Data de Referência (regra crítica):** Para cada linha consolidada, a coluna **Data de Referência** deve conter obrigatoriamente o **último dia do mês** correspondente aos dados somados (ex.: treinos em 05, 12 e 20/01/2026 → data exibida 31/01/2026; fevereiro/2026 → 28/02/2026).
   - **Colunas do CSV consolidado:**
     - Data de Referência (DD/MM/YYYY, último dia do mês)
@@ -1170,7 +1176,7 @@ Com as otimizações implementadas, o sistema deve suportar:
     - Carga Horária Total (Mês) (formato HH:mm, string simples)
     - Status Compliance (16h) ("CONFORME" se total ≥ 16:00, senão "PENDENTE")
     - Qtd. de Plantões (quantidade de lançamentos individuais somados para aquele colaborador no mês)
-  - O arquivo utiliza o mesmo padrão UTF-8 BOM e escape CSV do restante do módulo; nome do arquivo: `fechamento_mensal_ptr_ba_[DDMMAAAA].csv`.
+  - O arquivo utiliza o mesmo padrão UTF-8 BOM e escape CSV do restante do módulo; nome do arquivo: `fechamento_mensal_ptr_ba_[DDMMAAAA].csv` ou `treinamento_detalhado_por_tema_[DDMMAAAA].csv` para a exportação granular.
 
 **Modal de Visualização:**
 

@@ -3,9 +3,50 @@ import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppShell } from '@/components/AppShell'
-import { FileSpreadsheet, MessageSquare, ClipboardList, Building2 } from 'lucide-react'
+import {
+  FileSpreadsheet,
+  MessageSquare,
+  ClipboardList,
+  Building2,
+  Users,
+  UserCog,
+  BarChart3,
+  Activity,
+  ChevronRight,
+} from 'lucide-react'
+
+interface NavCardProps {
+  icon: React.ReactNode
+  title: string
+  description: string
+  badge?: React.ReactNode
+  onClick: () => void
+}
+
+function NavCard({ icon, title, description, badge, onClick }: NavCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col h-full text-left bg-card border border-border rounded-xl p-5 shadow-soft
+        hover:shadow-soft-md hover:border-primary/20 transition-all duration-200"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary
+          group-hover:bg-primary group-hover:text-white transition-all duration-200">
+          {icon}
+        </div>
+        {badge}
+      </div>
+      <h3 className="text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed flex-1">{description}</p>
+      <div className="flex items-center gap-1 mt-4 text-sm font-medium text-primary/70 group-hover:text-primary transition-colors">
+        Acessar <ChevronRight className="h-3.5 w-3.5" />
+      </div>
+    </button>
+  )
+}
 
 export function DashboardGerente() {
   const { authUser } = useAuth()
@@ -29,199 +70,102 @@ export function DashboardGerente() {
 
   return (
     <AppShell
-      title={isGerenteSCI ? 'Dashboard - Gerente de SCI' : 'Dashboard - Admin'}
+      title={isGerenteSCI ? 'Gerente de SCI' : 'Administrador'}
       subtitle={authUser?.profile?.nome}
       extraActions={
         isChefeComAcesso ? (
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onClick={() => navigate('/dashboard-chefe')}
-            className="bg-white/20 hover:bg-white/30 text-white border-0"
+            className="text-white/90 hover:bg-white/15 border border-white/20 text-sm"
           >
-            Painel Chefe / Lançamentos
+            Painel de Lançamentos
           </Button>
         ) : undefined
       }
     >
-      <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Card Lançamentos - visível apenas para Gerente de SCI */}
-          {isGerenteSCI && (
-            <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Lançamentos</CardTitle>
-                </div>
-                <CardDescription className="text-sm">
-                  Visualize os lançamentos da sua base para conferência
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                  Acesse o histórico de lançamentos da sua base em modo somente leitura.
-                </p>
-                <Button onClick={() => navigate('/lancamentos-base')} className="w-full mt-auto">
-                  Ver Lançamentos
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            Painéis e Ferramentas
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isGerenteSCI && (
+              <NavCard
+                icon={<ClipboardList className="h-5 w-5" />}
+                title="Lançamentos"
+                description="Visualize o histórico de lançamentos da sua base para conferência."
+                onClick={() => navigate('/lancamentos-base')}
+              />
+            )}
 
-          {/* Card Dashboard Analytics - apenas Administrador */}
-          {!isGerenteSCI && (
-            <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Dashboard Analytics</CardTitle>
-                <CardDescription className="text-sm">
-                  Análise de indicadores operacionais
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                  Visualize gráficos e análises detalhadas dos indicadores operacionais
-                  com filtros por Base, Equipe e Período.
-                </p>
-                <Button onClick={() => navigate('/dashboard-analytics')} className="w-full mt-auto">
-                  Acessar Dashboard Analytics
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+            {!isGerenteSCI && (
+              <NavCard
+                icon={<BarChart3 className="h-5 w-5" />}
+                title="Dashboard Analytics"
+                description="Gráficos e análises detalhadas dos indicadores operacionais com filtros por Base, Equipe e Período."
+                onClick={() => navigate('/dashboard-analytics')}
+              />
+            )}
 
-          {/* Card Explorador de Dados - apenas Administrador */}
-          {!isGerenteSCI && (
-            <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Explorador de Dados</CardTitle>
-                </div>
-                <CardDescription className="text-sm">
-                  Auditoria completa, filtros avançados e exportação para Excel (CSV)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                  Acesse relatórios avançados com filtros detalhados e exporte dados
-                  para análise externa em formato CSV.
-                </p>
-                <Button onClick={() => navigate('/dashboard/explorer')} className="w-full mt-auto">
-                  Acessar Explorador de Dados
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+            {!isGerenteSCI && (
+              <NavCard
+                icon={<FileSpreadsheet className="h-5 w-5" />}
+                title="Explorador de Dados"
+                description="Auditoria completa, filtros avançados e exportação para Excel (CSV)."
+                onClick={() => navigate('/dashboard/explorer')}
+              />
+            )}
 
-          {/* Card Gestão de Bases - apenas Administrador */}
-          {!isGerenteSCI && (
-            <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Gestão de Bases</CardTitle>
-                </div>
-                <CardDescription className="text-sm">
-                  Cadastre novas unidades aeroportuárias ou gerencie as existentes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-                <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                  Adicione, renomeie ou exclua bases. As bases são usadas em lançamentos, usuários e colaboradores.
-                </p>
-                <Button onClick={() => navigate('/admin/bases')} className="w-full mt-auto">
-                  Acessar Gestão de Bases
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+            {!isGerenteSCI && (
+              <NavCard
+                icon={<Building2 className="h-5 w-5" />}
+                title="Gestão de Bases"
+                description="Cadastre novas unidades aeroportuárias ou gerencie as existentes."
+                onClick={() => navigate('/admin/bases')}
+              />
+            )}
 
-          <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Gestão de Efetivo</CardTitle>
-              <CardDescription className="text-sm">
-                Cadastre e gerencie colaboradores das bases
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-              <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Gerencie o efetivo (bombeiros/colaboradores) de cada base. Cadastre individualmente
-                ou em lote através de uma lista de nomes.
-              </p>
-              <Button onClick={() => navigate('/colaboradores')} className="w-full mt-auto">
-                Acessar Gestão de Efetivo
-              </Button>
-            </CardContent>
-          </Card>
+            <NavCard
+              icon={<Users className="h-5 w-5" />}
+              title="Gestão de Efetivo"
+              description="Gerencie o efetivo (bombeiros/colaboradores) de cada base."
+              onClick={() => navigate('/colaboradores')}
+            />
 
-          <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Gestão de Usuários</CardTitle>
-              <CardDescription className="text-sm">
-                Cadastre e gerencie usuários do sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-              <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Acesse a tela de gestão de usuários para cadastrar novos Chefes de Equipe
-                e vinculá-los às suas respectivas Bases e Equipes.
-              </p>
-              <Button onClick={() => navigate('/gestao-usuarios')} className="w-full mt-auto">
-                Acessar Gestão de Usuários
-              </Button>
-            </CardContent>
-          </Card>
+            <NavCard
+              icon={<UserCog className="h-5 w-5" />}
+              title="Gestão de Usuários"
+              description="Cadastre novos Chefes de Equipe e vincule-os às suas Bases e Equipes."
+              onClick={() => navigate('/gestao-usuarios')}
+            />
 
-          {/* Card Aderência - apenas Administrador */}
-          {!isGerenteSCI && (
-          <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Monitoramento de Aderência</CardTitle>
-              <CardDescription className="text-sm">
-                Auditoria de engajamento das bases
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-              <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Identifique quais bases estão cumprindo a rotina de lançamentos através
-                do mapa de calor e radar de atraso.
-              </p>
-              <Button onClick={() => navigate('/aderencia')} className="w-full mt-auto">
-                Acessar Aderência
-              </Button>
-            </CardContent>
-          </Card>
-          )}
+            {!isGerenteSCI && (
+              <NavCard
+                icon={<Activity className="h-5 w-5" />}
+                title="Monitoramento de Aderência"
+                description="Identifique quais bases cumprem a rotina de lançamentos com mapa de calor e radar de atraso."
+                onClick={() => navigate('/aderencia')}
+              />
+            )}
 
-          {/* Card Suporte - apenas Administrador */}
-          {!isGerenteSCI && (
-          <Card className="flex flex-col h-full shadow-soft dark:bg-slate-800 dark:border-slate-700">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Suporte / Feedback</CardTitle>
-                {typeof feedbackPendentes === 'number' && feedbackPendentes > 0 && (
-                  <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                    {feedbackPendentes} pendente{feedbackPendentes !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <CardDescription className="text-sm">
-                Veja os feedbacks enviados pelos usuários e dê as tratativas
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-1 pt-0 pb-6">
-              <p className="text-muted-foreground mb-6 flex-1 text-sm leading-relaxed">
-                Os usuários podem enviar sugestões, reportar bugs ou outros no suporte.
-                Acesse a tela de suporte para visualizar e atualizar o status de cada feedback.
-              </p>
-              <Button onClick={() => navigate('/suporte')} className="w-full mt-auto">
-                Acessar Suporte
-              </Button>
-            </CardContent>
-          </Card>
-          )}
+            {!isGerenteSCI && (
+              <NavCard
+                icon={<MessageSquare className="h-5 w-5" />}
+                title="Suporte / Feedback"
+                description="Veja os feedbacks enviados pelos usuários e dê as tratativas necessárias."
+                badge={
+                  typeof feedbackPendentes === 'number' && feedbackPendentes > 0 ? (
+                    <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                      {feedbackPendentes} pendente{feedbackPendentes !== 1 ? 's' : ''}
+                    </span>
+                  ) : undefined
+                }
+                onClick={() => navigate('/suporte')}
+              />
+            )}
+          </div>
         </div>
       </div>
     </AppShell>

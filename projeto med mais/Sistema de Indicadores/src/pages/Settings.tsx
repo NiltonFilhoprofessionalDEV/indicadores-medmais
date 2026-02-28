@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { AppShell } from '@/components/AppShell'
 import { Eye, EyeOff, Check } from 'lucide-react'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
 import { renderTextWithBold, type UpdateInfo } from '@/components/UpdateModal'
@@ -54,7 +55,6 @@ function getInitials(nome: string): string {
 }
 
 export function Settings() {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { authUser } = useAuth()
   const queryClient = useQueryClient()
@@ -247,43 +247,7 @@ export function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-all duration-300 ease-in-out page-transition">
-      <header className="bg-[#fc4d00] shadow-sm border-b border-border shadow-orange-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center min-h-[80px]">
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <img 
-                src="/logo-medmais.png" 
-                alt="MedMais Logo" 
-                className="h-10 w-auto brightness-0 invert"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Configurações</h1>
-                <p className="text-sm text-white/90">Gerencie seu perfil e preferências</p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0 ml-4">
-              <Button 
-                onClick={() => {
-                  if (authUser.profile?.role === 'geral' || authUser.profile?.role === 'gerente_sci') {
-                    navigate('/dashboard-gerente')
-                  } else {
-                    navigate('/dashboard-chefe')
-                  }
-                }} 
-                className="bg-white text-[#fc4d00] hover:bg-orange-50 hover:text-[#fc4d00] border-white transition-all duration-200 shadow-orange-sm"
-              >
-                Voltar
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppShell title="Configurações" subtitle={authUser?.profile?.nome}>
         <Card>
           <CardHeader>
             <CardTitle>Configurações da Conta</CardTitle>
@@ -304,7 +268,7 @@ export function Settings() {
               <TabsContent value="perfil" className="space-y-6 mt-6">
                 <div className="flex flex-col items-center space-y-4">
                   <Avatar className="h-24 w-24">
-                    <AvatarFallback className="text-2xl font-bold bg-[#fc4d00] text-white">
+                    <AvatarFallback className="text-2xl font-bold bg-primary text-primary-foreground">
                       {getInitials(authUser.profile.nome)}
                     </AvatarFallback>
                   </Avatar>
@@ -442,7 +406,6 @@ export function Settings() {
                     <Button
                       type="submit"
                       disabled={changePasswordMutation.isPending}
-                      className="bg-[#fc4d00] hover:bg-[#e04400]hover:bg-[#c93d00] text-white shadow-orange-sm"
                     >
                       {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar Senha'}
                     </Button>
@@ -468,7 +431,7 @@ export function Settings() {
                   ) : (
                     <Card className="border-primary/20">
                       <CardHeader className="pb-2">
-                        <div className="flex items-center gap-2 text-[#fc4d00]">
+                        <div className="flex items-center gap-2 text-primary">
                           <span className="text-2xl" aria-hidden>✨</span>
                         </div>
                         <CardTitle className="text-lg">
@@ -545,7 +508,6 @@ export function Settings() {
                     <Button
                       type="submit"
                       disabled={createFeedbackMutation.isPending}
-                      className="bg-[#fc4d00] hover:bg-[#e04400]hover:bg-[#c93d00] text-white shadow-orange-sm"
                     >
                       {createFeedbackMutation.isPending ? 'Enviando...' : 'Enviar Feedback'}
                     </Button>
@@ -588,7 +550,6 @@ export function Settings() {
             </Tabs>
           </CardContent>
         </Card>
-      </main>
-    </div>
+    </AppShell>
   )
 }

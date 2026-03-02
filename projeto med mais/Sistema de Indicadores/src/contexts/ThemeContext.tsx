@@ -11,6 +11,27 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 const STORAGE_KEY = 'medmais-theme'
 
+function applyTheme(theme: Theme) {
+  const root = document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(theme)
+
+  // Atualiza a meta theme-color para adaptar a barra do navegador mobile
+  const metaTheme = document.querySelector('meta[name="theme-color"]')
+  if (metaTheme) {
+    metaTheme.setAttribute('content', theme === 'dark' ? '#0f1117' : '#EA580C')
+  }
+}
+
+function transitionTheme(callback: () => void) {
+  // Dispara uma transição visual suave sem bloquear interações
+  if (!document.startViewTransition) {
+    callback()
+    return
+  }
+  document.startViewTransition(callback)
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light'
@@ -20,16 +41,28 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(theme)
+    applyTheme(theme)
   }, [theme])
 
+  // Sincroniza com mudanças de preferência do sistema operacional (quando não há preferência salva)
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => {
+      setTheme(e.matches ? 'dark' : 'light')
+    }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   const toggleTheme = () => {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light'
-      localStorage.setItem(STORAGE_KEY, next)
-      return next
+    transitionTheme(() => {
+      setTheme((prev) => {
+        const next = prev === 'light' ? 'dark' : 'light'
+        localStorage.setItem(STORAGE_KEY, next)
+        return next
+      })
     })
   }
 

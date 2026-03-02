@@ -61,7 +61,14 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
   const queryClient = useQueryClient()
   const [seenIds, setSeenIds] = useState<string[]>(() => getSeenIds())
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [themeAnimating, setThemeAnimating] = useState(false)
   const hasSidebar = sidebarItems && sidebarItems.length > 0
+
+  const handleToggleTheme = () => {
+    setThemeAnimating(true)
+    toggleTheme()
+    setTimeout(() => setThemeAnimating(false), 400)
+  }
 
   const { data: feedbackIdsComResposta = [] } = useQuery({
     queryKey: ['notificacoes-resposta-suporte-ids', authUser?.user?.id],
@@ -106,9 +113,17 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
   }
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-200 page-transition">
+    <div className="min-h-screen bg-background transition-colors duration-300 page-transition">
       {/* ═══════════ HEADER ═══════════ */}
-      <header className="sticky top-0 z-20 bg-gradient-to-r from-[#EA580C] to-[#D4500A] shadow-md">
+      <header className={`sticky top-0 z-20 shadow-md transition-all duration-300 ${
+        theme === 'dark'
+          ? 'bg-[hsl(222_22%_8%/0.92)] backdrop-blur-xl border-b border-[hsl(222_14%_16%)] shadow-[0_1px_0_0_hsl(222_14%_16%),0_4px_16px_rgba(0,0,0,0.4)]'
+          : 'bg-gradient-to-r from-[#EA580C] to-[#D4500A]'
+      }`}>
+        {/* Barra de acento laranja no topo (só no dark) */}
+        {theme === 'dark' && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#F97316] to-transparent opacity-70" />
+        )}
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Esquerda: Menu mobile + Logo + Info */}
@@ -118,7 +133,11 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                   variant="ghost"
                   size="icon"
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="h-9 w-9 rounded-lg text-white/90 hover:bg-white/15 transition-all lg:hidden shrink-0"
+                  className={`h-9 w-9 rounded-lg transition-all lg:hidden shrink-0 ${
+                    theme === 'dark'
+                      ? 'text-slate-300 hover:bg-white/8 hover:text-white'
+                      : 'text-white/90 hover:bg-white/15'
+                  }`}
                 >
                   {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                 </Button>
@@ -130,15 +149,27 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                     const role = authUser?.profile?.role
                     navigate(role === 'chefe' || role === 'auxiliar' ? '/dashboard-chefe' : '/dashboard-gerente')
                   }}
-                  className="text-xl font-bold text-white tracking-tight shrink-0 select-none hover:opacity-80 transition-opacity cursor-pointer"
+                  className={`text-xl font-bold tracking-tight shrink-0 select-none transition-all cursor-pointer ${
+                    theme === 'dark'
+                      ? 'text-[#F97316] hover:text-[#FB923C] drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]'
+                      : 'text-white hover:opacity-80'
+                  }`}
                 >
                   med+
                 </button>
-                <div className="hidden sm:block h-6 w-px bg-white/30 shrink-0" />
+                <div className={`hidden sm:block h-6 w-px shrink-0 ${
+                  theme === 'dark' ? 'bg-white/10' : 'bg-white/30'
+                }`} />
                 <div className="min-w-0 hidden sm:block">
-                  <h1 className="text-base font-semibold text-white truncate leading-tight">{title}</h1>
-                  {subtitle && <p className="text-sm text-white/80 truncate leading-tight">{subtitle}</p>}
-                  {baseEquipe && <p className="text-xs text-white/60 truncate leading-tight">{baseEquipe}</p>}
+                  <h1 className={`text-base font-semibold truncate leading-tight ${
+                    theme === 'dark' ? 'text-slate-100' : 'text-white'
+                  }`}>{title}</h1>
+                  {subtitle && <p className={`text-sm truncate leading-tight ${
+                    theme === 'dark' ? 'text-slate-400' : 'text-white/80'
+                  }`}>{subtitle}</p>}
+                  {baseEquipe && <p className={`text-xs truncate leading-tight ${
+                    theme === 'dark' ? 'text-slate-500' : 'text-white/60'
+                  }`}>{baseEquipe}</p>}
                 </div>
               </div>
             </div>
@@ -151,12 +182,18 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-9 w-9 rounded-lg text-white/90 hover:bg-white/15 transition-all"
+                    className={`relative h-9 w-9 rounded-lg transition-all ${
+                      theme === 'dark'
+                        ? 'text-slate-300 hover:bg-white/8 hover:text-white'
+                        : 'text-white/90 hover:bg-white/15'
+                    }`}
                     title={notificacoesRespostaSuporte > 0 ? `${notificacoesRespostaSuporte} resposta(s)` : 'Notificações'}
                   >
                     <Bell className="h-[18px] w-[18px]" />
                     {notificacoesRespostaSuporte > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 ring-2 ring-[#EA580C]">
+                      <span className={`absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 ${
+                        theme === 'dark' ? 'ring-2 ring-[hsl(222_22%_8%)]' : 'ring-2 ring-[#EA580C]'
+                      }`}>
                         {notificacoesRespostaSuporte > 99 ? '99+' : notificacoesRespostaSuporte}
                       </span>
                     )}
@@ -182,18 +219,32 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                   )}
                 </PopoverContent>
               </Popover>
+
+              {/* Botão de tema com animação */}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={toggleTheme}
-                className="h-9 w-9 rounded-lg text-white/90 hover:bg-white/15 transition-all"
-                title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+                onClick={handleToggleTheme}
+                className={`h-9 w-9 rounded-lg transition-all ${
+                  theme === 'dark'
+                    ? 'text-amber-400 hover:bg-amber-400/10 hover:text-amber-300'
+                    : 'text-white/90 hover:bg-white/15'
+                } ${themeAnimating ? 'theme-toggle-animate' : ''}`}
+                title={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
               >
-                {theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+                {theme === 'dark'
+                  ? <Sun className="h-[18px] w-[18px]" />
+                  : <Moon className="h-[18px] w-[18px]" />
+                }
               </Button>
+
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-white/90 hover:bg-white/15 transition-all">
+                  <Button variant="ghost" size="icon" className={`h-9 w-9 rounded-lg transition-all ${
+                    theme === 'dark'
+                      ? 'text-slate-300 hover:bg-white/8 hover:text-white'
+                      : 'text-white/90 hover:bg-white/15'
+                  }`}>
                     <Settings className="h-[18px] w-[18px]" />
                   </Button>
                 </PopoverTrigger>
@@ -201,13 +252,22 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                   <Button variant="ghost" onClick={() => navigate('/settings')} className="w-full justify-start gap-2 h-9 text-sm">
                     <Settings className="h-4 w-4" /> Configurações
                   </Button>
-                  <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-2 h-9 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50">
+                  <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-2 h-9 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 dark:text-red-400">
                     <LogOut className="h-4 w-4" /> Sair
                   </Button>
                 </PopoverContent>
               </Popover>
-              <Avatar className="h-9 w-9 border-2 border-white/40 ml-1">
-                <AvatarFallback className="bg-white/20 text-white text-sm font-semibold">
+
+              <Avatar className={`h-9 w-9 ml-1 border-2 transition-all ${
+                theme === 'dark'
+                  ? 'border-[#F97316]/40 ring-1 ring-[#F97316]/20'
+                  : 'border-white/40'
+              }`}>
+                <AvatarFallback className={`text-sm font-semibold ${
+                  theme === 'dark'
+                    ? 'bg-[#F97316]/15 text-[#FB923C]'
+                    : 'bg-white/20 text-white'
+                }`}>
                   {authUser?.profile?.nome ? getIniciais(authUser.profile.nome) : '?'}
                 </AvatarFallback>
               </Avatar>
@@ -226,15 +286,21 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
 
           {/* Sidebar */}
           <aside className={`
-            fixed top-0 left-0 z-40 h-full w-[272px] bg-[var(--sidebar-bg)] border-r border-border
+            fixed top-0 left-0 z-40 h-full w-[272px] border-r
             transform transition-transform duration-200 ease-in-out overflow-hidden
             lg:relative lg:top-auto lg:left-auto lg:z-auto lg:transform-none lg:shrink-0
             ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0 lg:shadow-none'}
+            ${theme === 'dark'
+              ? 'bg-[hsl(222_22%_8%)] border-[hsl(222_14%_14%)] shadow-[1px_0_0_0_hsl(222_14%_14%)]'
+              : 'bg-[var(--sidebar-bg)] border-border'
+            }
           `}>
             <div className="flex flex-col h-full">
-              {/* Header sidebar (mobile: com botão fechar) */}
-              <div className="h-16 flex items-center px-5 border-b border-border shrink-0 lg:h-14">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest flex-1">
+              {/* Header sidebar */}
+              <div className={`h-16 flex items-center px-5 shrink-0 lg:h-14 border-b ${
+                theme === 'dark' ? 'border-[hsl(222_14%_13%)]' : 'border-border'
+              }`}>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex-1">
                   {sidebarTitle || 'Indicadores'}
                 </h2>
                 <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="h-7 w-7 lg:hidden text-muted-foreground">
@@ -249,18 +315,28 @@ export function AppShell({ title, subtitle, baseEquipe, children, extraActions, 
                     key={item.id}
                     type="button"
                     onClick={() => { item.onClick(); setSidebarOpen(false) }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left
-                      text-foreground/80 hover:text-primary hover:bg-[var(--sidebar-hover)]
-                      active:bg-[var(--sidebar-active)] transition-all duration-150 group"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left
+                      transition-all duration-150 group ${
+                      theme === 'dark'
+                        ? 'text-slate-400 hover:text-[#FB923C] hover:bg-[hsl(24_90%_55%/0.08)] active:bg-[hsl(24_90%_55%/0.12)]'
+                        : 'text-foreground/80 hover:text-primary hover:bg-[var(--sidebar-hover)] active:bg-[var(--sidebar-active)]'
+                    }`}
                   >
                     {item.icon && (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/8 text-primary
-                        group-hover:bg-primary group-hover:text-white transition-all duration-150">
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-all duration-150 ${
+                        theme === 'dark'
+                          ? 'bg-[hsl(24_90%_55%/0.08)] text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white'
+                          : 'bg-primary/8 text-primary group-hover:bg-primary group-hover:text-white'
+                      }`}>
                         {item.icon}
                       </span>
                     )}
                     <span className="truncate font-medium flex-1">{item.label}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary/60 shrink-0 transition-colors" />
+                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-colors ${
+                      theme === 'dark'
+                        ? 'text-slate-600 group-hover:text-[#F97316]/60'
+                        : 'text-muted-foreground/40 group-hover:text-primary/60'
+                    }`} />
                   </button>
                 ))}
               </nav>

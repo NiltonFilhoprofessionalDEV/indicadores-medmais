@@ -71,6 +71,10 @@ export default {
         soft: "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)",
         "soft-md": "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05)",
         "glow-primary": "0 0 20px rgba(234, 88, 12, 0.12), 0 0 40px rgba(234, 88, 12, 0.06)",
+        "dark-card": "0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4)",
+        "dark-md": "0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25)",
+        "dark-glow": "0 0 20px rgba(249,115,22,0.15), 0 0 40px rgba(249,115,22,0.08)",
+        "dark-header": "0 1px 0 0 hsl(222 14% 16%), 0 4px 16px rgba(0,0,0,0.4)",
       },
       keyframes: {
         "accordion-down": {

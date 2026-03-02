@@ -92,12 +92,42 @@ export function getResumoLancamento(
       }
       return 'Treinamento registrado'
 
-    case 'ptr_ba_extras':
-      if (Array.isArray(conteudo.participantes)) {
-        const count = conteudo.participantes.length
-        return `${count} ${count === 1 ? 'colaborador' : 'colaboradores'}`
+    case 'ptr_ba_extras': {
+      // Formato atual: { ptrs_referencia, participantes }
+      const ptrsRef = conteudo.ptrs_referencia as Array<{ nome_ptr?: string }> | undefined
+      const partAtual = conteudo.participantes as Array<{ nome?: string }> | undefined
+      if (Array.isArray(ptrsRef) && ptrsRef.length > 0) {
+        const countPtrs = ptrsRef.length
+        const countColab = Array.isArray(partAtual)
+          ? partAtual.filter((p) => String(p?.nome ?? '').trim()).length
+          : 0
+        const colabStr = countColab > 0 ? ` — ${countColab} ${countColab === 1 ? 'colaborador' : 'colaboradores'}` : ''
+        return `${countPtrs} ${countPtrs === 1 ? 'PTR Extra' : 'PTRs Extras'}${colabStr}`
       }
+      // Formato legado v2: { ptrs: [{ nome_ptr, participantes }] }
+      const ptrsLegado = conteudo.ptrs as Array<{ nome_ptr?: string; participantes?: Array<unknown> }> | undefined
+      if (Array.isArray(ptrsLegado) && ptrsLegado.length > 0) {
+        const count = ptrsLegado.length
+        const nomes = new Set<string>()
+        ptrsLegado.forEach((ptr) => {
+          if (Array.isArray(ptr.participantes)) {
+            ptr.participantes.forEach((p: any) => {
+              if (String(p?.nome ?? '').trim()) nomes.add(String(p.nome).trim())
+            })
+          }
+        })
+        const colabStr = nomes.size > 0 ? ` — ${nomes.size} ${nomes.size === 1 ? 'colaborador' : 'colaboradores'}` : ''
+        return `${count} ${count === 1 ? 'PTR Extra' : 'PTRs Extras'}${colabStr}`
+      }
+      // Formato legado v1: { nome_ptr, participantes }
+      const nomePtr = conteudo.nome_ptr ? String(conteudo.nome_ptr) : ''
+      const countPart = Array.isArray(conteudo.participantes) ? conteudo.participantes.length : 0
+      const resumoPart = countPart > 0 ? `${countPart} ${countPart === 1 ? 'colaborador' : 'colaboradores'}` : ''
+      if (nomePtr && resumoPart) return `${nomePtr} — ${resumoPart}`
+      if (nomePtr) return nomePtr
+      if (resumoPart) return resumoPart
       return 'PTR-BA Extras registrado'
+    }
 
     case 'tempo_tp_epr':
       // Contar colaboradores

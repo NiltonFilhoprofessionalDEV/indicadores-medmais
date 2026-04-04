@@ -13,13 +13,11 @@ Aplicação web para gestão de indicadores operacionais em múltiplas bases aer
 2. [Stack tecnológica](#stack-tecnológica)
 3. [Requisitos](#requisitos)
 4. [Instalação e execução](#instalação-e-execução)
-5. [Configuração](#configuração)
-6. [Scripts NPM](#scripts-npm)
-7. [Backend (Supabase)](#backend-supabase)
-8. [Organização do código](#organização-do-código)
-9. [Publicação](#publicação)
-10. [Documentação complementar](#documentação-complementar)
-11. [Licença](#licença)
+5. [Scripts NPM](#scripts-npm)
+6. [Backend (Supabase)](#backend-supabase)
+7. [Organização do código](#organização-do-código)
+8. [Documentação complementar](#documentação-complementar)
+9. [Licença](#licença)
 
 ## Sobre o projeto
 
@@ -66,14 +64,6 @@ npm run build
 npm run preview
 ```
 
-## Configuração
-
-Crie o arquivo `.env` na raiz (pode partir de `.env.example`):
-
-| Variável | Obrigatório | Uso |
-|----------|-------------|-----|
-| `VITE_SUPABASE_URL` | Sim | URL do projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Sim | Chave pública anon (exposta ao cliente; proteção via RLS) |
 
 A chave **service role** não deve ser referenciada em variáveis `VITE_*` nem versionada no repositório. Utilize-a apenas em contexto server-side (CLI, funções edge, scripts locais isolados).
 
@@ -115,9 +105,7 @@ supabase/
   migrations/        SQL versionado
 ```
 
-## Publicação
 
-**Vercel (recomendado):** importar o repositório, framework Vite, comando de build `npm run build`, diretório de saída `dist`. Definir `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nos ambientes Production e Preview.
 
 **CLI:** `vercel login` seguido de `vercel --prod` (com CLI instalada globalmente).
 

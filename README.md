@@ -1,97 +1,132 @@
-# Sistema de Gestão de Indicadores Operacionais - Medmais
+# Indicadores Medmais
 
-Sistema web para gestão de indicadores de 34 bases aeroportuárias.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 
-## Repositório
+Aplicação web para gestão de indicadores operacionais em múltiplas bases aeroportuárias, com controle de acesso por perfil e isolamento de dados no banco (Row Level Security no PostgreSQL via Supabase).
 
-- **GitHub:** [github.com/NiltonFilhoprofessionalDEV/indicadores-medmais](https://github.com/NiltonFilhoprofessionalDEV/indicadores-medmais)
-- **Clone:** `git clone https://github.com/NiltonFilhoprofessionalDEV/indicadores-medmais.git`
+**Código-fonte:** [github.com/NiltonFilhoprofessionalDEV/indicadores-medmais](https://github.com/NiltonFilhoprofessionalDEV/indicadores-medmais)
 
-Ramas remotas comuns: `main`, `desenvolvimento`, `feature/responsive-mobile`, etc.
+## Sumário
 
-**Sincronizar uma pasta local já existente com o remoto:** com `origin` configurado, faça o primeiro commit desta cópia (`git add -A`, `git commit`), depois `git pull origin main --allow-unrelated-histories` se o histórico local e o do GitHub forem independentes — podem surgir conflitos; em dúvida, mantenha os arquivos da raiz (`src/`, `supabase/`, `package.json`, `docs/PRD.md`) deste projeto e remova duplicatas antigas como pastas `Projeto indicadores/` ou `projeto med mais/` se não forem mais usadas.
+1. [Sobre o projeto](#sobre-o-projeto)
+2. [Stack tecnológica](#stack-tecnológica)
+3. [Requisitos](#requisitos)
+4. [Instalação e execução](#instalação-e-execução)
+5. [Configuração](#configuração)
+6. [Scripts NPM](#scripts-npm)
+7. [Backend (Supabase)](#backend-supabase)
+8. [Organização do código](#organização-do-código)
+9. [Publicação](#publicação)
+10. [Documentação complementar](#documentação-complementar)
+11. [Licença](#licença)
 
-## Stack Tecnológica
+## Sobre o projeto
 
-- **Frontend**: React (Vite) + TypeScript
-- **UI**: Tailwind CSS + shadcn/ui
-- **Charts**: Recharts
-- **Data**: TanStack Query + Supabase
-- **Forms**: React Hook Form + Zod
+O sistema cobre cadastro e acompanhamento de indicadores por base e equipe, conferência de lançamentos, painéis analíticos, gestão de usuários e colaboradores, exportação de dados e canais de suporte. As regras de negócio e de segurança estão descritas no documento de produto em `docs/PRD.md`.
 
-## Configuração
+A branch `main` concentra a versão estável utilizada como referência de integração.
 
-### 1. Instalar dependências
+## Stack tecnológica
+
+- **Interface:** React 18, TypeScript, Vite
+- **Estilo e componentes:** Tailwind CSS, shadcn/ui (Radix)
+- **Dados remotos:** Supabase (Auth, API REST/Realtime, Postgres)
+- **Cache e requisições:** TanStack Query
+- **Formulários e validação:** React Hook Form, Zod
+- **Visualização:** Recharts
+- **Hospedagem do frontend:** Vercel (`vercel.json`: SPA, rewrites, headers de segurança)
+
+## Requisitos
+
+- Node.js 18 ou superior (recomendado: 20 LTS)
+- npm (conforme `package-lock.json`)
+- Instância Supabase com migrations aplicadas e Edge Functions publicadas, quando o fluxo administrativo exigir
+
+## Instalação e execução
 
 ```bash
-npm install
+git clone https://github.com/NiltonFilhoprofessionalDEV/indicadores-medmais.git
+cd indicadores-medmais
+npm ci
 ```
 
-### 2. Configurar variáveis de ambiente
-
-Crie um arquivo `.env` na raiz do projeto com:
-
-```
-VITE_SUPABASE_URL=sua_url_do_supabase
-VITE_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
-```
-
-### 3. Executar o projeto
+Para desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-## Estrutura do Projeto
+Servidor local padrão do Vite: `http://localhost:5173`.
+
+Build de produção:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Configuração
+
+Crie o arquivo `.env` na raiz (pode partir de `.env.example`):
+
+| Variável | Obrigatório | Uso |
+|----------|-------------|-----|
+| `VITE_SUPABASE_URL` | Sim | URL do projeto Supabase |
+| `VITE_SUPABASE_ANON_KEY` | Sim | Chave pública anon (exposta ao cliente; proteção via RLS) |
+
+A chave **service role** não deve ser referenciada em variáveis `VITE_*` nem versionada no repositório. Utilize-a apenas em contexto server-side (CLI, funções edge, scripts locais isolados).
+
+## Scripts NPM
+
+| Script | Função |
+|--------|--------|
+| `dev` | Servidor de desenvolvimento |
+| `build` | Verificação TypeScript e build de produção |
+| `preview` | Servir artefatos de `dist` |
+| `lint` | Análise estática com ESLint |
+| `security-audit` | Rotinas de auditoria de segurança (`scripts/security-audit.ts`) |
+| `deploy:functions` | Deploy das funções `create-user` e `update-user` (Supabase CLI) |
+| `deploy:create-user` | Deploy apenas de `create-user` |
+| `deploy:update-user` | Deploy apenas de `update-user` |
+
+Os scripts de teste com Cypress pressupõem configuração E2E adequada no ambiente local.
+
+## Backend (Supabase)
+
+- **Migrações:** diretório `supabase/migrations/` — aplicar em ordem no ambiente alvo.
+- **Edge Functions:** diretório `supabase/functions/` (incluindo `create-user`, `update-user`, `delete-user`, `get-profile`).
+- **Referência de esquema:** `supabase/schema.sql` (o estado efetivo do banco deve refletir migrations e ajustes operacionais no painel).
+
+## Organização do código
 
 ```
+docs/PRD.md          Especificação funcional e técnica
+public/              Assets estáticos
+scripts/             Utilitários de automação e auditoria
 src/
-├── components/     # Componentes reutilizáveis
-│   ├── ui/        # Componentes shadcn/ui
-│   └── ...
-├── hooks/         # Custom hooks
-├── lib/           # Utilitários e configurações
-├── pages/         # Páginas da aplicação
-└── App.tsx        # Componente principal com rotas
+  components/        Componentes de UI, formulários e gráficos
+  contexts/          Contextos (autenticação, tema)
+  hooks/             Hooks de dados e comportamento
+  lib/               Cliente Supabase, tipos, utilitários
+  pages/             Páginas e rotas
+supabase/
+  functions/         Edge Functions
+  migrations/        SQL versionado
 ```
 
-## Scripts
+## Publicação
 
-- `npm run dev` - Inicia o servidor de desenvolvimento
-- `npm run build` - Gera build de produção
-- `npm run preview` - Preview do build de produção
-- `npm run lint` - Executa o linter
+**Vercel (recomendado):** importar o repositório, framework Vite, comando de build `npm run build`, diretório de saída `dist`. Definir `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nos ambientes Production e Preview.
 
-## Deploy na Vercel
+**CLI:** `vercel login` seguido de `vercel --prod` (com CLI instalada globalmente).
 
-### Opção 1: Via CLI (Recomendado)
+## Documentação complementar
 
-1. **Instalar Vercel CLI** (se ainda não tiver):
-   ```bash
-   npm i -g vercel
-   ```
+- Especificação detalhada: [`docs/PRD.md`](docs/PRD.md)
+- Variáveis adicionais (quando aplicável): [`.env.example`](.env.example)
+- Não commitar arquivos `.env` nem credenciais
 
-2. **Fazer login**:
-   ```bash
-   vercel login
-   ```
+## Licença
 
-3. **Configurar variáveis de ambiente**:
-   - Acesse https://vercel.com/dashboard
-   - Vá em Settings > Environment Variables
-   - Adicione `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
-
-4. **Fazer deploy**:
-   ```bash
-   vercel --prod
-   ```
-
-### Opção 2: Via Dashboard da Vercel
-
-1. Acesse https://vercel.com
-2. Clique em "Add New Project"
-3. Conecte seu repositório do GitHub
-4. Configure as variáveis de ambiente
-5. Clique em "Deploy"
-
-O arquivo `vercel.json` já está configurado para SPA com React Router (headers de segurança e rewrites). Variáveis `VITE_*` devem estar definidas no painel da Vercel para cada ambiente (Production / Preview).
+Distribuído sob a licença MIT. Consulte o arquivo [`LICENSE`](LICENSE).

@@ -1,0 +1,537 @@
+import * as React from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { AppShell } from '@/components/AppShell'
+import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Eye, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import type { Database } from '@/lib/database.types'
+
+type FeedbackRow = Database['public']['Tables']['feedbacks']['Row']
+type FeedbackStatus = FeedbackRow['status']
+
+/** Resposta do Supabase com join: feedbacks + profiles(nome, bases(nome)) */
+type FeedbackJoinRow = FeedbackRow & {
+  profiles: { nome: string; bases: { nome: string } | null } | null
+}
+
+type FeedbackWithAuthor = FeedbackRow & {
+  author_nome: string | null
+  base_nome: string
+}
+
+function getTipoLabel(tipo: string) {
+  switch (tipo) {
+    case 'bug':
+      return 'Bug'
+    case 'sugestao':
+      return 'Sugestão'
+    case 'outros':
+      return 'Outros'
+    default:
+      return tipo
+  }
+}
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'pendente':
+      return 'Pendente'
+    case 'em_andamento':
+      return 'Em Andamento'
+    case 'resolvido':
+      return 'Resolvido'
+    case 'fechado':
+      return 'Fechado'
+    default:
+      return status
+  }
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'pendente':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'em_andamento':
+      return 'bg-blue-100 text-blue-800'
+    case 'resolvido':
+      return 'bg-green-100 text-green-800'
+    case 'fechado':
+      return 'bg-gray-100 text-gray-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const TRATATIVA_TIPO_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Selecione a tratativa' },
+  { value: 'correcao_aplicada', label: 'Correção aplicada' },
+  { value: 'em_analise', label: 'Em análise' },
+  { value: 'respondido_usuario', label: 'Respondido ao usuário' },
+  { value: 'fechado_sem_alteracao', label: 'Fechado sem alteração' },
+  { value: 'outros', label: 'Outros' },
+]
+
+function getTratativaTipoLabel(value: string | null) {
+  if (!value) return '—'
+  const opt = TRATATIVA_TIPO_OPTIONS.find((o) => o.value === value)
+  return opt?.label ?? value
+}
+
+export function Suporte() {
+  const { authUser } = useAuth()
+  const queryClient = useQueryClient()
+  const [filtroStatus, setFiltroStatus] = React.useState<string>('todos')
+  const [feedbackDetalhe, setFeedbackDetalhe] = React.useState<FeedbackWithAuthor | null>(null)
+  const [respostaTexto, setRespostaTexto] = React.useState('')
+  const PAGE_SIZE = 10
+  const [paginaAtual, setPaginaAtual] = React.useState(1)
+  const [itensPorPagina, setItensPorPagina] = React.useState(PAGE_SIZE)
+
+  React.useEffect(() => {
+    setRespostaTexto(feedbackDetalhe?.resposta_suporte ?? '')
+  }, [feedbackDetalhe])
+
+  const {
+    data: feedbacksPayload,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['suporte-feedbacks', paginaAtual, itensPorPagina, filtroStatus],
+    queryFn: async (): Promise<{ list: FeedbackWithAuthor[]; total: number }> => {
+      const from = (paginaAtual - 1) * itensPorPagina
+      const to = from + itensPorPagina - 1
+      let query = supabase
+        .from('feedbacks')
+        .select('*, profiles(nome, bases(nome))', { count: 'exact' })
+        .order('created_at', { ascending: false })
+      if (filtroStatus !== 'todos') {
+        query = query.eq('status', filtroStatus)
+      }
+      const { data, error: err, count } = await query.range(from, to)
+      if (err) throw err
+      const rows = (data ?? []) as FeedbackJoinRow[]
+      const list: FeedbackWithAuthor[] = rows.map((row) => ({
+        ...row,
+        author_nome: row.profiles?.nome ?? null,
+        base_nome: row.profiles?.bases?.nome ?? '—',
+      }))
+      return { list, total: count ?? 0 }
+    },
+    enabled: !!authUser?.user?.id,
+  })
+
+  const feedbacks = feedbacksPayload?.list ?? []
+  const totalItens = feedbacksPayload?.total ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(totalItens / itensPorPagina))
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: FeedbackStatus }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client infers update as never without full schema
+      const { error } = await (supabase as any)
+        .from('feedbacks')
+        .update({ status })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks'] })
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks-pendentes'] })
+    },
+    onError: (err: Error) => {
+      alert(`Erro ao atualizar status: ${err.message}`)
+    },
+  })
+
+  const updateTratativaTipoMutation = useMutation({
+    mutationFn: async ({
+      id,
+      tratativa_tipo,
+    }: {
+      id: string
+      tratativa_tipo: string | null
+    }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client infers update as never without full schema
+      const { error } = await (supabase as any)
+        .from('feedbacks')
+        .update({ tratativa_tipo: tratativa_tipo || null })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks'] })
+    },
+    onError: (err: Error) => {
+      alert(`Erro ao atualizar tratativa: ${err.message}`)
+    },
+  })
+
+  const updateRespostaSuporteMutation = useMutation({
+    mutationFn: async ({ id, resposta_suporte }: { id: string; resposta_suporte: string | null }) => {
+      const { data, error } = await (supabase as any)
+        .from('feedbacks')
+        .update({ resposta_suporte: resposta_suporte ?? null })
+        .eq('id', id)
+        .select('id, resposta_suporte')
+        .single()
+      if (error) {
+        console.error('Erro ao salvar resposta do suporte:', error)
+        throw new Error(error.message + (error.details ? ` (${error.details})` : ''))
+      }
+      return data as { id: string; resposta_suporte: string | null }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks'] })
+      queryClient.invalidateQueries({ queryKey: ['suporte-feedbacks-pendentes'] })
+      if (feedbackDetalhe && data) {
+        setFeedbackDetalhe((prev) => (prev ? { ...prev, resposta_suporte: data.resposta_suporte } : null))
+      }
+      alert('Resposta salva com sucesso!')
+    },
+    onError: (err: Error) => {
+      console.error('updateRespostaSuporteMutation error:', err)
+      alert(`Erro ao salvar resposta: ${err.message}\n\nSe a coluna "resposta_suporte" não existir, execute a migration 025 no Supabase.`)
+    },
+  })
+
+  React.useEffect(() => {
+    setPaginaAtual(1)
+  }, [filtroStatus])
+
+  if (!authUser?.profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Carregando...</div>
+      </div>
+    )
+  }
+
+  return (
+    <AppShell title="Suporte / Feedback" subtitle={authUser?.profile?.nome}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Feedbacks dos Usuários</CardTitle>
+            <CardDescription>
+              Lista de sugestões, bugs e outros enviados pelo suporte. Atualize o status para dar
+              tratativa.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <Label htmlFor="filtro-status" className="text-sm font-medium whitespace-nowrap">
+                Filtrar por status:
+              </Label>
+              <Select
+                id="filtro-status"
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className="max-w-[180px]"
+              >
+                <option value="todos">Todos</option>
+                <option value="pendente">Pendente</option>
+                <option value="em_andamento">Em Andamento</option>
+                <option value="resolvido">Resolvido</option>
+                <option value="fechado">Fechado</option>
+              </Select>
+            </div>
+
+            {isError ? (
+              <p className="text-destructive py-8">
+                Erro ao carregar feedbacks. Verifique se você tem permissão para acessar a tabela de
+                feedbacks. Detalhe: {error instanceof Error ? error.message : String(error)}
+              </p>
+            ) : isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
+                <p className="text-muted-foreground text-sm">Carregando feedbacks...</p>
+                <div className="w-full max-w-2xl rounded-md border overflow-hidden">
+                  <div className="animate-pulse space-y-0">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex gap-4 p-3 border-t first:border-t-0">
+                        <div className="h-5 w-20 bg-muted rounded" />
+                        <div className="h-5 w-24 bg-muted rounded" />
+                        <div className="h-5 w-16 bg-muted rounded" />
+                        <div className="h-5 flex-1 max-w-xs bg-muted rounded" />
+                        <div className="h-5 w-12 bg-muted rounded" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : feedbacks.length === 0 ? (
+              <p className="text-muted-foreground py-8">
+                Nenhum feedback encontrado com o filtro selecionado.
+              </p>
+            ) : (
+              <>
+              <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 font-semibold">Data</th>
+                        <th className="text-left p-3 font-semibold">Usuário</th>
+                        <th className="text-left p-3 font-semibold">Unidade/Base</th>
+                        <th className="text-left p-3 font-semibold">Tipo</th>
+                        <th className="text-left p-3 font-semibold">Mensagem</th>
+                        <th className="text-left p-3 font-semibold w-20">Ação</th>
+                        <th className="text-left p-3 font-semibold min-w-[200px]">Status</th>
+                        <th className="text-left p-3 font-semibold min-w-[280px]">Tipo de tratativa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedbacks.map((feedback) => (
+                        <tr key={feedback.id} className="border-t">
+                          <td className="p-3 whitespace-nowrap text-muted-foreground">
+                            {new Date(feedback.created_at).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="p-3 font-medium">
+                            {feedback.author_nome ?? feedback.user_id.slice(0, 8) + '…'}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {feedback.base_nome}
+                          </td>
+                          <td className="p-3">{getTipoLabel(feedback.tipo)}</td>
+                          <td className="p-3 max-w-xs">
+                            <span className="line-clamp-2 block" title={feedback.mensagem}>
+                              {feedback.mensagem}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() => setFeedbackDetalhe(feedback)}
+                              title="Ver mensagem completa"
+                            >
+                              <Eye className="h-4 w-4" />
+                              Ver
+                            </Button>
+                          </td>
+                          <td className="p-3 min-w-[200px]">
+                            <Select
+                              value={feedback.status}
+                              onChange={(e) =>
+                                updateStatusMutation.mutate({
+                                  id: feedback.id,
+                                  status: e.target.value as FeedbackStatus,
+                                })
+                              }
+                              disabled={updateStatusMutation.isPending}
+                              className="min-w-[170px] w-full max-w-[200px] h-9 pl-3 pr-8"
+                            >
+                              <option value="pendente">Pendente</option>
+                              <option value="em_andamento">Em Andamento</option>
+                              <option value="resolvido">Resolvido</option>
+                              <option value="fechado">Fechado</option>
+                            </Select>
+                          </td>
+                          <td className="p-3 min-w-[280px]">
+                            <Select
+                              value={feedback.tratativa_tipo ?? ''}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                updateTratativaTipoMutation.mutate({
+                                  id: feedback.id,
+                                  tratativa_tipo: v === '' ? null : v,
+                                })
+                              }}
+                              disabled={updateTratativaTipoMutation.isPending}
+                              className="min-w-[260px] w-full max-w-[280px] h-9 pl-3 pr-8"
+                            >
+                              {TRATATIVA_TIPO_OPTIONS.map((opt) => (
+                                <option key={opt.value || 'vazio'} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Paginação */}
+              <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Mostrando{' '}
+                    {totalItens === 0
+                      ? 0
+                      : (paginaAtual - 1) * itensPorPagina + 1}{' '}
+                    a {Math.min(paginaAtual * itensPorPagina, totalItens)} de {totalItens}{' '}
+                    feedback{totalItens !== 1 ? 's' : ''}
+                  </span>
+                  <Label htmlFor="itens-pagina" className="text-sm font-medium whitespace-nowrap">
+                    Itens por página:
+                  </Label>
+                  <Select
+                    id="itens-pagina"
+                    value={String(itensPorPagina)}
+                    onChange={(e) => {
+                      setItensPorPagina(Number(e.target.value))
+                      setPaginaAtual(1)
+                    }}
+                    className="w-[70px] h-8"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                    disabled={paginaAtual <= 1}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {paginaAtual} de {totalPaginas}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+                    disabled={paginaAtual >= totalPaginas}
+                    className="gap-1"
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Modal: detalhe do feedback enviado pelo usuário */}
+        {feedbackDetalhe && (
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setFeedbackDetalhe(null)}
+          >
+            <Card
+              className="w-full max-w-lg max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader className="flex-shrink-0 border-b relative">
+                <div className="pr-10">
+                  <CardTitle className="text-lg">Detalhe do feedback</CardTitle>
+                  <CardDescription>
+                  Enviado em{' '}
+                  {new Date(feedbackDetalhe.created_at).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}{' '}
+                  por {feedbackDetalhe.author_nome ?? feedbackDetalhe.user_id.slice(0, 8) + '…'}
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFeedbackDetalhe(null)}
+                  className="absolute top-4 right-4 z-10"
+                  title="Fechar"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </Button>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto pt-4 space-y-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Tipo</Label>
+                  <p className="font-medium">{getTipoLabel(feedbackDetalhe.tipo)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <p>
+                    <span
+                      className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(
+                        feedbackDetalhe.status
+                      )}`}
+                    >
+                      {getStatusLabel(feedbackDetalhe.status)}
+                    </span>
+                  </p>
+                </div>
+                {feedbackDetalhe.tratativa_tipo && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Tipo de tratativa</Label>
+                    <p className="font-medium">{getTratativaTipoLabel(feedbackDetalhe.tratativa_tipo)}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-muted-foreground text-xs">Mensagem enviada pelo usuário</Label>
+                  <div className="mt-1 p-3 rounded-md bg-muted/50 border text-sm whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                    {feedbackDetalhe.mensagem}
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="resposta-suporte" className="text-muted-foreground text-xs">
+                    Resposta do suporte
+                  </Label>
+                  <Textarea
+                    id="resposta-suporte"
+                    placeholder="Digite sua resposta ao usuário..."
+                    value={respostaTexto}
+                    onChange={(e) => setRespostaTexto(e.target.value)}
+                    className="mt-1 min-h-[100px] resize-y"
+                    disabled={updateRespostaSuporteMutation.isPending}
+                  />
+                  <Button
+                    type="button"
+                    className="mt-2 w-full"
+                    disabled={updateRespostaSuporteMutation.isPending}
+                    onClick={() =>
+                      updateRespostaSuporteMutation.mutate({
+                        id: feedbackDetalhe.id,
+                        resposta_suporte: respostaTexto.trim() || null,
+                      })
+                    }
+                  >
+                    {updateRespostaSuporteMutation.isPending ? 'Salvando...' : 'Salvar resposta'}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setFeedbackDetalhe(null)}
+                >
+                  Fechar
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+    </AppShell>
+  )
+}

@@ -1,0 +1,10 @@
+{
+  "projectPath": "C:/Users/sussa/Desktop/indicadores_medmais/Projeto indicadores",
+  "localPort": 5173,
+  "type": "frontend",
+  "testScope": "codebase",
+  "baseUrl": "http://localhost:5173",
+  "timeout": 30000,
+  "screenshots": true,
+  "video": false
+}

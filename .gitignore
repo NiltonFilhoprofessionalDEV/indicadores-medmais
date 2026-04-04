@@ -1,0 +1,36 @@
+# Dependências e build
+node_modules/
+dist/
+*.local
+
+# Ambiente (nunca commitar segredos)
+.env
+.env.*.local
+
+# Logs e OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Supabase CLI cache local
+supabase/.temp/
+
+# IDE (opcional)
+.idea/
+
+# Cypress / test artifacts
+cypress/videos/
+cypress/screenshots/
+
+# Coverage
+coverage/
+
+# --- Repositório enxuto: docs operacionais só na sua máquina ---
+# Markdown na raiz, exceto README (deploy, troubleshooting, migrações manuais em texto)
+/*.md
+!README.md
+
+# Scripts PowerShell auxiliares de deploy/push (CI usa GitHub + Vercel)
+/deploy-*.ps1
+/push-to-github.ps1
+/setup-github-vercel.ps1

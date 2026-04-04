@@ -1,0 +1,763 @@
+[
+  {
+    "id": "TC001",
+    "title": "User login with valid credentials",
+    "description": "Verify that a user with correct username and password can successfully log in and is redirected to the appropriate dashboard based on their role.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid username and password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is successful"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is redirected to Dashboard Gerente if role is Gerente Geral"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is redirected to Dashboard Chefe if role is Chefe de Equipe"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User login with invalid credentials",
+    "description": "Verify that login fails with incorrect username or password and an appropriate error message is displayed.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid username or password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is rejected"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an error message about invalid credentials is shown"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Access control based on user roles",
+    "description": "Verify that access to routes and functionalities is properly restricted based on user role (Gerente Geral or Chefe de Equipe).",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access user management and collaborator management modules"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is granted to all administrative features"
+      },
+      {
+        "type": "action",
+        "description": "Logout and login as Chefe de Equipe"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access user management and collaborator management modules"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied and UI elements are hidden or unclickable"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Create user individually with valid data",
+    "description": "Verify that Gerente Geral can create individual users with valid data and that new users appear in the user list.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Gestão de Usuários"
+      },
+      {
+        "type": "action",
+        "description": "Fill the user creation form with valid inputs including optional email as 'N/A' or blank"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is created successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user appears in the user listing"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Create users in bulk with valid inputs",
+    "description": "Verify that Gerente Geral can create multiple users in a single batch using the bulk form with valid data and errors are handled gracefully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to bulk user creation form"
+      },
+      {
+        "type": "action",
+        "description": "Input multiple user records in textarea with correct format"
+      },
+      {
+        "type": "action",
+        "description": "Submit the bulk creation form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all valid users are created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify errors for invalid user entries are shown without aborting entire batch"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Edit existing user with valid data including empty email",
+    "description": "Verify that Gerente Geral can edit user data and can save updates even when email field is blank or set as 'N/A'.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to user list and choose a user to edit"
+      },
+      {
+        "type": "action",
+        "description": "Modify user data leaving email blank or 'N/A'"
+      },
+      {
+        "type": "action",
+        "description": "Submit the edit form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes are saved successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no validation errors occur due to email field"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Delete a user with sufficient permissions",
+    "description": "Verify that Gerente Geral can delete users and that deleted users are removed from the listing.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to user management and select a user"
+      },
+      {
+        "type": "action",
+        "description": "Perform delete operation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is removed from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify deletion is logged/audited"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Create and edit collaborators individually and in batch",
+    "description": "Verify that Gerente Geral can add, edit and remove collaborators (efetivo) individually or in batch, with proper linkage to base and team.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Gestão de Efetivo"
+      },
+      {
+        "type": "action",
+        "description": "Add a collaborator with valid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify collaborator is added and displayed correctly"
+      },
+      {
+        "type": "action",
+        "description": "Add multiple collaborators in batch via textarea"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all valid collaborators are added"
+      },
+      {
+        "type": "action",
+        "description": "Edit a collaborator's details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes are persisted"
+      },
+      {
+        "type": "action",
+        "description": "Remove a collaborator"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify collaborator is deleted"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Submit operational indicator forms with valid data",
+    "description": "Verify that users, according to their roles, can submit forms for all 14 indicators with correct validations and successful data insertion without overwriting previous entries.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Chefe de Equipe or Gerente Geral"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to indicators form (e.g., TAF, Prova Teórica, Ocorrências Aeronáuticas)"
+      },
+      {
+        "type": "action",
+        "description": "Fill the form with valid data including formatted dates and masked time inputs"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is saved successfully as a new record (INSERT)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify old entries remain unchanged and multiple entries per day are allowed"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Reject indicator form submission with invalid or missing data",
+    "description": "Verify that form validation prevents submission of indicators with missing mandatory fields, invalid formats or logical errors.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to any indicator form"
+      },
+      {
+        "type": "action",
+        "description": "Input invalid data such as missing required fields or wrong date formats"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify submission is blocked"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error messages are displayed appropriately"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Filtering analytics data with valid parameters",
+    "description": "Verify that users can apply filters (base, team, period, collaborator, occurrence type) in the analytics dashboard and that data respects the 12-month limit and returns relevant KPIs and charts.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authorized user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Dashboard Analytics"
+      },
+      {
+        "type": "action",
+        "description": "Select filters: base, team, period (≤12 months), collaborator, occurrence type"
+      },
+      {
+        "type": "action",
+        "description": "Apply filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data displayed matches selected filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify charts render with correct chronological order, legends, and tooltips"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Reject analytics filter if date interval exceeds 12 months",
+    "description": "Verify that the system prevents users from querying analytics data over periods longer than 12 months with appropriate error messaging.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Dashboard Analytics"
+      },
+      {
+        "type": "action",
+        "description": "Select filter with period longer than 12 months"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to apply filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system rejects the query"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user sees an error or warning about date interval limit"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Ensure pagination server-side works in historical data",
+    "description": "Verify that historical entries show 20 records per page with navigation controls, and that scroll resets to top when switching pages.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Histórico de Lançamentos"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only 20 records are visible per page"
+      },
+      {
+        "type": "action",
+        "description": "Use pagination controls to navigate to next and previous pages"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify scrolling resets to top"
+      },
+      {
+        "type": "action",
+        "description": "Use filters to reduce result set"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pagination updates accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Verify permission based CRUD operations on historical data",
+    "description": "Ensure users cannot edit or delete historical entries beyond their role permissions and proper messages are displayed upon denial.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Chefe de Equipe"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to edit or delete historical entries outside permitted scope"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify operation is denied"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate error message is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Compliance monitoring alerts for inactive users and non-compliant bases",
+    "description": "Verify that the monitoring module correctly identifies non-compliance and inactive users and displays clear visual alerts according to compliance rules.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access Monitoramento de Aderência module"
+      },
+      {
+        "type": "action",
+        "description": "Check indicator statuses for bases from groups A, B, and C"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify symbols and colors representing compliance are displayed correctly"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify alerts for inactive users are shown as per rules"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "User profile update including password change",
+    "description": "Verify users can edit their profile data and successfully change their password with former password confirmation and validation.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as any user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Settings"
+      },
+      {
+        "type": "action",
+        "description": "Edit profile data and submit changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify profile updates are saved"
+      },
+      {
+        "type": "action",
+        "description": "Attempt password change with incorrect current password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify rejection and error shown"
+      },
+      {
+        "type": "action",
+        "description": "Attempt password change with valid current and new password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify password updated successfully"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Submit and view user feedbacks with proper permission and sorting",
+    "description": "Verify that users can submit feedback, and support staff can access feedback list filtered and sorted with correct statuses and types.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to feedback submission form"
+      },
+      {
+        "type": "action",
+        "description": "Submit feedback with proper type and details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify feedback is saved and appears in user's feedback list"
+      },
+      {
+        "type": "action",
+        "description": "Login as support user with permission"
+      },
+      {
+        "type": "action",
+        "description": "Access feedback list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify feedbacks are listed in order and filtering by status and type works correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Validate data integrity and security with RLS policies",
+    "description": "Verify that Row Level Security (RLS) policies prevent access or modification of data outside user’s permitted base or team and that audit logs capture access attempts.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as user with access to base A and team X"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to read and modify data of base B or other teams"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate error message is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Check audit logs for recorded attempts"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Dashboard UI rendering with correct theming and components",
+    "description": "Verify that dashboards render with the correct color scheme (orange #fc4d00), shadow styling, and responsive layouts on multiple device sizes, and that reusable UI components behave as expected.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to Dashboards Gerente Geral and Chefe de Equipe"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify theme colors match specification (#fc4d00 orange, shadows, layouts)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI components like buttons, cards, inputs render correctly"
+      },
+      {
+        "type": "action",
+        "description": "Resize browser or access via mobile viewport"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify responsive layout adapts properly"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Edge function operations for administrative tasks without session impact",
+    "description": "Verify that administrative CRUD operations on users and collaborators executed via Edge Functions do not terminate or affect current administrator sessions and are reflected in the system correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Gerente Geral (administrator)"
+      },
+      {
+        "type": "action",
+        "description": "Perform create, update and delete operations on users and collaborators"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify operations complete successfully via Edge Functions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify administrator session remains active without logout"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes immediately reflect in UI"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Database query performance under load with indices",
+    "description": "Verify that analytics queries return results within 2 seconds for datasets containing 100,000+ records using B-Tree and GIN indices and that JSONB column querying is optimized.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load database with simulated large dataset (100k+ records)"
+      },
+      {
+        "type": "action",
+        "description": "Execute typical analytics queries with filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify queries complete within 2 seconds"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only necessary columns are queried to reduce memory and traffic"
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "Verify multi-entry per day feature for indicators",
+    "description": "Confirm that the system allows multiple insertions for the same indicator and date without overwriting previous entries and aggregates data accurately in reports.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit multiple entries for the same day for an indicator"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify multiple records are stored independently"
+      },
+      {
+        "type": "action",
+        "description": "Generate reports or dashboards aggregating that data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify aggregation and KPIs include all entries"
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Validation of dynamic occurrence type filters in analytics",
+    "description": "Verify that filters for occurrence type related to Aeronáutica and Não Aeronáutica correctly filter and display data in the analytics dashboard.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access analytics filters"
+      },
+      {
+        "type": "action",
+        "description": "Select occurrence type Aeronáutica"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify displayed data corresponds only to Aeronáutica occurrences"
+      },
+      {
+        "type": "action",
+        "description": "Change filter to Não Aeronáutica"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify displayed data corresponds only to Não Aeronáutica occurrences"
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Audit trail verification for data queries and modifications",
+    "description": "Verify that all data queries and modification actions are logged in audit tables or logs to guarantee data integrity and security.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform read and write operations on indicator data, users, and collaborators"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each operation is recorded in audit logs with user, timestamp, and action details"
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "Error boundary component captures and handles UI errors",
+    "description": "Verify that the React ErrorBoundary component properly catches rendering errors within dashboards and forms and displays an error UI without crashing the entire app.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Introduce a runtime error in a child component (simulate) of a dashboard or form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ErrorBoundary catches the error"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that a friendly error message or fallback UI is displayed instead of a blank or broken page"
+      }
+    ]
+  }
+]

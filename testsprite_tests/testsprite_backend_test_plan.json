@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "test user authentication and role based route protection",
+    "description": "Verify that the authentication system using Supabase Auth correctly allows users to login and logout, and that route protection based on user roles (Gerente Geral and Chefe de Equipe) properly restricts access to authorized pages only."
+  },
+  {
+    "id": "TC002",
+    "title": "test gerente geral dashboard access and functionality",
+    "description": "Ensure that the Dashboard Gerente page loads correctly for users with Gerente Geral role and that all administrative functionalities are accessible and operational."
+  },
+  {
+    "id": "TC003",
+    "title": "test chefe de equipe dashboard access and restrictions",
+    "description": "Verify that the Dashboard Chefe page loads correctly for users with Chefe de Equipe role and that access is limited to the specific functionalities allowed for this role."
+  },
+  {
+    "id": "TC004",
+    "title": "test analytics dashboard filters and data visualization",
+    "description": "Test the Dashboard Analytics page with various filters (base, equipe, periodo, colaborador, tipos de ocorrencia) to ensure correct data retrieval, processing, and display of KPIs, charts, and rankings."
+  },
+  {
+    "id": "TC005",
+    "title": "test user management crud operations",
+    "description": "Validate the complete CRUD operations for user management including individual and bulk user creation, editing, listing, and deletion with proper form validation and role-based access."
+  },
+  {
+    "id": "TC006",
+    "title": "test colaborador management functionality",
+    "description": "Verify the CRUD operations for managing colaboradores/bombeiros including individual and batch additions, edits, and removals, ensuring correct association with bases and teams."
+  },
+  {
+    "id": "TC007",
+    "title": "test compliance monitoring and adherence alerts",
+    "description": "Check the compliance and adherence monitoring system for bases and indicators, ensuring that visual alerts for non-compliance and inactive users are displayed correctly according to defined rules."
+  },
+  {
+    "id": "TC008",
+    "title": "test indicator data submission forms validation and submission",
+    "description": "Test all indicator data submission forms for correct validation using Zod schemas, proper handling of date and time masks, and successful data submission to the backend."
+  },
+  {
+    "id": "TC009",
+    "title": "test history table pagination and filtering",
+    "description": "Verify the history table component for correct server-side pagination, filtering by indicator and period, and proper display of historical launch records with permission-based actions."
+  },
+  {
+    "id": "TC010",
+    "title": "test user settings profile update and feedback submission",
+    "description": "Ensure that the user settings page allows profile updates, password changes, and feedback submissions with proper validation and role-based access control."
+  }
+]

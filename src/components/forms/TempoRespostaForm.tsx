@@ -1,0 +1,302 @@
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useLancamento, handleSaveError } from '@/hooks/useLancamento'
+import { useAuth } from '@/contexts/AuthContext'
+import { formatTimeMMSS, validateMMSS } from '@/lib/masks'
+import { getCurrentDateLocal, normalizeDateToLocal, formatDateForStorage } from '@/lib/date-utils'
+import { Select } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormShell, FormField } from './FormShell'
+import { BaseFormFields } from './BaseFormFields'
+import { useColaboradores } from '@/hooks/useColaboradores'
+import { Plus, Trash2 } from 'lucide-react'
+
+const VIATURAS = [
+  'CCI 01',
+  'CCI 02',
+  'CCI 03',
+  'CCI 04',
+  'CCI 05',
+  'CCI 06',
+  'CRS 01',
+  'CRS 02',
+  'CRS 03',
+  'CCI RT 01',
+  'CCI RT 02',
+  'CCI RT 03',
+  'CA 01',
+  'CA 02',
+] as const
+
+const afericaoSchemaLax = z.object({
+  viatura: z.enum(VIATURAS).optional(),
+  motorista: z.string().optional().default(''),
+  local: z.string().optional().default(''),
+  tempo: z.string().optional().default(''),
+})
+
+function isAfericaoRowEmpty(r: { viatura?: string; motorista?: string; local?: string; tempo?: string }) {
+  const v = r.viatura
+  const motorista = String(r.motorista ?? '').trim()
+  const local = String(r.local ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !v && !motorista && !local && !tempo
+}
+
+function isAfericaoRowComplete(r: { viatura?: string; motorista?: string; local?: string; tempo?: string }) {
+  const viatura = r.viatura
+  const motorista = String(r.motorista ?? '').trim()
+  const local = String(r.local ?? '').trim()
+  const tempo = String(r.tempo ?? '').trim()
+  return !!viatura && !!motorista && !!local && !!tempo && validateMMSS(tempo, 4)
+}
+
+const tempoRespostaSchema = z
+  .object({
+    afericoes: z.array(afericaoSchemaLax),
+    data_referencia: z.string().min(1, 'Data é obrigatória'),
+    base_id: z.string().optional(),
+    equipe_id: z.string().optional(),
+  })
+  .refine(
+    (data) => data.afericoes.some((r) => isAfericaoRowComplete(r)),
+    { message: 'Preencha pelo menos uma aferição completamente para salvar.', path: ['afericoes'] }
+  )
+  .refine(
+    (data) =>
+      data.afericoes.every((r) => isAfericaoRowEmpty(r) || isAfericaoRowComplete(r)),
+    {
+      message: 'Preencha todos os campos da linha (viatura, motorista, local e tempo) ou deixe a linha em branco.',
+      path: ['afericoes'],
+    }
+  )
+
+type TempoRespostaFormData = z.infer<typeof tempoRespostaSchema>
+
+interface TempoRespostaFormProps {
+  indicadorId: string
+  onSuccess?: () => void
+  initialData?: Record<string, unknown>
+  readOnly?: boolean
+}
+
+export function TempoRespostaForm({
+  indicadorId,
+  onSuccess,
+  initialData,
+  readOnly = false,
+}: TempoRespostaFormProps) {
+  const navigate = useNavigate()
+  const { saveLancamento, isLoading } = useLancamento()
+  const { authUser } = useAuth()
+  const [dataReferencia, setDataReferencia] = useState<string>(
+    initialData?.data_referencia 
+      ? normalizeDateToLocal(initialData.data_referencia as string)
+      : getCurrentDateLocal()
+  )
+
+  const finalBaseId = initialData?.base_id as string | undefined || authUser?.profile?.base_id || ''
+  const finalEquipeId = initialData?.equipe_id as string | undefined || authUser?.profile?.equipe_id || ''
+
+  const initialAfericoes = initialData?.afericoes && Array.isArray(initialData.afericoes)
+    ? (initialData.afericoes as Array<Record<string, unknown>>).map((a) => ({
+        viatura: (a.viatura as typeof VIATURAS[number]) || undefined,
+        motorista: (a.motorista as string) || '',
+        local: (a.local as string) || '',
+        tempo: (a.tempo as string) || '',
+      }))
+    : Array(4).fill(null).map(() => ({ viatura: undefined, motorista: '', local: '', tempo: '' }))
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<TempoRespostaFormData>({
+    resolver: zodResolver(tempoRespostaSchema),
+    defaultValues: {
+      afericoes: initialAfericoes,
+      data_referencia: dataReferencia,
+      base_id: finalBaseId,
+      equipe_id: finalEquipeId,
+    },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'afericoes',
+  })
+
+  const { data: colaboradores } = useColaboradores(finalBaseId || null)
+
+  const onSubmit = async (data: TempoRespostaFormData) => {
+    try {
+      const afericoesFiltradas = data.afericoes.filter((a) => isAfericaoRowComplete(a))
+      if (afericoesFiltradas.length === 0) {
+        alert('Preencha pelo menos um colaborador completamente para salvar.')
+        return
+      }
+
+      const conteudo = {
+        afericoes: afericoesFiltradas,
+      }
+
+      const dataRefFormatted = typeof data.data_referencia === 'string' 
+        ? data.data_referencia 
+        : formatDateForStorage(new Date(data.data_referencia))
+
+      await saveLancamento({
+        id: initialData?.id as string | undefined,
+        dataReferencia: dataRefFormatted,
+        indicadorId,
+        conteudo,
+        baseId: data.base_id,
+        equipeId: data.equipe_id,
+      })
+
+      onSuccess?.()
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+      handleSaveError(error, { onSuccess, navigate })
+    }
+  }
+
+  return (
+    <FormShell
+      title="Tempo de Resposta"
+      description="Registro dos tempos de resposta das viaturas"
+      onSubmit={handleSubmit(onSubmit)}
+      isLoading={isLoading}
+      readOnly={readOnly}
+      submitLabel="Salvar Tempo de Resposta"
+    >
+      <BaseFormFields
+        dataReferencia={dataReferencia}
+        onDataChange={(date) => {
+          setDataReferencia(date)
+          setValue('data_referencia', date)
+        }}
+        baseId={finalBaseId}
+        equipeId={watch('equipe_id') ?? finalEquipeId}
+        onBaseIdChange={(baseId) => setValue('base_id', baseId)}
+        onEquipeIdChange={(equipeId) => setValue('equipe_id', equipeId)}
+        readOnly={readOnly}
+      />
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <label className="text-xs font-medium text-muted-foreground">Aferições</label>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append({ viatura: '' as any, motorista: '', local: '', tempo: '' })}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar Linha
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {fields.map((field, index) => (
+            <div
+              key={field.id}
+              className="relative rounded-lg bg-muted/20 border border-border p-4"
+            >
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(index)}
+                  className="absolute top-3 right-3 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Remover"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-8">
+                <FormField label="Viatura" required error={errors.afericoes?.[index]?.viatura?.message}>
+                  <Controller
+                    name={`afericoes.${index}.viatura`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        disabled={readOnly}
+                        className={readOnly ? 'bg-muted' : ''}
+                      >
+                        <option value="">Selecione</option>
+                        {VIATURAS.map((viatura) => (
+                          <option key={viatura} value={viatura}>
+                            {viatura}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  />
+                </FormField>
+
+                <FormField label="Motorista (BA-MC)" required error={errors.afericoes?.[index]?.motorista?.message}>
+                  <Controller
+                    name={`afericoes.${index}.motorista`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        disabled={readOnly || !finalBaseId}
+                        className={readOnly ? 'bg-muted' : ''}
+                      >
+                        <option value="">Selecione um colaborador</option>
+                        {colaboradores
+                          ?.filter((c) => c.ativo)
+                          .map((colaborador) => (
+                            <option key={colaborador.id} value={colaborador.nome}>
+                              {colaborador.nome}
+                            </option>
+                          ))}
+                      </Select>
+                    )}
+                  />
+                </FormField>
+
+                <FormField label="Local" required error={errors.afericoes?.[index]?.local?.message}>
+                  <Input
+                    {...register(`afericoes.${index}.local`)}
+                    disabled={readOnly}
+                    className={readOnly ? 'bg-muted' : ''}
+                  />
+                </FormField>
+
+                <FormField label="Tempo (mm:ss, máx 04:59)" required error={errors.afericoes?.[index]?.tempo?.message}>
+                  <Input
+                    placeholder="01:30"
+                    {...register(`afericoes.${index}.tempo`)}
+                    onChange={(e) => {
+                      const formatted = formatTimeMMSS(e.target.value, 4)
+                      setValue(`afericoes.${index}.tempo`, formatted)
+                    }}
+                    disabled={readOnly}
+                    className={readOnly ? 'bg-muted' : ''}
+                  />
+                </FormField>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {errors.afericoes && (
+          <p className="text-xs text-destructive font-medium">{errors.afericoes.message}</p>
+        )}
+      </div>
+    </FormShell>
+  )
+}

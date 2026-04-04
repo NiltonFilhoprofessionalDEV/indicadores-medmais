@@ -2,7 +2,7 @@
 1. Visão Geral
 Sistema web para gestão de indicadores de 34 bases aeroportuárias. Foco em integridade de dados (JSONB), segurança (RLS) e BI (Dashboards).
 Repositório de código-fonte (GitHub): https://github.com/NiltonFilhoprofessionalDEV/indicadores-medmais
-**Conteúdo versionado (política do repositório):** código-fonte, `supabase/migrations/`, `docs/PRD.md`, `README.md` e arquivos de configuração do projeto (ex.: `vercel.json`, `package.json`). **Não entram no Git** (via `.gitignore`): Markdown na raiz exceto `README.md` (notas locais de deploy/troubleshooting) e scripts PowerShell auxiliares de deploy/push na raiz. Instruções de deploy para novos clones ficam resumidas no `README.md`.
+**Conteúdo versionado (política do repositório):** código-fonte, `supabase/migrations/`, `docs/PRD.md`, `README.md` e arquivos de configuração do projeto (ex.: `vercel.json`, `package.json`). **Não entram no Git** (via `.gitignore`): Markdown na raiz exceto `README.md` (notas locais de deploy/troubleshooting) e scripts PowerShell auxiliares de deploy/push na raiz. O **`README.md`** é o ponto de entrada para desenvolvedores, em formato de documentação de projeto padrão (sumário, requisitos, instalação, configuração, scripts, publicação, licença) e links para o PRD; o detalhe funcional permanece no `docs/PRD.md`.
 
 2. Stack Tecnológica
 Frontend: React (Vite) + TypeScript.

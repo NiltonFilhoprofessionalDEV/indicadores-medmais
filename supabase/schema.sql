@@ -60,7 +60,8 @@ CREATE TABLE public.lancamentos (
     data_referencia DATE NOT NULL,
     base_id UUID NOT NULL REFERENCES public.bases(id) ON DELETE CASCADE,
     equipe_id UUID NOT NULL REFERENCES public.equipes(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    autor_nome TEXT,
     indicador_id UUID NOT NULL REFERENCES public.indicadores_config(id) ON DELETE CASCADE,
     conteudo JSONB NOT NULL DEFAULT '{}'::jsonb
     -- CORREÇÃO: Removida constraint UNIQUE para permitir múltiplos lançamentos no mesmo dia
@@ -377,3 +378,4 @@ COMMENT ON TABLE public.lancamentos IS 'Tabela central (Single Source of Truth) 
 COMMENT ON COLUMN public.profiles.role IS 'Role do usuário: geral (Gerente Geral), chefe (Chefe de Equipe), gerente_sci (Gerente de SCI) ou auxiliar (Líder de Resgate)';
 COMMENT ON COLUMN public.lancamentos.conteudo IS 'Dados variáveis do indicador em formato JSONB';
 COMMENT ON COLUMN public.lancamentos.data_referencia IS 'Data de referência do lançamento (formato DATE)';
+COMMENT ON COLUMN public.lancamentos.autor_nome IS 'Nome do autor persistido no salvamento; permanece se o perfil for excluído (user_id pode ser NULL)';

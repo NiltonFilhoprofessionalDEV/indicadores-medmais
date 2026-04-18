@@ -158,7 +158,8 @@ export interface Database {
           data_referencia: string
           base_id: string
           equipe_id: string
-          user_id: string
+          user_id: string | null
+          autor_nome: string | null
           indicador_id: string
           conteudo: Json
         }
@@ -169,7 +170,8 @@ export interface Database {
           data_referencia: string
           base_id: string
           equipe_id: string
-          user_id: string
+          user_id?: string | null
+          autor_nome?: string | null
           indicador_id: string
           conteudo: Json
         }
@@ -180,7 +182,8 @@ export interface Database {
           data_referencia?: string
           base_id?: string
           equipe_id?: string
-          user_id?: string
+          user_id?: string | null
+          autor_nome?: string | null
           indicador_id?: string
           conteudo?: Json
         }

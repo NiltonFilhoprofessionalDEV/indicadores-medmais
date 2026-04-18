@@ -14,7 +14,7 @@ import { AppShell } from '@/components/AppShell'
 import { FormDrawer } from '@/components/ui/form-drawer'
 import { BulkUserForm } from '@/components/BulkUserForm'
 import { Eye, EyeOff, Pencil, Trash2, Users, Search, UserPlus } from 'lucide-react'
-import { formatBaseName, formatEquipeName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName, parseResponseJson } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -298,9 +298,21 @@ export function GestaoUsuarios() {
                     }),
                   }
                 )
-                const responseData = await directResponse.json()
+                const responseData = await parseResponseJson<Record<string, unknown>>(directResponse)
                 if (!directResponse.ok) {
-                  throw new Error(responseData?.error || responseData?.message || errorMessage)
+                  const fromBody =
+                    responseData &&
+                    (responseData.error !== undefined
+                      ? String(responseData.error)
+                      : responseData.message !== undefined
+                        ? String(responseData.message)
+                        : null)
+                  throw new Error(
+                    fromBody || `Erro HTTP ${directResponse.status}${responseData == null ? ' (corpo vazio)' : ''}`
+                  )
+                }
+                if (responseData == null) {
+                  throw new Error('Resposta vazia da Edge Function create-user.')
                 }
                 return responseData
               } catch (fetchError: any) {
@@ -440,8 +452,22 @@ export function GestaoUsuarios() {
                   body: JSON.stringify({ userId }),
                 }
               )
-              const responseData = await directResponse.json()
-              if (!directResponse.ok) throw new Error(responseData?.error || responseData?.message || errorMessage)
+              const responseData = await parseResponseJson<Record<string, unknown>>(directResponse)
+              if (!directResponse.ok) {
+                const fromBody =
+                  responseData &&
+                  (responseData.error !== undefined
+                    ? String(responseData.error)
+                    : responseData.message !== undefined
+                      ? String(responseData.message)
+                      : null)
+                throw new Error(
+                  fromBody || `Erro HTTP ${directResponse.status}${responseData == null ? ' (corpo vazio)' : ''}`
+                )
+              }
+              if (responseData == null) {
+                throw new Error('Resposta vazia da Edge Function delete-user.')
+              }
               return responseData
             } catch (fetchError: any) {
               throw new Error(fetchError?.message || response.data?.error || errorMessage)

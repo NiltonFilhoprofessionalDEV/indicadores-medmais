@@ -76,7 +76,7 @@ export function useLancamentos({
         // Otimização: buscar apenas colunas necessárias + nome do usuário
         let allQuery = supabase
           .from('lancamentos')
-          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
+          .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, autor_nome, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
           .order('data_referencia', { ascending: false })
           .order('created_at', { ascending: false })
         
@@ -187,7 +187,7 @@ export function useLancamentos({
           // Otimização: buscar apenas colunas necessárias + nome do usuário
           let filteredQuery = supabase
             .from('lancamentos')
-            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)', { count: 'exact' })
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, autor_nome, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)', { count: 'exact' })
             .in('id', ids)
             .order('data_referencia', { ascending: false })
             .order('created_at', { ascending: false })
@@ -220,7 +220,7 @@ export function useLancamentos({
           // Otimização: buscar apenas colunas necessárias + nome do usuário
           let dataQuery = supabase
             .from('lancamentos')
-            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
+            .select('id, data_referencia, base_id, equipe_id, indicador_id, conteudo, user_id, autor_nome, created_at, updated_at, profiles!lancamentos_user_id_fkey(nome)')
             .in('id', ids)
             .order('data_referencia', { ascending: false })
             .order('created_at', { ascending: false })

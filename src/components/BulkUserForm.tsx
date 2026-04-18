@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Copy, Trash2, CheckCircle2, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
-import { formatBaseName, formatEquipeName } from '@/lib/utils'
+import { formatBaseName, formatEquipeName, parseResponseJson } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Base = Database['public']['Tables']['bases']['Row']
@@ -267,10 +267,17 @@ export function BulkUserForm({ bases, equipes, lockedBaseId, onSuccess, onCancel
                 }
               )
 
-              const responseData = await directResponse.json()
-              
+              const responseData = await parseResponseJson<Record<string, unknown>>(directResponse)
+
               if (!directResponse.ok) {
-                const errorMsg = responseData?.error || responseData?.message || errorMessage
+                const errorMsg =
+                  (responseData &&
+                    (responseData.error !== undefined
+                      ? String(responseData.error)
+                      : responseData.message !== undefined
+                        ? String(responseData.message)
+                        : null)) ||
+                  (responseData == null ? `Erro HTTP ${directResponse.status} (corpo vazio)` : errorMessage)
                 resultsArray.push({
                   success: false,
                   email: user.email,

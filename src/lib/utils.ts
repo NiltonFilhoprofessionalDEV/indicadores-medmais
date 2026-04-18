@@ -18,3 +18,19 @@ export function formatEquipeName(name: string): string {
   if (!t) return ''
   return t.replace(/\b\w/g, (c) => c.toUpperCase())
 }
+
+/**
+ * Lê JSON de uma Response sem lançar "Unexpected end of JSON input" em corpo vazio
+ * (ex.: 204, 502 sem body, HTML de erro).
+ */
+export async function parseResponseJson<T = Record<string, unknown>>(response: Response): Promise<T | null> {
+  const text = await response.text()
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  try {
+    return JSON.parse(trimmed) as T
+  } catch {
+    const preview = trimmed.length > 240 ? `${trimmed.slice(0, 240)}…` : trimmed
+    throw new Error(`Resposta não é JSON válido (HTTP ${response.status}): ${preview}`)
+  }
+}

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseHttpProxyBase } from '@/lib/supabase'
 
 /**
  * Hook que se inscreve nas mudanças da tabela lancamentos (INSERT, UPDATE, DELETE)
@@ -12,6 +12,8 @@ export function useRealtimeSync() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
+    if (isSupabaseHttpProxyBase) return
+
     const channel = supabase
       .channel('lancamentos-changes')
       .on(

@@ -5,6 +5,7 @@ import { useLancamentos } from '@/hooks/useLancamentos'
 import { formatDateForDisplay, getDefaultDateRange } from '@/lib/date-utils'
 import { getIndicatorBadgeVariant, getResumoLancamento } from '@/lib/history-utils'
 import { getIndicadorDisplayName, sortIndicadoresPtrBaProximos } from '@/lib/indicadores-display'
+import { getLancamentoAutorDisplayName } from '@/lib/lancamento-autor-display'
 import { formatEquipeName } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 import { Badge } from '@/components/ui/badge'
@@ -284,9 +285,7 @@ export function HistoryTable({
                     {lancamentosOrdenados.map((lancamento) => {
                       const indicador = indicadoresMap.get(lancamento.indicador_id)
                       if (!indicador) return null
-                      const userName =
-                        (lancamento as LancamentoWithUser).profiles?.nome ??
-                        (lancamento.user_id ? profilesNomeMap.get(lancamento.user_id) ?? lancamento.user_id.slice(0, 8) + '…' : '—')
+                      const userName = getLancamentoAutorDisplayName(lancamento, profilesNomeMap)
 
                       const editable = canEdit(lancamento)
 

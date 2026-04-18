@@ -98,6 +98,7 @@ export function useLancamento() {
 
         const conteudoSanitizado = sanitizeLancamentoConteudo(conteudo) as Record<string, unknown>
         const conteudoTyped = conteudoSanitizado as Database['public']['Tables']['lancamentos']['Row']['conteudo']
+        const autorNome = (authUser.profile.nome || '').trim() || 'Usuário'
         const table = supabase.from('lancamentos')
 
         if (id) {
@@ -107,6 +108,7 @@ export function useLancamento() {
             base_id: finalBaseId,
             equipe_id: finalEquipeId,
             user_id: authUser.user.id,
+            autor_nome: autorNome,
             indicador_id: indicadorId,
             conteudo: conteudoTyped,
           }
@@ -128,6 +130,7 @@ export function useLancamento() {
           base_id: finalBaseId,
           equipe_id: finalEquipeId,
           user_id: authUser.user.id,
+          autor_nome: autorNome,
           indicador_id: indicadorId,
           conteudo: conteudoTyped,
         }

@@ -4,6 +4,10 @@ import type { Database } from './database.types'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || ''
 
+/** Cliente usando proxy na mesma origem (ex.: …/api/supabase). Ver middleware na raiz do projeto. */
+export const isSupabaseHttpProxyBase =
+  Boolean(supabaseUrl && supabaseUrl.includes('/api/supabase'))
+
 // Validação mais amigável
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('⚠️ Variáveis de ambiente do Supabase não configuradas!')

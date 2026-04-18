@@ -15,6 +15,7 @@ import {
 } from '@/lib/export-utils'
 import { getIndicadorDisplayName, sortIndicadoresPtrBaProximos } from '@/lib/indicadores-display'
 import { formatBaseName, formatEquipeName } from '@/lib/utils'
+import { getLancamentoAutorDisplayName } from '@/lib/lancamento-autor-display'
 import type { Database } from '@/lib/database.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { AppShell } from '@/components/AppShell'
@@ -233,7 +234,7 @@ export function DataExplorer() {
         const indicador = indicadoresMap.get(lancamento.indicador_id)
         if (!indicador) continue
 
-        const userName = profilesMap.get(lancamento.user_id) || 'Usuário Desconhecido'
+        const userName = getLancamentoAutorDisplayName(lancamento, profilesMap)
         const baseName = basesMap.get(lancamento.base_id) || lancamento.base_id
         const equipeName = equipesMap.get(lancamento.equipe_id) || lancamento.equipe_id
 
@@ -549,7 +550,7 @@ export function DataExplorer() {
                     <tbody>
                       {lancamentosData.data.map((lancamento) => {
                         const indicador = indicadoresMap.get(lancamento.indicador_id)
-                        const userName = profilesMap.get(lancamento.user_id) || 'Usuário Desconhecido'
+                        const userName = getLancamentoAutorDisplayName(lancamento, profilesMap)
                         const baseName = basesMap.get(lancamento.base_id) || lancamento.base_id
                         const equipeName = equipesMap.get(lancamento.equipe_id) || lancamento.equipe_id
 

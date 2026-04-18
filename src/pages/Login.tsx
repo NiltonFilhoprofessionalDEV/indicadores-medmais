@@ -69,19 +69,48 @@ export function Login() {
         return
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email, password: data.password,
-      })
+      const maxAttempts = 3
+      let authData: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null
+      let authError: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] = null
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const res = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        })
+        authData = res.data
+        authError = res.error
+        if (!authError) break
+
+        const em = authError.message.toLowerCase()
+        const transient =
+          em.includes('network') ||
+          em.includes('fetch') ||
+          em.includes('failed to fetch') ||
+          em.includes('load failed') ||
+          em.includes('err_name_not_resolved') ||
+          em.includes('authretryablefetcherror')
+        if (!transient || attempt === maxAttempts - 1) break
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+      }
 
       if (authError) {
         let errorMessage = authError.message
+        const em = authError.message.toLowerCase()
         if (authError.message.includes('Invalid login credentials')) {
           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.'
         } else if (authError.message.includes('Email not confirmed')) {
           errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.'
-        } else if (authError.message.includes('network') || authError.message.includes('fetch') || authError.message.includes('Failed to fetch')) {
-          errorMessage = 'Erro de conexão. Verifique sua internet e as configurações do Supabase.'
-        } else if (authError.message.includes('timeout') || authError.message.includes('aborted')) {
+        } else if (
+          em.includes('network') ||
+          em.includes('fetch') ||
+          em.includes('failed to fetch') ||
+          em.includes('load failed') ||
+          em.includes('err_name_not_resolved')
+        ) {
+          errorMessage =
+            'Erro de conexão. Verifique sua internet. Se o problema continuar em rede corporativa, peça à TI para liberar o domínio do app e o proxy /api/supabase, ou use outra rede (ex.: dados móveis) para testar.'
+        } else if (em.includes('timeout') || em.includes('aborted')) {
           errorMessage = 'Tempo de conexão esgotado. Tente novamente.'
         }
         setError(errorMessage)
@@ -89,7 +118,7 @@ export function Login() {
         return
       }
 
-      if (authData.user) {
+      if (authData?.user) {
         await new Promise(resolve => setTimeout(resolve, 300))
         let profileFromAuth = await refreshAuth()
         if (!profileFromAuth) {
@@ -126,8 +155,22 @@ export function Login() {
         setError('Erro: Login realizado mas usuário não encontrado.')
         setLoading(false)
       }
-    } catch (err: any) {
-      setError(err?.message || 'Erro inesperado ao fazer login.')
+    } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : String(err)
+      const m = raw.toLowerCase()
+      if (
+        m.includes('fetch') ||
+        m.includes('network') ||
+        m.includes('failed to fetch') ||
+        m.includes('load failed') ||
+        m.includes('err_name_not_resolved')
+      ) {
+        setError(
+          'Erro de conexão. Verifique sua internet. Se o problema continuar em rede corporativa, peça à TI para liberar o domínio do app e o proxy /api/supabase, ou use outra rede (ex.: dados móveis) para testar.'
+        )
+      } else {
+        setError(raw || 'Erro inesperado ao fazer login.')
+      }
       setLoading(false)
     }
   }
